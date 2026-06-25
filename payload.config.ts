@@ -94,7 +94,10 @@ export default buildConfig({
   globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience],
   editor: lexicalEditor(),
   db: sqliteAdapter({
-    client: { url: process.env.DATABASE_URI || 'file:./payload.db' },
+    client: {
+      url: process.env.DATABASE_URI || 'file:./payload.db',
+      authToken: process.env.DATABASE_TOKEN,
+    },
   }),
   secret: process.env.PAYLOAD_SECRET,
   serverURL: process.env.SERVER_URL || SITE_URL,
