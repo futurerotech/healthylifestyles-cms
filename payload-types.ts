@@ -298,6 +298,10 @@ export interface Category {
    */
   accentColor?: string | null;
   /**
+   * CSS variable or hex for dynamic theming (e.g. var(--c-nutrition)). Falls back to accentColor.
+   */
+  accent?: string | null;
+  /**
    * Sort order in nav and grids.
    */
   order?: number | null;
@@ -365,6 +369,10 @@ export interface Author {
    */
   slug?: string | null;
   /**
+   * e.g. "Research & Writing" or "Medical Review Board".
+   */
+  role?: string | null;
+  /**
    * e.g. "RD, MSc Nutrition" or "Medical reviewer".
    */
   credential?: string | null;
@@ -372,7 +380,19 @@ export interface Author {
    * Short professional bio shown on articles.
    */
   bio?: string | null;
+  /**
+   * 1-2 character monogram for avatar fallback (e.g. "HE", "MR").
+   */
+  initials?: string | null;
+  /**
+   * Hex background color for the avatar fallback, e.g. #16a34a.
+   */
+  color?: string | null;
   avatar?: (number | null) | Media;
+  /**
+   * Schema.org type for structured data.
+   */
+  schemaType?: ('Organization' | 'Person') | null;
   links?:
     | {
         label?: string | null;
@@ -764,6 +784,71 @@ export interface Article {
             blockName?: string | null;
             blockType: 'viralHookBanner';
           }
+        | {
+            /**
+             * Select the calculator or tool to embed inline.
+             */
+            tool: number | Tool;
+            /**
+             * Optional CTA label shown with the embed (e.g. "Try it: Calorie Calculator").
+             */
+            label?: string | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'toolEmbed';
+          }
+        | {
+            /**
+             * Optional heading above the FAQ block (e.g. "People also ask").
+             */
+            heading?: string | null;
+            items: {
+              question: string;
+              answer: string;
+              id?: string | null;
+            }[];
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'peopleAlsoAsk';
+          }
+        | {
+            style?: ('p' | 'h2' | 'h3') | null;
+            text: string;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'text';
+          }
+        | {
+            style?: ('unordered' | 'ordered') | null;
+            items: {
+              text: string;
+              id?: string | null;
+            }[];
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'list';
+          }
+        | {
+            tone?: ('info' | 'tip' | 'warning') | null;
+            title?: string | null;
+            text: string;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'callout';
+          }
+        | {
+            caption?: string | null;
+            headers?: string[] | null;
+            rows?:
+              | {
+                  cells?: string[] | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'table';
+          }
       )[]
     | null;
   /**
@@ -857,6 +942,22 @@ export interface Article {
    * Used for ordering and scheduling.
    */
   publishDate?: string | null;
+  /**
+   * Last substantive update for YMYL freshness signals.
+   */
+  updatedDate?: string | null;
+  /**
+   * Show as the featured/hero article on the Wellness Hub.
+   */
+  featured?: boolean | null;
+  /**
+   * The primary tool to embed inline within the article.
+   */
+  primaryTool?: (number | null) | Tool;
+  /**
+   * Explicitly link related articles (auto-fallback to same-category when empty).
+   */
+  relatedArticles?: (number | Article)[] | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -945,6 +1046,71 @@ export interface Page {
         id?: string | null;
         blockName?: string | null;
         blockType: 'viralHookBanner';
+      }
+    | {
+        /**
+         * Select the calculator or tool to embed inline.
+         */
+        tool: number | Tool;
+        /**
+         * Optional CTA label shown with the embed (e.g. "Try it: Calorie Calculator").
+         */
+        label?: string | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'toolEmbed';
+      }
+    | {
+        /**
+         * Optional heading above the FAQ block (e.g. "People also ask").
+         */
+        heading?: string | null;
+        items: {
+          question: string;
+          answer: string;
+          id?: string | null;
+        }[];
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'peopleAlsoAsk';
+      }
+    | {
+        style?: ('p' | 'h2' | 'h3') | null;
+        text: string;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'text';
+      }
+    | {
+        style?: ('unordered' | 'ordered') | null;
+        items: {
+          text: string;
+          id?: string | null;
+        }[];
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'list';
+      }
+    | {
+        tone?: ('info' | 'tip' | 'warning') | null;
+        title?: string | null;
+        text: string;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'callout';
+      }
+    | {
+        caption?: string | null;
+        headers?: string[] | null;
+        rows?:
+          | {
+              cells?: string[] | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'table';
       }
   )[];
   /**
@@ -1785,6 +1951,7 @@ export interface CategoriesSelect<T extends boolean = true> {
   description?: T;
   icon?: T;
   accentColor?: T;
+  accent?: T;
   order?: T;
   seo?:
     | T
@@ -1811,9 +1978,13 @@ export interface CategoriesSelect<T extends boolean = true> {
 export interface AuthorsSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
+  role?: T;
   credential?: T;
   bio?: T;
+  initials?: T;
+  color?: T;
   avatar?: T;
+  schemaType?: T;
   links?:
     | T
     | {
@@ -1990,6 +2161,72 @@ export interface ArticlesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        toolEmbed?:
+          | T
+          | {
+              tool?: T;
+              label?: T;
+              id?: T;
+              blockName?: T;
+            };
+        peopleAlsoAsk?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        text?:
+          | T
+          | {
+              style?: T;
+              text?: T;
+              id?: T;
+              blockName?: T;
+            };
+        list?:
+          | T
+          | {
+              style?: T;
+              items?:
+                | T
+                | {
+                    text?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        callout?:
+          | T
+          | {
+              tone?: T;
+              title?: T;
+              text?: T;
+              id?: T;
+              blockName?: T;
+            };
+        table?:
+          | T
+          | {
+              caption?: T;
+              headers?: T;
+              rows?:
+                | T
+                | {
+                    cells?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
       };
   faq?:
     | T
@@ -2027,6 +2264,10 @@ export interface ArticlesSelect<T extends boolean = true> {
   reviewer?: T;
   tags?: T;
   publishDate?: T;
+  updatedDate?: T;
+  featured?: T;
+  primaryTool?: T;
+  relatedArticles?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
@@ -2093,6 +2334,72 @@ export interface PagesSelect<T extends boolean = true> {
                 | {
                     label?: T;
                     url?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        toolEmbed?:
+          | T
+          | {
+              tool?: T;
+              label?: T;
+              id?: T;
+              blockName?: T;
+            };
+        peopleAlsoAsk?:
+          | T
+          | {
+              heading?: T;
+              items?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        text?:
+          | T
+          | {
+              style?: T;
+              text?: T;
+              id?: T;
+              blockName?: T;
+            };
+        list?:
+          | T
+          | {
+              style?: T;
+              items?:
+                | T
+                | {
+                    text?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        callout?:
+          | T
+          | {
+              tone?: T;
+              title?: T;
+              text?: T;
+              id?: T;
+              blockName?: T;
+            };
+        table?:
+          | T
+          | {
+              caption?: T;
+              headers?: T;
+              rows?:
+                | T
+                | {
+                    cells?: T;
+                    id?: T;
                   };
               id?: T;
               blockName?: T;
@@ -2420,6 +2727,10 @@ export interface Setting {
    */
   defaultOgImage?: (number | null) | Media;
   /**
+   * Public contact email (e.g. hello@healthylifestyles.com).
+   */
+  contactEmail?: string | null;
+  /**
    * Drag to reorder. Appears in the header.
    */
   nav?:
@@ -2453,6 +2764,10 @@ export interface Setting {
             )
           | null;
         url: string;
+        /**
+         * Brand hex color for this platform (e.g. #1877F2 for Facebook).
+         */
+        color?: string | null;
         id?: string | null;
       }[]
     | null;
@@ -2792,6 +3107,7 @@ export interface SettingsSelect<T extends boolean = true> {
   primaryColor?: T;
   secondaryColor?: T;
   defaultOgImage?: T;
+  contactEmail?: T;
   nav?:
     | T
     | {
@@ -2812,6 +3128,7 @@ export interface SettingsSelect<T extends boolean = true> {
     | {
         platform?: T;
         url?: T;
+        color?: T;
         id?: T;
       };
   ga4Id?: T;

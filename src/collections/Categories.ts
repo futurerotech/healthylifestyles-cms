@@ -29,8 +29,9 @@ export const Categories: CollectionConfig = {
     {
       type: 'row',
       fields: [
-        { name: 'icon', type: 'text', admin: { width: '50%', description: 'Icon key (e.g. "leaf", "heart-pulse").' } },
-        { name: 'accentColor', type: 'text', admin: { width: '50%', description: 'Hex accent, e.g. #16a34a.' } },
+        { name: 'icon', type: 'text', admin: { width: '33%', description: 'Icon key (e.g. "leaf", "heart-pulse").' } },
+        { name: 'accentColor', type: 'text', admin: { width: '33%', description: 'Hex accent, e.g. #16a34a.' } },
+        { name: 'accent', type: 'text', admin: { width: '34%', description: 'CSS variable or hex for dynamic theming (e.g. var(--c-nutrition)). Falls back to accentColor.' } },
       ],
     },
     { name: 'order', type: 'number', defaultValue: 0, admin: { position: 'sidebar', description: 'Sort order in nav and grids.' } },

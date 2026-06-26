@@ -26,6 +26,7 @@ export const Settings: GlobalConfig = {
               ],
             },
             { name: 'defaultOgImage', type: 'upload', relationTo: 'media', admin: { description: 'Fallback OG image for social shares.' } },
+            { name: 'contactEmail', type: 'email', admin: { description: 'Public contact email (e.g. hello@healthylifestyles.com).' } },
           ],
         },
         {
@@ -60,8 +61,9 @@ export const Settings: GlobalConfig = {
               name: 'social', type: 'array', labels: { singular: 'Social link', plural: 'Social links' },
               fields: [
                 { type: 'row', fields: [
-                  { name: 'platform', type: 'select', options: ['Facebook', 'X (Twitter)', 'Instagram', 'YouTube', 'LinkedIn', 'Pinterest', 'TikTok', 'Threads', 'Bluesky'], admin: { width: '50%' } },
-                  { name: 'url', type: 'text', required: true, admin: { width: '50%' } },
+                  { name: 'platform', type: 'select', options: ['Facebook', 'X (Twitter)', 'Instagram', 'YouTube', 'LinkedIn', 'Pinterest', 'TikTok', 'Threads', 'Bluesky'], admin: { width: '33%' } },
+                  { name: 'url', type: 'text', required: true, admin: { width: '33%' } },
+                  { name: 'color', type: 'text', admin: { width: '34%', description: 'Brand hex color for this platform (e.g. #1877F2 for Facebook).' } },
                 ] },
               ],
             },
