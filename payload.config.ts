@@ -24,6 +24,7 @@ import { Leads } from './src/collections/Leads';
 import { Subscribers } from './src/collections/Subscribers';
 import { PushSubscriptions } from './src/collections/PushSubscriptions';
 import { PushHistory } from './src/collections/PushHistory';
+import { Tags } from './src/collections/Tags';
 import { Settings } from './src/globals/Settings';
 import { Indexing } from './src/globals/Indexing';
 import { SocialMedia } from './src/globals/SocialMedia';
@@ -90,7 +91,7 @@ export default buildConfig({
       defaultLayout: [],
     },
   },
-  collections: [Users, Media, Categories, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory],
+  collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory],
   globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience],
   editor: lexicalEditor(),
   db: sqliteAdapter({

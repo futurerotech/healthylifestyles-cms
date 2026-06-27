@@ -81,7 +81,7 @@ export const Articles: CollectionConfig = {
     { name: 'category', type: 'relationship', relationTo: 'categories', admin: { position: 'sidebar' } },
     { name: 'author', type: 'relationship', relationTo: 'authors', admin: { position: 'sidebar', description: 'Written by.' } },
     { name: 'reviewer', type: 'relationship', relationTo: 'authors', admin: { position: 'sidebar', description: 'Medically reviewed by.' } },
-    { name: 'tags', type: 'text', hasMany: true, admin: { position: 'sidebar' } },
+    { name: 'tags', type: 'relationship', relationTo: 'tags', hasMany: true, admin: { position: 'sidebar' } },
     { name: 'publishDate', type: 'date', admin: { position: 'sidebar', description: 'Used for ordering and scheduling.' } },
     { name: 'updatedDate', type: 'date', admin: { position: 'sidebar', description: 'Last substantive update for YMYL freshness signals.' } },
     { name: 'featured', type: 'checkbox', defaultValue: false, admin: { position: 'sidebar', description: 'Show as the featured/hero article on the Wellness Hub.' } },

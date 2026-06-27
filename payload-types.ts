@@ -70,6 +70,7 @@ export interface Config {
     users: User;
     media: Media;
     categories: Category;
+    tags: Tag;
     authors: Author;
     tools: Tool;
     articles: Article;
@@ -97,6 +98,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    tags: TagsSelect<false> | TagsSelect<true>;
     authors: AuthorsSelect<false> | AuthorsSelect<true>;
     tools: ToolsSelect<false> | ToolsSelect<true>;
     articles: ArticlesSelect<false> | ArticlesSelect<true>;
@@ -354,6 +356,21 @@ export interface Category {
      */
     twitterImage?: (number | null) | Media;
   };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags".
+ */
+export interface Tag {
+  id: number;
+  name: string;
+  /**
+   * Lowercase URL segment. Auto-generated from the name — edit if you need a custom URL.
+   */
+  slug?: string | null;
+  description?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -937,7 +954,7 @@ export interface Article {
    * Medically reviewed by.
    */
   reviewer?: (number | null) | Author;
-  tags?: string[] | null;
+  tags?: (number | Tag)[] | null;
   /**
    * Used for ordering and scheduling.
    */
@@ -1744,6 +1761,10 @@ export interface PayloadLockedDocument {
         value: number | Category;
       } | null)
     | ({
+        relationTo: 'tags';
+        value: number | Tag;
+      } | null)
+    | ({
         relationTo: 'authors';
         value: number | Author;
       } | null)
@@ -1968,6 +1989,17 @@ export interface CategoriesSelect<T extends boolean = true> {
         twitterDescription?: T;
         twitterImage?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags_select".
+ */
+export interface TagsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  description?: T;
   updatedAt?: T;
   createdAt?: T;
 }
