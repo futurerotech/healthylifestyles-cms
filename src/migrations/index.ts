@@ -6,6 +6,7 @@ import * as migration_20260623_210846 from './20260623_210846';
 import * as migration_20260623_211442 from './20260623_211442';
 import * as migration_20260623_212750 from './20260623_212750';
 import * as migration_20260623_213906 from './20260623_213906';
+import * as migration_20260628_145554_semantic_entities from './20260628_145554_semantic_entities';
 
 export const migrations = [
   {
@@ -46,6 +47,11 @@ export const migrations = [
   {
     up: migration_20260623_213906.up,
     down: migration_20260623_213906.down,
-    name: '20260623_213906'
+    name: '20260623_213906',
+  },
+  {
+    up: migration_20260628_145554_semantic_entities.up,
+    down: migration_20260628_145554_semantic_entities.down,
+    name: '20260628_145554_semantic_entities'
   },
 ];
