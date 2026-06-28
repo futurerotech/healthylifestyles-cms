@@ -214,9 +214,14 @@ export const SchemaGenerator: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [fields] = useAllFormFields();
 
-  const collectionSlug = (config as any)?.routes?.admin
-    ? window.location.pathname.match(/\/(collections|pages)\/(\w+)/)?.[2] || 'pages'
-    : 'pages';
+  // Guard `window`: Payload SSRs client components for the initial HTML, where
+  // `window` is undefined. Reading it at render time throws (ReferenceError) and
+  // crashes the whole edit view to a blank/dark screen. Fall back to 'pages'
+  // during SSR; it resolves to the real collection on the client render.
+  const collectionSlug =
+    typeof window !== 'undefined' && (config as any)?.routes?.admin
+      ? window.location.pathname.match(/\/(collections|pages)\/(\w+)/)?.[2] || 'pages'
+      : 'pages';
 
   const fieldValues = useMemo(() => {
     const map: Record<string, unknown> = {};
