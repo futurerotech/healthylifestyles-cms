@@ -103,6 +103,7 @@ function generateArticleSchema(data: Record<string, unknown>): Record<string, un
   const author = resolveRel(data.author) || 'HealthyLifeStyles Editorial Team';
   const pubDate = dateStr(data.publishDate);
   const faqs = (data.faq as any[]) || [];
+  const entities = ((data.semanticEntities as any[]) || []).filter((e) => e?.term);
 
   const graph: Record<string, unknown>[] = [
     {
@@ -124,6 +125,7 @@ function generateArticleSchema(data: Record<string, unknown>): Record<string, un
       reviewedBy: {
         '@type': 'Organization',
         name: 'HealthyLifeStyles Medical Review Team',
+        url: 'https://www.healthylifesstyles.com/about',
       },
       publisher: {
         '@type': 'Organization',
@@ -142,6 +144,12 @@ function generateArticleSchema(data: Record<string, unknown>): Record<string, un
         '@type': 'WebPage',
         '@id': `https://www.healthylifesstyles.com/wellness-hub/${slug}`,
       },
+      ...(entities.length
+        ? {
+            about: entities.map((e: any) => ({ '@type': 'DefinedTerm', name: e.term, ...(e.url ? { url: e.url } : {}) })),
+            keywords: entities.map((e: any) => e.term).join(', '),
+          }
+        : {}),
     },
     {
       '@type': 'BreadcrumbList',

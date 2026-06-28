@@ -54,7 +54,30 @@ export const Articles: CollectionConfig = {
             { name: 'relatedTools', type: 'relationship', relationTo: 'tools', hasMany: true, admin: { description: '2–3 tools to cross-link.' } },
           ],
         },
-        { label: 'SEO', fields: [seoField] },
+        {
+          label: 'SEO',
+          fields: [
+            seoField,
+            {
+              name: 'semanticEntities',
+              type: 'array',
+              labels: { singular: 'Entity', plural: 'Semantic SEO Entities' },
+              admin: {
+                description:
+                  'Deep, machine-readable medical/physiological entities (e.g. "insulin resistance", "basal metabolic rate equation"). Emitted into the article JSON-LD `about` + keywords for Google E-E-A-T and AI citation.',
+              },
+              fields: [
+                {
+                  type: 'row',
+                  fields: [
+                    { name: 'term', type: 'text', required: true, admin: { width: '60%' } },
+                    { name: 'url', type: 'text', admin: { width: '40%', description: 'Optional authoritative URL (NIH / MeSH / Wikipedia) used as sameAs.' } },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
         {
           label: 'Schema',
           fields: [
