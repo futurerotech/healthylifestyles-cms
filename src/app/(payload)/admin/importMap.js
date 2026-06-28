@@ -31,7 +31,9 @@ import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { SchemaGenerator as SchemaGenerator_12e39e62a2daf95f3c91450589a4474b } from '@/components/admin/SchemaGenerator'
 import { ToolAnalytics as ToolAnalytics_2ae62daa347a4bfd750cbac0b6206abd } from '@/components/admin/ToolAnalytics'
+import { AiDraftBanner as AiDraftBanner_a0f201cde11054913a8b99628eb2cde1 } from '@/components/admin/AiDraftBanner'
 import { AiWritingAssistant as AiWritingAssistant_c165315c516d66152e5724e9400f7797 } from '@/components/admin/AiWritingAssistant'
+import { AutoGenerateButton as AutoGenerateButton_13faa3f644b200515a206d8bf869096b } from '@/components/admin/AutoGenerateButton'
 import { RequestIndexing as RequestIndexing_b0b9d2ee6c2480c76b145ce374759272 } from '@/components/admin/RequestIndexing'
 import { SendPushButton as SendPushButton_9c358e38283330420a145f491e607807 } from '@/components/admin/SendPushButton'
 import { PseoPreview as PseoPreview_df1e029c23b5302932b057731a635d41 } from '@/components/admin/PseoPreview'
@@ -80,7 +82,9 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@/components/admin/SchemaGenerator#SchemaGenerator": SchemaGenerator_12e39e62a2daf95f3c91450589a4474b,
   "@/components/admin/ToolAnalytics#ToolAnalytics": ToolAnalytics_2ae62daa347a4bfd750cbac0b6206abd,
+  "@/components/admin/AiDraftBanner#AiDraftBanner": AiDraftBanner_a0f201cde11054913a8b99628eb2cde1,
   "@/components/admin/AiWritingAssistant#AiWritingAssistant": AiWritingAssistant_c165315c516d66152e5724e9400f7797,
+  "@/components/admin/AutoGenerateButton#AutoGenerateButton": AutoGenerateButton_13faa3f644b200515a206d8bf869096b,
   "@/components/admin/RequestIndexing#RequestIndexing": RequestIndexing_b0b9d2ee6c2480c76b145ce374759272,
   "@/components/admin/SendPushButton#SendPushButton": SendPushButton_9c358e38283330420a145f491e607807,
   "@/components/admin/PseoPreview#PseoPreview": PseoPreview_df1e029c23b5302932b057731a635d41,

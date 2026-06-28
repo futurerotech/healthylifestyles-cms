@@ -7,6 +7,7 @@ import * as migration_20260623_211442 from './20260623_211442';
 import * as migration_20260623_212750 from './20260623_212750';
 import * as migration_20260623_213906 from './20260623_213906';
 import * as migration_20260628_145554_semantic_entities from './20260628_145554_semantic_entities';
+import * as migration_20260628_210148_ai_article_fields from './20260628_210148_ai_article_fields';
 
 export const migrations = [
   {
@@ -52,6 +53,11 @@ export const migrations = [
   {
     up: migration_20260628_145554_semantic_entities.up,
     down: migration_20260628_145554_semantic_entities.down,
-    name: '20260628_145554_semantic_entities'
+    name: '20260628_145554_semantic_entities',
+  },
+  {
+    up: migration_20260628_210148_ai_article_fields.up,
+    down: migration_20260628_210148_ai_article_fields.down,
+    name: '20260628_210148_ai_article_fields'
   },
 ];

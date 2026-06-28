@@ -24,6 +24,11 @@ export const Articles: CollectionConfig = {
         {
           label: 'Content',
           fields: [
+            {
+              name: 'aiDraftBanner',
+              type: 'ui',
+              admin: { components: { Field: '@/components/admin/AiDraftBanner#AiDraftBanner' } },
+            },
             { name: 'title', type: 'text', required: true },
             { name: 'excerpt', type: 'textarea', admin: { description: 'Short summary for cards and the article lead.' } },
             { name: 'heroImage', type: 'upload', relationTo: 'media', admin: { description: 'Featured image.' } },
@@ -99,6 +104,28 @@ export const Articles: CollectionConfig = {
           ],
         },
       ],
+    },
+    {
+      name: 'autoGenerate',
+      type: 'ui',
+      admin: { position: 'sidebar', components: { Field: '@/components/admin/AutoGenerateButton#AutoGenerateButton' } },
+    },
+    {
+      name: 'aiGenerated',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { position: 'sidebar', readOnly: true, description: 'Set automatically when AI drafts this article.' },
+    },
+    {
+      name: 'reviewedByHuman',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { position: 'sidebar', description: 'Tick once a human has reviewed the AI draft — hides the “AI draft” banner.' },
+    },
+    {
+      name: 'aiImagePrompt',
+      type: 'textarea',
+      admin: { position: 'sidebar', readOnly: true, description: 'Suggested hero-image prompt from the last AI generation.' },
     },
     slugField('title'),
     { name: 'category', type: 'relationship', relationTo: 'categories', admin: { position: 'sidebar' } },
