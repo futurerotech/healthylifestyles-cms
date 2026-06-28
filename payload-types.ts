@@ -2759,7 +2759,7 @@ export interface Setting {
    */
   defaultOgImage?: (number | null) | Media;
   /**
-   * Public contact email (e.g. hello@healthylifestyles.com).
+   * Public contact email (e.g. hello@healthylifesstyles.com).
    */
   contactEmail?: string | null;
   /**
@@ -3068,7 +3068,7 @@ export interface Audience {
    */
   pushEnabled?: boolean | null;
   /**
-   * VAPID subject (mailto: or URL), e.g. mailto:hello@healthylifestyles.com
+   * VAPID subject (mailto: or URL), e.g. mailto:hello@healthylifesstyles.com
    */
   vapidSubject?: string | null;
   /**

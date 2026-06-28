@@ -7,7 +7,7 @@ import { useFormFields } from '@payloadcms/ui';
  * an editor can ask Google to re-crawl right after publishing. Hidden affordance
  * (muted note) while the article is still a draft. */
 
-const ORIGIN = 'https://www.healthylifestyles.com';
+const ORIGIN = 'https://www.healthylifesstyles.com';
 
 export const RequestIndexing: React.FC = () => {
   const [slug, status] = useFormFields(([fields]) => [

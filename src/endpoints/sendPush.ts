@@ -30,7 +30,7 @@ export const sendPush: Endpoint = {
       }
 
       const pushConfig: PushConfig = {
-        vapidSubject: audience.vapidSubject || 'mailto:hello@healthylifestyles.com',
+        vapidSubject: audience.vapidSubject || 'mailto:hello@healthylifesstyles.com',
         vapidPublicKey: audience.vapidPublicKey || '',
         vapidPrivateKey: audience.vapidPrivateKey || '',
         defaultIcon: audience.defaultIcon || undefined,
@@ -66,8 +66,8 @@ export const sendPush: Endpoint = {
         errors: result.errors.length > 0 ? result.errors : undefined,
       });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return Response.json({ ok: false, message: msg }, { status: 500 });
+      console.error('[sendPush] error:', err);
+      return Response.json({ ok: false, message: 'Push broadcast failed.' }, { status: 500 });
     }
   },
 };

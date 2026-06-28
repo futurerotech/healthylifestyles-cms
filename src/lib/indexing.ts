@@ -6,7 +6,7 @@
  * Both are fire-and-forget; failures are logged to the IndexingStatus collection.
  */
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifestyles.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com';
 
 /* -------------------------------------------------------------------------- */
 /*  IndexNow                                                                  */
@@ -153,6 +153,11 @@ export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, 
 
   const slug = doc?.slug || doc?.id || '';
   if (!slug) return doc;
+
+  // Never ping search engines from a local environment — Google rejects
+  // localhost URLs and it just floods the IndexingStatus dashboard with
+  // "Failed" entries.
+  if (/localhost|127\.0\.0\.1|\.local/.test(SITE_URL)) return doc;
 
   const url = `${SITE_URL}/${collection.slug === 'articles' ? 'wellness-hub' : collection.slug}/${slug}`;
 

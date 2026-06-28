@@ -7,7 +7,7 @@ import { useFormFields } from '@payloadcms/ui';
  * media object (with a url) or just an id — if it's an id we fetch the doc once.
  * Defensive throughout: no image just shows the site-default placeholder. */
 
-const ORIGIN = 'https://www.healthylifestyles.com';
+const ORIGIN = 'https://www.healthylifesstyles.com';
 
 function urlFromValue(v: any): string | null {
   if (!v || typeof v !== 'object') return null;
@@ -59,7 +59,7 @@ export const OgPreview: React.FC = () => {
           )}
         </div>
         <div className="hls-og__body">
-          <div className="hls-og__domain">healthylifestyles.com</div>
+          <div className="hls-og__domain">healthylifesstyles.com</div>
           <div className="hls-og__title">{cardTitle}</div>
           <div className="hls-og__desc">{cardDesc}</div>
         </div>

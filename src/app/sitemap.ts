@@ -4,7 +4,7 @@ import { getPayload } from 'payload';
 
 export const dynamic = 'force-dynamic';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifestyles.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const payload = await getPayload({ config });

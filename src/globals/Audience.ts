@@ -49,7 +49,7 @@ export const Audience: GlobalConfig = {
               name: 'vapidSubject',
               type: 'text',
               admin: {
-                description: 'VAPID subject (mailto: or URL), e.g. mailto:hello@healthylifestyles.com',
+                description: 'VAPID subject (mailto: or URL), e.g. mailto:hello@healthylifesstyles.com',
               },
             },
             {

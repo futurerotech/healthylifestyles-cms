@@ -110,7 +110,7 @@ export const afterPublishPushHook: CollectionAfterChangeHook = async ({
   if (!audience?.pushEnabled || !audience?.autoPushOnPublish) return;
 
   const pushConfig: PushConfig = {
-    vapidSubject: audience.vapidSubject || 'mailto:hello@healthylifestyles.com',
+    vapidSubject: audience.vapidSubject || 'mailto:hello@healthylifesstyles.com',
     vapidPublicKey: audience.vapidPublicKey || '',
     vapidPrivateKey: audience.vapidPrivateKey || '',
     defaultIcon: audience.defaultIcon || undefined,
@@ -120,7 +120,7 @@ export const afterPublishPushHook: CollectionAfterChangeHook = async ({
 
   const title = doc.title || 'New article';
   const body = doc.excerpt || 'Check out our latest wellness guide.';
-  const url = `https://www.healthylifestyles.com/wellness-hub/${doc.slug}`;
+  const url = `https://www.healthylifesstyles.com/wellness-hub/${doc.slug}`;
 
   const result = await broadcast(payload, pushConfig, { title, body, url });
 

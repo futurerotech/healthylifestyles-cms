@@ -33,7 +33,7 @@ export const Tools: CollectionConfig = {
     defaultColumns: ['name', 'category', 'enabled', 'featured', 'updatedAt'],
     listSearchableFields: ['name', 'slug'],
     description: 'Create and edit calculators with no code. Formula tools use safe math expressions.',
-    preview: (doc) => (doc?.slug ? `https://www.healthylifestyles.com/tools/${doc.slug}` : null),
+    preview: (doc) => (doc?.slug ? `https://www.healthylifesstyles.com/tools/${doc.slug}` : null),
   },
   access: { read: publicRead, create: isAdminOrEditor, update: isAdminOrEditor, delete: isAdminOrEditor },
   versions: { drafts: { autosave: { interval: 800 } }, maxPerDoc: 50 },

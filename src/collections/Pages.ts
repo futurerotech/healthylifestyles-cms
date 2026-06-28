@@ -11,7 +11,7 @@ export const Pages: CollectionConfig = {
     useAsTitle: 'title',
     group: 'Content',
     defaultColumns: ['title', '_status', 'updatedAt'],
-    preview: (doc) => (doc?.slug ? `https://www.healthylifestyles.com/${doc.slug}` : null),
+    preview: (doc) => (doc?.slug ? `https://www.healthylifesstyles.com/${doc.slug}` : null),
   },
   access: { read: publicRead, create: isAdmin, update: isAdmin, delete: isAdmin },
   versions: { drafts: { autosave: { interval: 800 } }, maxPerDoc: 50 },

@@ -1,5 +1,12 @@
-import type { CollectionConfig } from 'payload';
-import { isAdmin, publicRead } from '../access/roles';
+import type { Access, CollectionConfig } from 'payload';
+import { isAdmin } from '../access/roles';
+
+/** Same server-only `create` pattern as Subscribers — see that file for notes. */
+const internalKeyCreate: Access = ({ req }) => {
+  const secret = process.env.INTERNAL_API_KEY;
+  if (!secret) return process.env.NODE_ENV !== 'production';
+  return req.headers.get('x-internal-key') === secret;
+};
 
 export const PushSubscriptions: CollectionConfig = {
   slug: 'push-subscriptions',
@@ -9,7 +16,7 @@ export const PushSubscriptions: CollectionConfig = {
     defaultColumns: ['endpoint', 'userAgent', 'subscribedAt', 'createdAt'],
     description: 'Browser push notification subscriptions (VAPID web push).',
   },
-  access: { read: isAdmin, create: publicRead, update: isAdmin, delete: isAdmin },
+  access: { read: isAdmin, create: internalKeyCreate, update: isAdmin, delete: isAdmin },
   fields: [
     {
       name: 'endpoint',

@@ -1,10 +1,54 @@
 import type { Endpoint, PayloadRequest } from 'payload';
 
-const cors = (origin: string) => ({
-  'Access-Control-Allow-Origin': origin || '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-});
+/**
+ * Strict CORS allow-list. Echoing `origin || '*'` is the classic
+ * reflected-origin anti-pattern — a footgun the moment any credentialed
+ * endpoint ships. We hardcode known origins; everyone else gets no ACAO.
+ */
+const ALLOWED_ORIGINS = new Set<string>([
+  process.env.NEXT_PUBLIC_SITE_URL || '',
+  'https://www.healthylifesstyles.com',
+  'http://localhost:4321',
+  'http://localhost:3000',
+].filter(Boolean));
+
+const cors = (origin: string) => {
+  const base: Record<string, string> = {
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-sync-secret',
+    'Vary': 'Origin',
+  };
+  if (ALLOWED_ORIGINS.has(origin)) base['Access-Control-Allow-Origin'] = origin;
+  return base;
+};
+
+/**
+ * Reject SSRF targets: localhost, link-local (cloud metadata IPs), and the
+ * private RFC1918 ranges. Allows only http(s):// + public hostnames so an
+ * admin can’t turn a webhook URL into an internal-network probe.
+ */
+function isSafePublicUrl(raw: string | undefined | null): boolean {
+  if (!raw) return false;
+  let u: URL;
+  try { u = new URL(raw); } catch { return false; }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return false;
+  const h = u.hostname.toLowerCase();
+  if (
+    h === 'localhost' ||
+    h === '0.0.0.0' ||
+    h.endsWith('.local') ||
+    h.endsWith('.internal') ||
+    h === '169.254.169.254' ||                    // AWS/GCP/Azure metadata
+    /^127\./.test(h) ||                            // loopback
+    /^10\./.test(h) ||                             // RFC1918
+    /^192\.168\./.test(h) ||                       // RFC1918
+    /^172\.(1[6-9]|2[0-9]|3[01])\./.test(h) ||     // RFC1918
+    /^::1$/.test(h) ||                             // IPv6 loopback
+    /^fe80::/i.test(h) ||                          // IPv6 link-local
+    /^fc00::/i.test(h) || /^fd00::/i.test(h)       // IPv6 ULA
+  ) return false;
+  return true;
+}
 
 /**
  * Public endpoint for n8n to push subscriber data.
@@ -23,6 +67,22 @@ export const subscriberSync: Endpoint = {
       return new Response(null, { status: 204, headers: cors(origin) });
     }
 
+    // Shared-secret auth. Without this, anyone on the internet could write
+    // arbitrary records to the Subscribers collection.
+    const sharedSecret = process.env.SYNC_SHARED_SECRET;
+    if (!sharedSecret && process.env.NODE_ENV === 'production') {
+      return Response.json(
+        { ok: false, message: 'Server misconfigured.' },
+        { status: 500, headers: cors(origin) },
+      );
+    }
+    if (sharedSecret && req.headers.get('x-sync-secret') !== sharedSecret) {
+      return Response.json(
+        { ok: false, message: 'Unauthorized.' },
+        { status: 401, headers: cors(origin) },
+      );
+    }
+
     const p = req.payload as any;
 
     try {
@@ -38,10 +98,15 @@ export const subscriberSync: Endpoint = {
       let failed = 0;
       const errors: string[] = [];
 
-      // Fetch n8n config for forwarding
+      // Fetch n8n config for forwarding. The URL is admin-configurable, so
+      // we validate it against the SSRF blocklist before any fetch().
       const audience = await p.findGlobal({ slug: 'audience', depth: 0 });
-      const n8nUrl = audience?.n8nWebhookUrl as string | undefined;
+      const rawN8nUrl = audience?.n8nWebhookUrl as string | undefined;
+      const n8nUrl = isSafePublicUrl(rawN8nUrl) ? rawN8nUrl : undefined;
       const n8nKey = audience?.n8nApiKey as string | undefined;
+      if (rawN8nUrl && !n8nUrl) {
+        console.warn('[subscriberSync] n8nWebhookUrl rejected by SSRF guard:', rawN8nUrl);
+      }
 
       for (const item of items) {
         const email = (item as Record<string, unknown>).email;
@@ -102,8 +167,12 @@ export const subscriberSync: Endpoint = {
         errors: errors.length > 0 ? errors.slice(0, 20) : undefined,
       }, { status: 200, headers: cors(origin) });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      return Response.json({ ok: false, message: msg }, { status: 500, headers: cors(origin) });
+      // Log server-side, return generic to client (no stack/path leak).
+      console.error('[subscriberSync] error:', err);
+      return Response.json(
+        { ok: false, message: 'Sync failed.' },
+        { status: 500, headers: cors(origin) },
+      );
     }
   },
 };

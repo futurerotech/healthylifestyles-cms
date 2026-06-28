@@ -38,34 +38,40 @@ function generateToolSchema(data: Record<string, unknown>): Record<string, unkno
     '@graph': [
       {
         '@type': 'MedicalWebPage',
-        '@id': `https://www.healthylifestyles.com/tools/${slug}#webpage`,
-        url: `https://www.healthylifestyles.com/tools/${slug}`,
+        '@id': `https://www.healthylifesstyles.com/tools/${slug}#webpage`,
+        url: `https://www.healthylifesstyles.com/tools/${slug}`,
         name: name || 'Health Calculator',
         description: desc || undefined,
         inLanguage: 'en-US',
         isPartOf: {
-          '@id': 'https://www.healthylifestyles.com/#website',
+          '@id': 'https://www.healthylifesstyles.com/#website',
         },
         about: {
           '@type': 'Thing',
-          name: 'Health & Fitness Calculation',
-          additionalType: 'https://health-lifesyle.sllc/#health-tool',
+          name: 'Health & fitness calculation',
+        },
+        // E-E-A-T: a YMYL health page should declare when it was reviewed and by whom.
+        lastReviewed: dateStr((data as any).updatedAt),
+        reviewedBy: {
+          '@type': 'Organization',
+          name: 'HealthyLifeStyles Medical Review Team',
         },
         mainEntity: {
           '@type': 'WebApplication',
-          '@id': `https://www.healthylifestyles.com/tools/${slug}#app`,
+          '@id': `https://www.healthylifesstyles.com/tools/${slug}#app`,
           name: name || 'Health Calculator',
           applicationCategory: 'HealthApplication',
           operatingSystem: 'Any',
           browserRequirements: 'JavaScript',
+          isAccessibleForFree: true,
           offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
         },
       },
       {
         '@type': 'BreadcrumbList',
-        '@id': `https://www.healthylifestyles.com/tools/${slug}#breadcrumb`,
+        '@id': `https://www.healthylifesstyles.com/tools/${slug}#breadcrumb`,
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Tools', item: 'https://www.healthylifestyles.com/tools' },
+          { '@type': 'ListItem', position: 1, name: 'Tools', item: 'https://www.healthylifesstyles.com/tools' },
           { '@type': 'ListItem', position: 2, name: name || 'Calculator' },
         ],
       },
@@ -101,35 +107,47 @@ function generateArticleSchema(data: Record<string, unknown>): Record<string, un
   const graph: Record<string, unknown>[] = [
     {
       '@type': 'Article',
-      '@id': `https://www.healthylifestyles.com/wellness-hub/${slug}#article`,
+      '@id': `https://www.healthylifesstyles.com/wellness-hub/${slug}#article`,
       headline: title || 'Wellness Article',
       description: desc || undefined,
-      image: undefined,
+      image: `https://www.healthylifesstyles.com/og/articles/${slug}.png`,
+      inLanguage: 'en-US',
       datePublished: pubDate,
-      dateModified: pubDate,
+      dateModified: dateStr((data as any).updatedDate || (data as any).updatedAt || data.publishDate),
+      // E-E-A-T: honest org-level authorship + a named medical reviewer + a
+      // publisher with a logo (required for Google Article rich results).
       author: {
-        '@type': 'Person',
+        '@type': 'Organization',
         name: author,
+        url: 'https://www.healthylifesstyles.com/about',
+      },
+      reviewedBy: {
+        '@type': 'Organization',
+        name: 'HealthyLifeStyles Medical Review Team',
       },
       publisher: {
         '@type': 'Organization',
         name: 'HealthyLifeStyles',
-        url: 'https://www.healthylifestyles.com',
+        url: 'https://www.healthylifesstyles.com',
+        logo: {
+          '@type': 'ImageObject',
+          url: 'https://www.healthylifesstyles.com/icon-512.png',
+        },
       },
       isPartOf: {
         '@type': 'WebPage',
-        '@id': `https://www.healthylifestyles.com/wellness-hub/${slug}#webpage`,
+        '@id': `https://www.healthylifesstyles.com/wellness-hub/${slug}#webpage`,
       },
       mainEntityOfPage: {
         '@type': 'WebPage',
-        '@id': `https://www.healthylifestyles.com/wellness-hub/${slug}`,
+        '@id': `https://www.healthylifesstyles.com/wellness-hub/${slug}`,
       },
     },
     {
       '@type': 'BreadcrumbList',
-      '@id': `https://www.healthylifestyles.com/wellness-hub/${slug}#breadcrumb`,
+      '@id': `https://www.healthylifesstyles.com/wellness-hub/${slug}#breadcrumb`,
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Wellness Hub', item: 'https://www.healthylifestyles.com/wellness-hub' },
+        { '@type': 'ListItem', position: 1, name: 'Wellness Hub', item: 'https://www.healthylifesstyles.com/wellness-hub' },
         { '@type': 'ListItem', position: 2, name: title || 'Article' },
       ],
     },
@@ -138,7 +156,7 @@ function generateArticleSchema(data: Record<string, unknown>): Record<string, un
   if (faqs.length > 0) {
     graph.push({
       '@type': 'FAQPage',
-      '@id': `https://www.healthylifestyles.com/wellness-hub/${slug}#faq`,
+      '@id': `https://www.healthylifesstyles.com/wellness-hub/${slug}#faq`,
       mainEntity: faqs.map((f: any) => ({
         '@type': 'Question',
         name: f.question,
@@ -159,17 +177,17 @@ function generatePageSchema(data: Record<string, unknown>): Record<string, unkno
     '@graph': [
       {
         '@type': 'WebPage',
-        '@id': `https://www.healthylifestyles.com/${slug}#webpage`,
-        url: `https://www.healthylifestyles.com/${slug}`,
+        '@id': `https://www.healthylifesstyles.com/${slug}#webpage`,
+        url: `https://www.healthylifesstyles.com/${slug}`,
         name: title || 'Page',
         inLanguage: 'en-US',
-        isPartOf: { '@id': 'https://www.healthylifestyles.com/#website' },
+        isPartOf: { '@id': 'https://www.healthylifesstyles.com/#website' },
       },
       {
         '@type': 'BreadcrumbList',
-        '@id': `https://www.healthylifestyles.com/${slug}#breadcrumb`,
+        '@id': `https://www.healthylifesstyles.com/${slug}#breadcrumb`,
         itemListElement: [
-          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.healthylifestyles.com' },
+          { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://www.healthylifesstyles.com' },
           { '@type': 'ListItem', position: 2, name: title || 'Page' },
         ],
       },

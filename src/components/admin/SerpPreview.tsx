@@ -17,7 +17,7 @@ export const SerpPreview: React.FC = () => {
 
   const displayTitle = String(metaTitle || title || name || 'Untitled page');
   const displayDesc = String(metaDesc || 'Add a meta description to control how this page looks in search results.');
-  const url = `healthylifestyles.com › ${String(slug || '')}`;
+  const url = `healthylifesstyles.com › ${String(slug || '')}`;
   const titleLen = String(metaTitle || '').length;
   const descLen = String(metaDesc || '').length;
   const tone = (len: number, max: number) => (len === 0 ? 'muted' : len > max ? 'over' : 'ok');

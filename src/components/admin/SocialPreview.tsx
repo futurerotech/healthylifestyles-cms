@@ -177,7 +177,7 @@ export const SocialPreview: React.FC<{ path?: string }> = ({ path = 'seo' }) => 
               )}
             </div>
             <div className="hls-soc__fb-body">
-              <div className="hls-soc__fb-domain">healthylifestyles.com</div>
+              <div className="hls-soc__fb-domain">healthylifesstyles.com</div>
               <div className="hls-soc__fb-title">{truncate(ogTitle || 'Untitled page', 90)}</div>
               <div className="hls-soc__fb-desc">{truncate(ogDesc || 'Add a meta description to control the share preview.', 200)}</div>
             </div>
@@ -198,7 +198,7 @@ export const SocialPreview: React.FC<{ path?: string }> = ({ path = 'seo' }) => 
               )}
             </div>
             <div className="hls-soc__x-body">
-              <div className="hls-soc__x-domain">healthylifestyles.com</div>
+              <div className="hls-soc__x-domain">healthylifesstyles.com</div>
               <div className="hls-soc__x-title">{truncate(xTitle || ogTitle || 'Untitled page', 90)}</div>
               <div className="hls-soc__x-desc">{truncate(xDesc || ogDesc || '', 200)}</div>
             </div>
@@ -213,7 +213,7 @@ export const SocialPreview: React.FC<{ path?: string }> = ({ path = 'seo' }) => 
           <div className="hls-soc__sms-bubble">
             <span className="hls-soc__sms-label">Link preview will appear as:</span>
             <span className="hls-soc__sms-title">{truncate(ogTitle || 'Untitled page', 60)}</span>
-            <span className="hls-soc__sms-url">healthylifestyles.com{slug ? `/${slug}` : ''}</span>
+            <span className="hls-soc__sms-url">healthylifesstyles.com{slug ? `/${slug}` : ''}</span>
             <span className="hls-soc__sms-desc">{truncate(ogDesc || '', 80)}</span>
           </div>
         </div>

@@ -1,5 +1,19 @@
-import type { CollectionConfig } from 'payload';
-import { isAdmin, publicRead } from '../access/roles';
+import type { Access, CollectionConfig } from 'payload';
+import { isAdmin } from '../access/roles';
+
+/**
+ * Server-only `create`: the Astro proxy (and admin tools) must include the
+ * shared `x-internal-key` header. Direct public POSTs from the browser are
+ * rejected — the proxy is the validating choke point.
+ *
+ * Dev fallback: if `INTERNAL_API_KEY` is unset AND `NODE_ENV !== 'production'`,
+ * we allow create so local development still works without env wiring.
+ */
+const internalKeyCreate: Access = ({ req }) => {
+  const secret = process.env.INTERNAL_API_KEY;
+  if (!secret) return process.env.NODE_ENV !== 'production';
+  return req.headers.get('x-internal-key') === secret;
+};
 
 export const Subscribers: CollectionConfig = {
   slug: 'subscribers',
@@ -10,7 +24,7 @@ export const Subscribers: CollectionConfig = {
     listSearchableFields: ['email', 'name'],
     description: 'Email subscribers captured via lead forms, CSV imports, or n8n sync.',
   },
-  access: { read: isAdmin, create: publicRead, update: isAdmin, delete: isAdmin },
+  access: { read: isAdmin, create: internalKeyCreate, update: isAdmin, delete: isAdmin },
   fields: [
     {
       name: 'email',

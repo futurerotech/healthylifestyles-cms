@@ -26,7 +26,7 @@ export const Settings: GlobalConfig = {
               ],
             },
             { name: 'defaultOgImage', type: 'upload', relationTo: 'media', admin: { description: 'Fallback OG image for social shares.' } },
-            { name: 'contactEmail', type: 'email', admin: { description: 'Public contact email (e.g. hello@healthylifestyles.com).' } },
+            { name: 'contactEmail', type: 'email', admin: { description: 'Public contact email (e.g. hello@healthylifesstyles.com).' } },
           ],
         },
         {
