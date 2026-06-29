@@ -42,14 +42,18 @@ interface VerifyState {
 export const AutoGenerateButton: React.FC = () => {
   const { id } = useDocumentInfo();
 
-  const [title, tool, category, hasExcerpt, hasMeta, layoutRows] = useFormFields(([fields]) => [
+  const [title, tool, category, hasExcerpt, hasMeta, layoutRows, aiProviderVal] = useFormFields(([fields]) => [
     fields?.title?.value,
     fields?.primaryTool?.value,
     fields?.category?.value,
     fields?.excerpt?.value,
     fields?.['seo.metaTitle']?.value,
     (fields?.layout as { rows?: unknown[] } | undefined)?.rows?.length ?? 0,
-  ]) as [unknown, RelValue, RelValue, unknown, unknown, number];
+    fields?.aiProvider?.value,
+  ]) as [unknown, RelValue, RelValue, unknown, unknown, number, unknown];
+
+  // Provider chosen in the sidebar; falls back to gemini if unset.
+  const aiProvider = typeof aiProviderVal === 'string' && aiProviderVal ? aiProviderVal : 'gemini';
 
   const [busy, setBusy] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
@@ -93,7 +97,7 @@ export const AutoGenerateButton: React.FC = () => {
     setMsg(null);
     setTitles([]);
     try {
-      const json = await post('/api/generate-article', { docId: id, title: useTitle, toolId, categoryId, mode, generateImage: genImage });
+      const json = await post('/api/generate-article', { docId: id, title: useTitle, toolId, categoryId, mode, generateImage: genImage, aiProvider });
       let text = 'AI draft saved. Reloading to show the content…';
       let tone: 'ok' | 'info' = 'ok';
       if (genImage && json?.image) {
@@ -130,7 +134,7 @@ export const AutoGenerateButton: React.FC = () => {
     setTitlesLoading(true);
     setMsg(null);
     try {
-      const json = await post('/api/suggest-titles', { docId: id, toolId, categoryId });
+      const json = await post('/api/suggest-titles', { docId: id, toolId, categoryId, aiProvider });
       setTitles(Array.isArray(json.titles) ? json.titles : []);
       if (!json.titles?.length) setMsg({ tone: 'info', text: 'No titles returned — try again.' });
     } catch (e) {
@@ -145,7 +149,7 @@ export const AutoGenerateButton: React.FC = () => {
     setBusy(true);
     setMsg(null);
     try {
-      await post('/api/regenerate-section', { docId: id, section, title: titleStr, toolId, categoryId });
+      await post('/api/regenerate-section', { docId: id, section, title: titleStr, toolId, categoryId, aiProvider });
       setMsg({ tone: 'ok', text: `Regenerated “${section}”. Reloading…` });
       setTimeout(() => window.location.reload(), 1000);
     } catch (e) {
@@ -159,7 +163,7 @@ export const AutoGenerateButton: React.FC = () => {
     setVerify({ loading: true });
     setMsg(null);
     try {
-      const json = await post('/api/verify-sources', { docId: id });
+      const json = await post('/api/verify-sources', { docId: id, aiProvider });
       setVerify({ loading: false, disclaimer: json.disclaimer, searchConfigured: json.searchConfigured, claims: json.claims || [] });
     } catch (e) {
       setVerify(null);

@@ -8,6 +8,8 @@ import React from 'react';
 
 import { importMap } from './admin/importMap.js';
 import './custom.scss';
+// Cheerful high-contrast light theme — imported AFTER custom.scss so it wins.
+import '../../styles/theme-override.css';
 
 type Args = { children: React.ReactNode };
 

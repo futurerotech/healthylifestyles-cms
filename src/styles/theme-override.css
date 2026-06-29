@@ -1,0 +1,165 @@
+/**
+ * Cheerful, high-contrast LIGHT theme for the Payload admin.
+ *
+ * Forces a bright editor with NO dark surfaces — even when Payload/OS is in
+ * "dark" mode — by remapping Payload v3's `--theme-*` variables onto the brand
+ * tokens below and pinning both [data-theme] values to the light palette.
+ *
+ * NOTE: Payload v3 has no `admin.css` config hook, so this is imported in the
+ * admin layout (src/app/(payload)/layout.tsx) AFTER custom.scss so it wins.
+ */
+
+:root {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9fafb;
+  --color-text-primary: #111827;
+  --color-text-muted: #6b7280;
+  --color-accent: #10b981; /* emerald green */
+  --color-accent-hover: #059669;
+  --color-border: #e5e7eb;
+  --color-danger: #ef4444;
+}
+
+/* Pin the light palette for BOTH themes → no dark backgrounds anywhere. */
+:root,
+html[data-theme='light'],
+html[data-theme='dark'] {
+  color-scheme: light;
+
+  --theme-bg: var(--color-bg-primary);
+  --theme-input-bg: var(--color-bg-primary);
+  --theme-text: var(--color-text-primary);
+
+  --theme-elevation-0: #ffffff;
+  --theme-elevation-25: #fcfcfd;
+  --theme-elevation-50: #f9fafb;
+  --theme-elevation-100: #f3f4f6;
+  --theme-elevation-150: #e5e7eb;
+  --theme-elevation-200: #d1d5db;
+  --theme-elevation-250: #c3c8d0;
+  --theme-elevation-300: #aeb4be;
+  --theme-elevation-350: #99a0ac;
+  --theme-elevation-400: #858d9b;
+  --theme-elevation-450: #6b7280;
+  --theme-elevation-500: #565e6c;
+  --theme-elevation-550: #4b525f;
+  --theme-elevation-600: #3f4651;
+  --theme-elevation-650: #353b45;
+  --theme-elevation-700: #2b313a;
+  --theme-elevation-750: #232830;
+  --theme-elevation-800: #1c2027;
+  --theme-elevation-850: #161a1f;
+  --theme-elevation-900: #111827;
+  --theme-elevation-950: #0d121c;
+  --theme-elevation-1000: #080b12;
+
+  /* Accent ramp → emerald (drives primary buttons, focus, active states). */
+  --theme-success-50: #ecfdf5;
+  --theme-success-100: #d1fae5;
+  --theme-success-150: #a7f3d0;
+  --theme-success-200: #6ee7b7;
+  --theme-success-250: #34d399;
+  --theme-success-300: #10b981;
+  --theme-success-400: #10b981;
+  --theme-success-500: #10b981;
+  --theme-success-600: #059669;
+  --theme-success-650: #047857;
+  --theme-success-700: #065f46;
+  --theme-success-750: #064e3b;
+  --theme-success-800: #064e3b;
+  --theme-success-850: #053227;
+  --theme-success-900: #022c22;
+
+  --theme-error-400: #f87171;
+  --theme-error-500: var(--color-danger);
+  --theme-error-600: #dc2626;
+}
+
+/* Page + chrome backgrounds */
+html,
+body {
+  background: var(--color-bg-primary) !important;
+  color: var(--color-text-primary) !important;
+}
+.nav,
+aside.nav,
+.nav__wrap,
+.step-nav {
+  background: var(--color-bg-secondary) !important;
+  border-color: var(--color-border) !important;
+}
+
+/* Body text, labels, field names → high-contrast primary (≥ 4.5:1 on white) */
+body,
+.field-label,
+label,
+.nav__link,
+.doc-tab__link,
+h1, h2, h3, h4,
+p,
+.collection-list__wrap,
+.table td {
+  color: var(--color-text-primary);
+}
+.field-description,
+.nav__label,
+.tooltip,
+.read-only__label {
+  color: var(--color-text-muted);
+}
+
+/* Inputs, selects, textareas, cards → white bg, bordered, dark text */
+.field-type input,
+.field-type textarea,
+.field-type select,
+.field-type .rs__control,
+input[type='text'],
+input[type='email'],
+input[type='number'],
+input[type='password'],
+textarea {
+  background: var(--color-bg-primary) !important;
+  color: var(--color-text-primary) !important;
+  border-color: var(--color-border) !important;
+}
+.card,
+.field-type,
+.collapsible__content,
+.array-field__draggable-rows,
+.table {
+  border-color: var(--color-border);
+}
+
+/* Primary buttons + active + focus → accent emerald */
+.btn--style-primary {
+  background-color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+  color: #ffffff !important;
+}
+.btn--style-primary:hover,
+.btn--style-primary:focus {
+  background-color: var(--color-accent-hover) !important;
+  border-color: var(--color-accent-hover) !important;
+}
+.nav__link--active,
+.doc-tab--active .doc-tab__link {
+  color: var(--color-accent);
+}
+*:focus-visible {
+  outline: 2px solid var(--color-accent) !important;
+  outline-offset: 1px;
+}
+.field-type input:focus,
+.field-type textarea:focus,
+.rs__control--is-focused {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25) !important;
+}
+
+/* Destructive actions stay clearly red */
+.btn--style-error,
+.btn--style-danger {
+  background-color: var(--color-danger) !important;
+  border-color: var(--color-danger) !important;
+  color: #ffffff !important;
+}

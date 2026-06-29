@@ -15,33 +15,41 @@ import {
 } from './articleSchema';
 
 /**
- * Typed AI service for article generation.
+ * Multi-provider AI service.
  *
- * - Forces STRUCTURED output via Anthropic tool use (the model must call our
- *   `emit_article` tool whose input_schema is our JSON Schema) — we never parse
- *   free text.
- * - Validates the tool input against the Zod schema; on failure it asks the
- *   model to fix ONCE (feeding back the validation errors) before giving up.
- * - Retries transient provider errors (429/5xx/overloaded) with exponential
- *   backoff; caps output tokens; surfaces clear typed errors.
- * - Provider-swappable: the Anthropic implementation is the default; point
- *   `AI_PROVIDER=openai` once an OpenAI provider is wired (stub below).
+ * The provider is chosen PER REQUEST (from the article's `aiProvider` field),
+ * never from an env var. Each provider routes to its own isolated async
+ * function behind one interface — `generateWithProvider(provider, prompt)` →
+ * text. Structured generators (article / section / titles / claims) build a
+ * JSON-Schema-instructed prompt, call that, then parse + Zod-validate with a
+ * single repair pass, so every provider yields the same validated shape.
  */
+
+/* ---------------------------- providers ---------------------------- */
+
+export type AIProvider = 'gemini' | 'deepseek' | 'zai' | 'local' | 'anthropic';
+
+const VALID_PROVIDERS: readonly AIProvider[] = ['gemini', 'deepseek', 'zai', 'local', 'anthropic'];
+
+/** Guard: coerce arbitrary input to a valid provider, defaulting to gemini. Never throws. */
+export function coerceProvider(value: unknown): AIProvider {
+  if (typeof value === 'string' && (VALID_PROVIDERS as readonly string[]).includes(value)) {
+    return value as AIProvider;
+  }
+  if (value != null && value !== '') {
+    console.warn(`[ai] Unknown aiProvider "${String(value)}" — falling back to "gemini".`);
+  }
+  return 'gemini';
+}
 
 /* ------------------------------ errors ----------------------------- */
 
-export type AIErrorCode =
-  | 'not_configured'
-  | 'refusal'
-  | 'invalid_output'
-  | 'provider_error'
-  | 'rate_limited';
+export type AIErrorCode = 'not_configured' | 'refusal' | 'invalid_output' | 'provider_error' | 'rate_limited';
 
 export class AIError extends Error {
   constructor(
     public readonly code: AIErrorCode,
     message: string,
-    /** Suggested HTTP status for the API layer. */
     public readonly status: number = 500,
   ) {
     super(message);
@@ -51,185 +59,209 @@ export class AIError extends Error {
 
 /* ------------------------------ config ----------------------------- */
 
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-opus-4-8';
-const PROVIDER = (process.env.AI_PROVIDER || 'anthropic').toLowerCase();
-/** Hard ceiling on output tokens regardless of caller request. */
 const MAX_OUTPUT_TOKENS = 8000;
-const MAX_RETRIES = 3;
-
+const MAX_RETRIES = 2;
 const RETRYABLE_STATUS = new Set([408, 409, 429, 500, 502, 503, 504, 529]);
-
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/* ---------------------------- provider ----------------------------- */
-
-interface ToolCallArgs {
-  system: string;
-  messages: Anthropic.MessageParam[];
-  tool: Anthropic.Tool;
-  maxTokens: number;
+async function fetchRetry(url: string, init: RequestInit): Promise<Response> {
+  let res: Response | null = null;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    res = await fetch(url, init);
+    if (res.ok || !RETRYABLE_STATUS.has(res.status) || attempt === MAX_RETRIES) return res;
+    await sleep(600 * 2 ** attempt + Math.floor(Math.random() * 250));
+  }
+  return res as Response;
 }
 
-interface ToolCallResult {
-  /** Raw, unvalidated tool input from the model. */
-  input: unknown;
-  /** The assistant message content (for a follow-up repair turn). */
-  assistantContent: Anthropic.ContentBlock[];
-  /** The tool_use block id (needed to answer with a tool_result). */
-  toolUseId: string;
-}
+/* --------------------- per-provider implementations ---------------- */
 
-interface LLMProvider {
-  readonly name: string;
-  callTool(args: ToolCallArgs): Promise<ToolCallResult>;
-}
-
-const anthropicProvider: LLMProvider = {
-  name: 'anthropic',
-  async callTool({ system, messages, tool, maxTokens }) {
-    const client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
-
-    const message = await withRetry(() =>
-      client.messages.create({
-        model: MODEL,
-        max_tokens: Math.min(maxTokens, MAX_OUTPUT_TOKENS),
-        system,
-        tools: [tool],
-        tool_choice: { type: 'tool', name: tool.name },
-        messages,
+/** Google Gemini (free tier) via REST. JSON mime forces clean JSON output. */
+async function callGemini(prompt: string): Promise<string> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new AIError('not_configured', 'Gemini needs GEMINI_API_KEY.', 503);
+  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  const res = await fetchRetry(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS, temperature: 0.7, responseMimeType: 'application/json' },
       }),
-    );
+    },
+  );
+  if (!res.ok) throw new AIError('provider_error', `Gemini error ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`, 502);
+  const json: any = await res.json().catch(() => ({}));
+  const text = (json?.candidates?.[0]?.content?.parts || []).map((p: any) => p?.text || '').join('');
+  if (!text) throw new AIError('provider_error', 'Gemini returned no text.', 502);
+  return text;
+}
 
-    // Safety classifiers can decline — check before reading content.
+/** Any OpenAI-compatible chat-completions endpoint (DeepSeek, Z.ai, local). */
+async function callOpenAICompatible(opts: {
+  label: string;
+  baseURL: string;
+  apiKey?: string;
+  model: string;
+  prompt: string;
+  requireKey: boolean;
+}): Promise<string> {
+  if (opts.requireKey && !opts.apiKey) {
+    throw new AIError('not_configured', `${opts.label} is not configured (missing API key).`, 503);
+  }
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (opts.apiKey) headers.Authorization = `Bearer ${opts.apiKey}`;
+  const res = await fetchRetry(`${opts.baseURL.replace(/\/$/, '')}/chat/completions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      model: opts.model,
+      messages: [{ role: 'user', content: opts.prompt }],
+      max_tokens: MAX_OUTPUT_TOKENS,
+      temperature: 0.7,
+    }),
+  });
+  if (!res.ok) throw new AIError('provider_error', `${opts.label} error ${res.status}: ${(await res.text().catch(() => '')).slice(0, 200)}`, 502);
+  const json: any = await res.json().catch(() => ({}));
+  const text = json?.choices?.[0]?.message?.content;
+  if (typeof text !== 'string' || !text) throw new AIError('provider_error', `${opts.label} returned no text.`, 502);
+  return text;
+}
+
+const callDeepSeek = (prompt: string): Promise<string> =>
+  callOpenAICompatible({
+    label: 'DeepSeek',
+    baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+    apiKey: process.env.DEEPSEEK_API_KEY,
+    model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+    prompt,
+    requireKey: true,
+  });
+
+const callZai = (prompt: string): Promise<string> =>
+  callOpenAICompatible({
+    label: 'Z.ai',
+    baseURL: process.env.ZAI_BASE_URL || 'https://api.z.ai/api/paas/v4',
+    apiKey: process.env.ZAI_API_KEY,
+    // Set ZAI_MODEL to the exact id you have access to (e.g. glm-5.2 / glm-4.6).
+    model: process.env.ZAI_MODEL || 'glm-4-plus',
+    prompt,
+    requireKey: true,
+  });
+
+const callLocal = (prompt: string): Promise<string> =>
+  callOpenAICompatible({
+    label: 'Local AI',
+    baseURL: process.env.LOCAL_AI_BASE_URL || 'http://localhost:11434/v1', // Ollama/LM Studio default
+    apiKey: process.env.LOCAL_AI_API_KEY,
+    model: process.env.LOCAL_AI_MODEL || 'gemma3',
+    prompt,
+    requireKey: false,
+  });
+
+/** Anthropic Claude via the official SDK (plain text completion). */
+async function callAnthropic(prompt: string): Promise<string> {
+  if (!process.env.ANTHROPIC_API_KEY) throw new AIError('not_configured', 'Anthropic needs ANTHROPIC_API_KEY.', 503);
+  try {
+    const client = new Anthropic();
+    const message = await client.messages.create({
+      model: process.env.ANTHROPIC_MODEL || 'claude-opus-4-8',
+      max_tokens: MAX_OUTPUT_TOKENS,
+      messages: [{ role: 'user', content: prompt }],
+    });
     if ((message.stop_reason as string) === 'refusal') {
       throw new AIError('refusal', 'The request was declined by the model\'s safety filters.', 422);
     }
-
-    const toolUse = message.content.find(
-      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && b.name === tool.name,
-    );
-    if (!toolUse) {
-      throw new AIError('invalid_output', 'Model did not return the expected structured tool call.', 502);
-    }
-
-    return { input: toolUse.input, assistantContent: message.content, toolUseId: toolUse.id };
-  },
-};
-
-function getProvider(): LLMProvider {
-  if (PROVIDER === 'anthropic') return anthropicProvider;
-  // Extension point: implement an OpenAI provider (function-calling) and return
-  // it here. Kept unimplemented so the build never depends on an uninstalled SDK.
-  throw new AIError('not_configured', `AI provider "${PROVIDER}" is not implemented. Set AI_PROVIDER=anthropic.`, 503);
-}
-
-/* --------------------------- retry/backoff ------------------------- */
-
-async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
-  let lastErr: unknown;
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-      const status = err instanceof Anthropic.APIError ? err.status : undefined;
-      const retryable = status === undefined ? false : RETRYABLE_STATUS.has(status);
-      if (!retryable || attempt === MAX_RETRIES) break;
-      // Exponential backoff with jitter: ~0.5s, 1s, 2s (+ up to 250ms).
-      const delay = 500 * 2 ** attempt + Math.floor(Math.random() * 250);
-      await sleep(delay);
-    }
+    const text = message.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n')
+      .trim();
+    if (!text) throw new AIError('provider_error', 'Anthropic returned no text.', 502);
+    return text;
+  } catch (err) {
+    throw mapAnthropicError(err);
   }
-  throw mapProviderError(lastErr);
 }
 
-function mapProviderError(err: unknown): AIError {
+function mapAnthropicError(err: unknown): AIError {
   if (err instanceof AIError) return err;
-  if (err instanceof Anthropic.RateLimitError) {
-    return new AIError('rate_limited', 'The AI provider is rate-limited — try again shortly.', 429);
-  }
-  if (err instanceof Anthropic.AuthenticationError) {
-    return new AIError('not_configured', 'Invalid Anthropic API key.', 502);
-  }
-  if (err instanceof Anthropic.APIError) {
-    return new AIError('provider_error', `AI provider error (${err.status ?? 'network'}).`, 502);
-  }
+  if (err instanceof Anthropic.RateLimitError) return new AIError('rate_limited', 'Anthropic is rate-limited — try again shortly.', 429);
+  if (err instanceof Anthropic.AuthenticationError) return new AIError('not_configured', 'Invalid Anthropic API key.', 502);
+  if (err instanceof Anthropic.APIError) return new AIError('provider_error', `Anthropic error (${err.status ?? 'network'}).`, 502);
   return new AIError('provider_error', `Unexpected AI error: ${(err as Error)?.message ?? 'unknown'}.`, 500);
 }
 
-/* --------------------------- core runner --------------------------- */
+/** Provider → isolated function map (no if/else chains). */
+const PROVIDERS: Record<AIProvider, (prompt: string) => Promise<string>> = {
+  gemini: callGemini,
+  deepseek: callDeepSeek,
+  zai: callZai,
+  local: callLocal,
+  anthropic: callAnthropic,
+};
 
-function ensureConfigured(): void {
-  if (!process.env.ANTHROPIC_API_KEY && PROVIDER === 'anthropic') {
-    throw new AIError('not_configured', 'AI is not configured. Set ANTHROPIC_API_KEY on the server.', 503);
+/** Single entry point: route a prompt to the chosen provider, return its text. */
+export async function generateWithProvider(provider: AIProvider, prompt: string): Promise<string> {
+  const fn = PROVIDERS[provider] ?? PROVIDERS.gemini;
+  return fn(prompt);
+}
+
+/* --------------------------- structured core ----------------------- */
+
+/** Pull the first JSON object out of a model response (tolerant of code fences/prose). */
+function extractJson(text: string): unknown {
+  const stripped = text.replace(/```(?:json)?/gi, '').trim();
+  const start = stripped.indexOf('{');
+  const end = stripped.lastIndexOf('}');
+  const candidate = start !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return {};
   }
 }
 
 /**
- * Run a structured generation with a single in-loop repair: call the tool,
- * validate with Zod, and if it fails feed the errors back once for a fix.
+ * Run a structured generation through any provider: instruct JSON matching the
+ * schema, parse + validate, and on failure feed the errors back ONCE for a fix.
  */
 async function runStructured<T>(opts: {
+  provider: AIProvider;
   system: string;
   userPrompt: string;
-  tool: Anthropic.Tool;
+  schemaForPrompt: unknown;
   validate: (input: unknown) => { ok: true; data: T } | { ok: false; errors: string };
-  maxTokens: number;
 }): Promise<T> {
-  ensureConfigured();
-  const provider = getProvider();
+  const base = `${opts.system}\n\n${opts.userPrompt}\n\nIMPORTANT: Respond with ONLY a single valid JSON object that conforms EXACTLY to this JSON Schema. No prose, no explanation, no markdown, no code fences.\n\nJSON Schema:\n${JSON.stringify(opts.schemaForPrompt)}`;
 
-  const messages: Anthropic.MessageParam[] = [{ role: 'user', content: opts.userPrompt }];
+  const first = opts.validate(extractJson(await generateWithProvider(opts.provider, base)));
+  if (first.ok) return first.data;
 
-  const first = await provider.callTool({ system: opts.system, messages, tool: opts.tool, maxTokens: opts.maxTokens });
-  const firstCheck = opts.validate(first.input);
-  if (firstCheck.ok) return firstCheck.data;
+  const repair = `${base}\n\nYour previous response was invalid. It failed validation with these problems:\n${first.errors}\n\nReturn the corrected JSON object only.`;
+  const second = opts.validate(extractJson(await generateWithProvider(opts.provider, repair)));
+  if (second.ok) return second.data;
 
-  // One repair attempt: answer the tool call with the validation errors.
-  const repairMessages: Anthropic.MessageParam[] = [
-    ...messages,
-    { role: 'assistant', content: first.assistantContent },
-    {
-      role: 'user',
-      content: [
-        {
-          type: 'tool_result',
-          tool_use_id: first.toolUseId,
-          is_error: true,
-          content: `Your output failed validation. Fix ONLY these problems and call the tool again with corrected JSON:\n${firstCheck.errors}`,
-        },
-      ],
-    },
-  ];
-
-  const second = await provider.callTool({ system: opts.system, messages: repairMessages, tool: opts.tool, maxTokens: opts.maxTokens });
-  const secondCheck = opts.validate(second.input);
-  if (secondCheck.ok) return secondCheck.data;
-
-  throw new AIError('invalid_output', `Model output failed schema validation after one repair attempt: ${secondCheck.errors}`, 422);
+  throw new AIError('invalid_output', `Model output failed schema validation after one repair attempt: ${second.errors}`, 422);
 }
-
-const ARTICLE_TOOL: Anthropic.Tool = {
-  name: 'emit_article',
-  description: 'Emit a complete, structured E-E-A-T health article matching the schema. Call this tool exactly once.',
-  input_schema: ARTICLE_TOOL_SCHEMA as unknown as Anthropic.Tool.InputSchema,
-};
 
 /* ------------------------------ public ----------------------------- */
 
 export interface GenerateArticleInput {
+  provider: AIProvider;
   system: string;
   /** Fully-built user prompt incl. the dynamic Payload context. */
   prompt: string;
-  maxTokens?: number;
 }
 
 export async function generateArticle(input: GenerateArticleInput): Promise<GeneratedArticle> {
   return runStructured<GeneratedArticle>({
+    provider: input.provider,
     system: input.system,
     userPrompt: input.prompt,
-    tool: ARTICLE_TOOL,
-    maxTokens: input.maxTokens ?? MAX_OUTPUT_TOKENS,
+    schemaForPrompt: ARTICLE_TOOL_SCHEMA,
     validate: (raw) => {
       const r = articleSchema.safeParse(raw);
       return r.success ? { ok: true, data: r.data } : { ok: false, errors: formatZodErrors(r.error) };
@@ -238,26 +270,19 @@ export async function generateArticle(input: GenerateArticleInput): Promise<Gene
 }
 
 export interface RegenerateSectionInput<S extends RegenSection> {
+  provider: AIProvider;
   section: S;
   system: string;
   prompt: string;
-  maxTokens?: number;
 }
 
-export async function regenerateSection<S extends RegenSection>(
-  input: RegenerateSectionInput<S>,
-): Promise<SectionResult<S>> {
+export async function regenerateSection<S extends RegenSection>(input: RegenerateSectionInput<S>): Promise<SectionResult<S>> {
   const schema = sectionSchemas[input.section];
-  const tool: Anthropic.Tool = {
-    name: 'emit_section',
-    description: `Emit ONLY the "${input.section}" section of a health article, as structured JSON. Call this tool exactly once.`,
-    input_schema: sectionToolSchema(input.section) as unknown as Anthropic.Tool.InputSchema,
-  };
   return runStructured<SectionResult<S>>({
+    provider: input.provider,
     system: input.system,
     userPrompt: input.prompt,
-    tool,
-    maxTokens: input.maxTokens ?? 1500,
+    schemaForPrompt: sectionToolSchema(input.section),
     validate: (raw) => {
       const r = schema.safeParse(raw);
       return r.success ? { ok: true, data: r.data as SectionResult<S> } : { ok: false, errors: formatZodErrors(r.error) };
@@ -266,17 +291,12 @@ export async function regenerateSection<S extends RegenSection>(
 }
 
 /** "Generate from tool": 5 article titles with distinct search intents. */
-export async function suggestTitles(input: { system: string; prompt: string }): Promise<SuggestedTitles> {
-  const tool: Anthropic.Tool = {
-    name: 'emit_titles',
-    description: 'Emit exactly 5 article titles, each targeting a distinct search intent. Call this tool once.',
-    input_schema: TITLES_TOOL_SCHEMA as unknown as Anthropic.Tool.InputSchema,
-  };
+export async function suggestTitles(input: { provider: AIProvider; system: string; prompt: string }): Promise<SuggestedTitles> {
   return runStructured<SuggestedTitles>({
+    provider: input.provider,
     system: input.system,
     userPrompt: input.prompt,
-    tool,
-    maxTokens: 800,
+    schemaForPrompt: TITLES_TOOL_SCHEMA,
     validate: (raw) => {
       const r = titlesSchema.safeParse(raw);
       return r.success ? { ok: true, data: r.data } : { ok: false, errors: formatZodErrors(r.error) };
@@ -284,18 +304,13 @@ export async function suggestTitles(input: { system: string; prompt: string }): 
   });
 }
 
-/** "Find & verify sources": extract the article's key checkable claims + search queries. */
-export async function extractClaims(input: { system: string; prompt: string }): Promise<ExtractedClaims> {
-  const tool: Anthropic.Tool = {
-    name: 'emit_claims',
-    description: 'Emit the key checkable factual claims/numbers in the article, each with a search query. Call this tool once.',
-    input_schema: CLAIMS_TOOL_SCHEMA as unknown as Anthropic.Tool.InputSchema,
-  };
+/** "Find & verify sources": extract the article's key checkable claims + queries. */
+export async function extractClaims(input: { provider: AIProvider; system: string; prompt: string }): Promise<ExtractedClaims> {
   return runStructured<ExtractedClaims>({
+    provider: input.provider,
     system: input.system,
     userPrompt: input.prompt,
-    tool,
-    maxTokens: 1500,
+    schemaForPrompt: CLAIMS_TOOL_SCHEMA,
     validate: (raw) => {
       const r = claimsSchema.safeParse(raw);
       return r.success ? { ok: true, data: r.data } : { ok: false, errors: formatZodErrors(r.error) };
@@ -312,7 +327,7 @@ function formatZodErrors(err: { issues: ReadonlyArray<{ path: ReadonlyArray<Prop
     .join('\n');
 }
 
-/** A minimal JSON Schema per regenerate-section (mirrors sectionSchemas). */
+/** Minimal JSON Schema per regenerate-section (mirrors sectionSchemas). */
 function sectionToolSchema(section: RegenSection): Record<string, unknown> {
   const a = ARTICLE_TOOL_SCHEMA.properties;
   switch (section) {

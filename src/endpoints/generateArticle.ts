@@ -1,5 +1,5 @@
 import type { Endpoint, PayloadRequest } from 'payload';
-import { generateArticle, regenerateSection, suggestTitles, extractClaims, AIError } from '../services/ai';
+import { generateArticle, regenerateSection, suggestTitles, extractClaims, coerceProvider, AIError } from '../services/ai';
 import { REGEN_SECTIONS, type RegenSection, type GeneratedArticle } from '../services/articleSchema';
 import { generateHeroImage, isImageConfigured } from '../services/image';
 import { searchReputable, isSearchConfigured, type SearchResult } from '../services/search';
@@ -140,7 +140,7 @@ function layoutToText(layout: unknown): string {
 
 const SYSTEM = `You are a senior health writer and editor for HealthyLifeStyles, writing for US/UK/CA/AU readers. You produce DRAFTS that a human editor reviews before publishing.
 
-Return ONLY the structured fields via the provided emit_article tool — no extra text, no preamble, no prose outside the tool call.
+Return ONLY the requested structured fields as a single JSON object — no extra text, no preamble, no prose.
 
 VOICE (write like an expert human, not AI):
 - Lead with the answer. Use specific numbers, concrete examples, second person ("you"), and plain English. Vary sentence length. Include one genuine insight competitors miss.
@@ -173,7 +173,7 @@ function buildUserPrompt(args: {
   const tools = args.toolList.map((t) => `- ${t.slug} — ${t.name}`).join('\n') || '(none)';
   const articles = args.articleList.map((a) => `- /wellness-hub/${a.slug} — ${a.title}`).join('\n') || '(none)';
   const whatItDoes = args.tool.formula.length ? `computes ${args.tool.formula.join('; ')}` : 'a health calculator';
-  return `Write a Wellness Hub article for the tool below. Return ONLY the structured fields via the emit_article tool — no extra text.
+  return `Write a Wellness Hub article for the tool below. Return ONLY the structured fields as a single JSON object — no extra text.
 
 CONTEXT (use it):
 - Article title / target keyword: ${args.title}
@@ -314,6 +314,7 @@ export const generateArticleEndpoint: Endpoint = {
       });
 
       const article = await generateArticle({
+        provider: coerceProvider(body.aiProvider),
         system: SYSTEM,
         prompt: buildUserPrompt({ title, tool: ctx.tool, categoryName: ctx.categoryName, toolList: ctx.toolList, articleList: ctx.articleList }),
       });
@@ -432,9 +433,9 @@ export const regenerateSectionEndpoint: Endpoint = {
 
       const prompt = `${buildUserPrompt({ title, tool: ctx.tool, categoryName: ctx.categoryName, toolList: ctx.toolList, articleList: ctx.articleList })}
 
-Regenerate ONLY the "${section}" section. ${str(body.instruction) ? `Editor note: ${str(body.instruction)}` : ''} Return via the emit_section tool.`;
+Regenerate ONLY the "${section}" section. ${str(body.instruction) ? `Editor note: ${str(body.instruction)}` : ''} Return only the JSON for that section.`;
 
-      const result = await regenerateSection({ section, system: SYSTEM, prompt });
+      const result = await regenerateSection({ provider: coerceProvider(body.aiProvider), section, system: SYSTEM, prompt });
 
       // When editing a saved draft, apply the regenerated section server-side
       // (reliable for arrays/blocks) and flag it for re-review.
@@ -493,9 +494,9 @@ Category: ${ctx.categoryName}
 Existing articles (avoid these angles):
 ${existing}
 
-Return via the emit_titles tool.`;
+Return only the JSON object of 5 titles.`;
 
-      const { titles } = await suggestTitles({ system: SYSTEM, prompt });
+      const { titles } = await suggestTitles({ provider: coerceProvider(body.aiProvider), system: SYSTEM, prompt });
       return Response.json({ success: true, titles });
     } catch (err) {
       return handleError(req, err);
@@ -535,8 +536,9 @@ export const verifySourcesEndpoint: Endpoint = {
       }
 
       const { claims } = await extractClaims({
+        provider: coerceProvider(body.aiProvider),
         system: SYSTEM,
-        prompt: `From the DRAFT health article below, list the key factual claims and specific numbers a careful editor should verify against a health authority (prefer concrete numbers, thresholds, and physiological/medical statements). For each, give a concise verification search query.\n\nDRAFT:\n${text}\n\nReturn via the emit_claims tool.`,
+        prompt: `From the DRAFT health article below, list the key factual claims and specific numbers a careful editor should verify against a health authority (prefer concrete numbers, thresholds, and physiological/medical statements). For each, give a concise verification search query.\n\nDRAFT:\n${text}`,
       });
 
       const searchOn = isSearchConfigured();

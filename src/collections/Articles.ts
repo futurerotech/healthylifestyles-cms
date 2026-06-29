@@ -1,10 +1,29 @@
-import type { CollectionConfig } from 'payload';
+import type { CollectionConfig, SelectField } from 'payload';
 import { isAdminOrEditor, publicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { pageBlocks } from '../blocks';
 import { afterChangeIndexingHook } from '../lib/indexing';
 import { afterPublishPushHook } from '../lib/push';
+
+/** Which AI model generates this article (read per-request by the generator). */
+const aiProviderField: SelectField = {
+  name: 'aiProvider',
+  type: 'select',
+  defaultValue: 'gemini',
+  required: false,
+  admin: {
+    position: 'sidebar',
+    description: 'Which AI model drafts this article. Falls back to Gemini if unset.',
+  },
+  options: [
+    { label: 'Google Gemini (Free)', value: 'gemini' },
+    { label: 'DeepSeek Chat', value: 'deepseek' },
+    { label: 'Z.ai (GLM-5.2)', value: 'zai' },
+    { label: 'Local AI (Gemma 31B)', value: 'local' },
+    { label: 'Anthropic Claude', value: 'anthropic' },
+  ],
+};
 
 export const Articles: CollectionConfig = {
   slug: 'articles',
@@ -105,6 +124,7 @@ export const Articles: CollectionConfig = {
         },
       ],
     },
+    aiProviderField,
     {
       name: 'autoGenerate',
       type: 'ui',
