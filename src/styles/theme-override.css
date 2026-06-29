@@ -163,3 +163,95 @@ textarea {
   border-color: var(--color-danger) !important;
   color: #ffffff !important;
 }
+
+/* ───────────────── SEO Indexing Engine (Task 4 tokens) ───────────────── */
+.seo-engine {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  color: var(--color-text-primary);
+}
+.seo-engine__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.seo-engine__title { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--color-text-primary); }
+.seo-engine__sub { margin: 0.2rem 0 0; font-size: 0.8rem; color: var(--color-text-muted); }
+.seo-engine__head-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.seo-engine__error { margin: 0.75rem 0 0; color: #991b1b; background: #fee2e2; padding: 0.5rem 0.7rem; border-radius: 8px; font-size: 0.82rem; }
+.seo-engine__empty,
+.seo-engine__sub { font-size: 0.82rem; }
+
+/* Buttons */
+.seo-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+}
+.seo-btn--sm { padding: 0.35rem 0.65rem; font-size: 0.76rem; }
+.seo-btn--primary { background: #10b981; color: #ffffff; }
+.seo-btn--primary:hover:not(:disabled) { background: #059669; }
+.seo-btn--danger { background: #ef4444; color: #ffffff; }
+.seo-btn--danger:hover:not(:disabled) { background: #dc2626; }
+.seo-btn:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+
+/* Quota bar */
+.seo-quota { margin: 1rem 0 0.75rem; }
+.seo-quota__track { height: 10px; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+.seo-quota__fill { height: 100%; border-radius: 999px; transition: width 0.3s ease; }
+.seo-quota__fill--ok { background: #10b981; }
+.seo-quota__fill--warn { background: #f59e0b; }
+.seo-quota__fill--danger { background: #ef4444; }
+.seo-quota__label { display: block; margin-top: 0.3rem; font-size: 0.76rem; color: var(--color-text-muted); }
+
+/* Filter chips */
+.seo-filters { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+.seo-chip {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.seo-chip--active { border-color: #10b981; background: #d1fae5; color: #065f46; }
+.seo-chip__count { font-weight: 800; }
+
+/* Sort header */
+.seo-sorthead { display: flex; gap: 0.75rem; padding: 0.4rem 0; border-bottom: 1px solid var(--color-border); margin-bottom: 0.5rem; }
+.seo-sorthead__btn { background: none; border: none; cursor: pointer; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-muted); }
+.seo-sorthead__btn:hover { color: var(--color-text-primary); }
+
+/* Status badges (Task 4 colours) */
+.seo-badge { padding: 0.15rem 0.55rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+.seo-badge--indexed { background: #d1fae5; color: #065f46; }
+.seo-badge--not-indexed { background: #fee2e2; color: #991b1b; }
+.seo-badge--unknown { background: #f3f4f6; color: #374151; }
+
+/* Groups + rows */
+.seo-group { margin-top: 1rem; }
+.seo-group__title { margin: 0 0 0.4rem; font-size: 0.85rem; font-weight: 800; color: var(--color-text-primary); }
+.seo-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.seo-row { border: 1px solid var(--color-border); border-radius: 10px; padding: 0.6rem 0.75rem; background: var(--color-bg-primary); }
+.seo-row__main { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.seo-row__url { flex: 1 1 240px; min-width: 0; font-size: 0.82rem; font-weight: 600; color: var(--color-text-primary); text-decoration: none; word-break: break-word; }
+.seo-row__url:hover { color: #059669; }
+.seo-row__meta { margin-top: 0.3rem; font-size: 0.72rem; color: var(--color-text-muted); }
+.seo-row__err { color: #991b1b; }
+.seo-row__msg { color: #065f46; font-weight: 600; }
+
+/* Loading skeleton */
+.seo-skeleton { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 1rem; }
+.seo-skeleton__row { height: 44px; border-radius: 10px; background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%); background-size: 400% 100%; animation: seo-shimmer 1.4s ease infinite; }
+@keyframes seo-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }

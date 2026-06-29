@@ -2,5 +2,14 @@ node_modules/
 dist/
 .next/
 .env
+.env.local
+.env*.local
+.env.development
+.env.production
 .vercel
 nul
+
+# Never commit raw Google service-account key files
+*service-account*.json
+*-credentials*.json
+google-*.json

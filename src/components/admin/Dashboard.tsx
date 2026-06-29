@@ -11,6 +11,7 @@ import { GrowthChart } from './dashboard/GrowthChart';
 import { FunnelChart } from './dashboard/FunnelChart';
 import { DonutCard } from './dashboard/DonutCard';
 import { computeToolAnalytics, type UsageRecord } from '../../lib/analytics';
+import { SeoIndexingEngine } from '../dashboard/SeoIndexingEngine';
 
 type AdminUser = { name?: string | null; email?: string | null } | null | undefined;
 type Props = { user?: AdminUser };
@@ -272,6 +273,9 @@ export async function Dashboard({ user }: Props) {
           </a>
         ))}
       </div>
+
+      {/* ---- SEO Indexing Engine ---- */}
+      <SeoIndexingEngine />
     </section>
   );
 }
