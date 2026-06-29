@@ -27,9 +27,9 @@ import {
 
 /* ---------------------------- providers ---------------------------- */
 
-export type AIProvider = 'gemini' | 'deepseek' | 'zai' | 'local' | 'anthropic';
+export type AIProvider = 'gemini' | 'nararouter' | 'deepseek' | 'zai' | 'local' | 'anthropic';
 
-const VALID_PROVIDERS: readonly AIProvider[] = ['gemini', 'deepseek', 'zai', 'local', 'anthropic'];
+const VALID_PROVIDERS: readonly AIProvider[] = ['gemini', 'nararouter', 'deepseek', 'zai', 'local', 'anthropic'];
 
 /** Guard: coerce arbitrary input to a valid provider, defaulting to gemini. Never throws. */
 export function coerceProvider(value: unknown): AIProvider {
@@ -161,6 +161,16 @@ const callLocal = (prompt: string): Promise<string> =>
     requireKey: false,
   });
 
+const callNaraRouter = (prompt: string): Promise<string> =>
+  callOpenAICompatible({
+    label: 'NaraRouter',
+    baseURL: process.env.NARAROUTER_BASE_URL || 'https://router.bynara.id/v1',
+    apiKey: process.env.NARAROUTER_API_KEY,
+    model: process.env.NARAROUTER_MODEL || 'mimo-v2.5-free',
+    prompt,
+    requireKey: true,
+  });
+
 /** Anthropic Claude via the official SDK (plain text completion). */
 async function callAnthropic(prompt: string): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) throw new AIError('not_configured', 'Anthropic needs ANTHROPIC_API_KEY.', 503);
@@ -197,6 +207,7 @@ function mapAnthropicError(err: unknown): AIError {
 /** Provider → isolated function map (no if/else chains). */
 const PROVIDERS: Record<AIProvider, (prompt: string) => Promise<string>> = {
   gemini: callGemini,
+  nararouter: callNaraRouter,
   deepseek: callDeepSeek,
   zai: callZai,
   local: callLocal,

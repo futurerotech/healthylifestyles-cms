@@ -18,6 +18,7 @@ const aiProviderField: SelectField = {
   },
   options: [
     { label: 'Google Gemini (Free)', value: 'gemini' },
+    { label: 'NaraRouter (7M Free)', value: 'nararouter' },
     { label: 'DeepSeek Chat', value: 'deepseek' },
     { label: 'Z.ai (GLM-5.2)', value: 'zai' },
     { label: 'Local AI (Gemma 31B)', value: 'local' },
