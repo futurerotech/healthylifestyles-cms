@@ -4,6 +4,7 @@ import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { validateFormula } from '../lib/formula';
 import { afterChangeIndexingHook } from '../lib/indexing';
+import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
 
 /** Lucide icon names used by the public tiles — a select "picker" for editors. */
 const ICON_OPTIONS = [
@@ -39,7 +40,7 @@ export const Tools: CollectionConfig = {
   versions: { drafts: { autosave: { interval: 800 } }, maxPerDoc: 50 },
 
   hooks: {
-    afterChange: [afterChangeIndexingHook],
+    afterChange: [afterChangeIndexingHook, triggerVercelDeploy],
     beforeValidate: [
       ({ data }) => {
         // Enforce safe, valid formulas at save time for formula tools.

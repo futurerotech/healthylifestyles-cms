@@ -3,6 +3,7 @@ import { isAdminOrEditor, publicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { afterChangeIndexingHook } from '../lib/indexing';
+import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
 
 /**
  * Categories AND content sections. New entries flow into the nav, hub pages and
@@ -38,6 +39,6 @@ export const Categories: CollectionConfig = {
     seoField,
   ],
   hooks: {
-    afterChange: [afterChangeIndexingHook],
+    afterChange: [afterChangeIndexingHook, triggerVercelDeploy],
   },
 };

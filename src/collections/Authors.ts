@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload';
 import { isAdminOrEditor, publicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
+import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
 
 const isHex = (v: string | null | undefined) =>
   v ? /^#[0-9a-fA-F]{6}$/.test(v) || /^#[0-9a-fA-F]{3}$/.test(v) : true;
@@ -50,4 +51,5 @@ export const Authors: CollectionConfig = {
       ],
     },
   ],
+  hooks: { afterChange: [triggerVercelDeploy] },
 };

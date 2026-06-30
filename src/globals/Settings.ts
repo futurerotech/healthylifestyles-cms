@@ -1,5 +1,6 @@
 import type { GlobalConfig } from 'payload';
 import { isAdmin, publicRead } from '../access/roles';
+import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
 
 export const Settings: GlobalConfig = {
   slug: 'settings',
@@ -88,4 +89,5 @@ export const Settings: GlobalConfig = {
       ],
     },
   ],
+  hooks: { afterChange: [triggerVercelDeploy] },
 };
