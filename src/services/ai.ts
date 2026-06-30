@@ -27,9 +27,9 @@ import {
 
 /* ---------------------------- providers ---------------------------- */
 
-export type AIProvider = 'gemini' | 'nararouter' | 'deepseek' | 'zai' | 'local' | 'anthropic';
+export type AIProvider = 'gemini' | 'nararouter' | 'mimo-v2.5-free' | 'mimo-v2.5-pro-free' | 'mistral-large' | 'mistral-medium-3-5' | 'deepseek' | 'zai' | 'local' | 'anthropic';
 
-const VALID_PROVIDERS: readonly AIProvider[] = ['gemini', 'nararouter', 'deepseek', 'zai', 'local', 'anthropic'];
+const VALID_PROVIDERS: readonly AIProvider[] = ['gemini', 'nararouter', 'mimo-v2.5-free', 'mimo-v2.5-pro-free', 'mistral-large', 'mistral-medium-3-5', 'deepseek', 'zai', 'local', 'anthropic'];
 
 /** Guard: coerce arbitrary input to a valid provider, defaulting to gemini. Never throws. */
 export function coerceProvider(value: unknown): AIProvider {
@@ -171,6 +171,17 @@ const callNaraRouter = (prompt: string): Promise<string> =>
     requireKey: true,
   });
 
+/** Factory: create a NaraRouter caller for a specific model name. */
+const callNaraRouterModel = (model: string) => (prompt: string): Promise<string> =>
+  callOpenAICompatible({
+    label: `NaraRouter (${model})`,
+    baseURL: process.env.NARAROUTER_BASE_URL || 'https://router.bynara.id/v1',
+    apiKey: process.env.NARAROUTER_API_KEY,
+    model,
+    prompt,
+    requireKey: true,
+  });
+
 /** Anthropic Claude via the official SDK (plain text completion). */
 async function callAnthropic(prompt: string): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) throw new AIError('not_configured', 'Anthropic needs ANTHROPIC_API_KEY.', 503);
@@ -208,6 +219,10 @@ function mapAnthropicError(err: unknown): AIError {
 const PROVIDERS: Record<AIProvider, (prompt: string) => Promise<string>> = {
   gemini: callGemini,
   nararouter: callNaraRouter,
+  'mimo-v2.5-free': callNaraRouterModel('mimo-v2.5-free'),
+  'mimo-v2.5-pro-free': callNaraRouterModel('mimo-v2.5-pro-free'),
+  'mistral-large': callNaraRouterModel('mistral-large'),
+  'mistral-medium-3-5': callNaraRouterModel('mistral-medium-3-5'),
   deepseek: callDeepSeek,
   zai: callZai,
   local: callLocal,

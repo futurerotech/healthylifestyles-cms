@@ -262,9 +262,6 @@ async function loadContext(
 function preflight(req: PayloadRequest): Response | null {
   if (!req.user) return Response.json({ success: false, error: 'Not authenticated.' }, { status: 401 });
   if (!isEditor(req)) return Response.json({ success: false, error: 'Editors only.' }, { status: 403 });
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return Response.json({ success: false, error: 'AI is not configured (ANTHROPIC_API_KEY).' }, { status: 503 });
-  }
   if (rateLimited(String(req.user.id))) {
     return Response.json({ success: false, error: 'Too many requests — wait a minute and retry.' }, { status: 429 });
   }
