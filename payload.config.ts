@@ -1,7 +1,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { buildConfig } from 'payload';
-import { sqliteAdapter } from '@payloadcms/db-sqlite';
+import { postgresAdapter } from '@payloadcms/db-postgres';
 import { lexicalEditor } from '@payloadcms/richtext-lexical';
 import sharp from 'sharp';
 
@@ -63,6 +63,14 @@ if (!process.env.PAYLOAD_SECRET) {
   );
 }
 
+// Postgres connection string is mandatory — without it the CMS has no database.
+if (!process.env.DATABASE_URI) {
+  throw new Error(
+    'DATABASE_URI is not set. Provide a PostgreSQL connection string ' +
+      '(e.g. postgres://user:pass@host/db?sslmode=require).',
+  );
+}
+
 export default buildConfig({
   admin: {
     user: Users.slug,
@@ -95,12 +103,21 @@ export default buildConfig({
   collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory],
   globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience],
   editor: lexicalEditor(),
-  db: sqliteAdapter({
-    client: {
-      url: process.env.DATABASE_URI || 'file:./payload.db',
-      authToken: process.env.DATABASE_TOKEN,
+  db: postgresAdapter({
+    pool: {
+      connectionString: process.env.DATABASE_URI,
+      // Supabase presents a cert that isn't in Node's default trust store, and
+      // recent pg treats sslmode=require as verify-full. Encrypt the connection
+      // without CA verification (the documented Supabase + node-postgres setup).
+      ssl: { rejectUnauthorized: false },
     },
-    push: true,
+    // Pin the migration folder so `payload migrate` finds it on deploy
+    // regardless of the host's working directory.
+    migrationDir: path.resolve(dirname, 'src/migrations'),
+    // Schema is owned by committed migrations, which run on deploy
+    // (`payload migrate` in the build step). Auto-push only in local dev so a
+    // production deploy can never silently mutate the live Postgres schema.
+    push: process.env.NODE_ENV !== 'production',
   }),
   secret: process.env.PAYLOAD_SECRET,
   serverURL: process.env.SERVER_URL || SITE_URL,
