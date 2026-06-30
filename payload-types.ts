@@ -942,6 +942,35 @@ export interface Article {
     twitterImage?: (number | null) | Media;
   };
   /**
+   * Deep, machine-readable medical/physiological entities (e.g. "insulin resistance", "basal metabolic rate equation"). Emitted into the article JSON-LD `about` + keywords for Google E-E-A-T and AI citation.
+   */
+  semanticEntities?:
+    | {
+        term: string;
+        /**
+         * Optional authoritative URL (NIH / MeSH / Wikipedia) used as sameAs.
+         */
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Which AI model drafts this article. Falls back to Gemini if unset.
+   */
+  aiProvider?: ('gemini' | 'nararouter' | 'deepseek' | 'zai' | 'local' | 'anthropic') | null;
+  /**
+   * Set automatically when AI drafts this article.
+   */
+  aiGenerated?: boolean | null;
+  /**
+   * Tick once a human has reviewed the AI draft — hides the “AI draft” banner.
+   */
+  reviewedByHuman?: boolean | null;
+  /**
+   * Suggested hero-image prompt from the last AI generation.
+   */
+  aiImagePrompt?: string | null;
+  /**
    * Lowercase URL segment. Auto-generated from the name — edit if you need a custom URL.
    */
   slug?: string | null;
@@ -2290,6 +2319,17 @@ export interface ArticlesSelect<T extends boolean = true> {
         twitterDescription?: T;
         twitterImage?: T;
       };
+  semanticEntities?:
+    | T
+    | {
+        term?: T;
+        url?: T;
+        id?: T;
+      };
+  aiProvider?: T;
+  aiGenerated?: T;
+  reviewedByHuman?: T;
+  aiImagePrompt?: T;
   slug?: T;
   category?: T;
   author?: T;

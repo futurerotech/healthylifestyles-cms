@@ -1,11 +1,11 @@
 import type { GlobalConfig } from 'payload';
-import { isAdmin } from '../access/roles';
+import { isAdminOrEditor } from '../access/roles';
 
 export const AdManagement: GlobalConfig = {
   slug: 'ad-management',
   label: 'Ad Management',
   admin: { group: 'Settings' },
-  access: { read: isAdmin, update: isAdmin },
+  access: { read: () => true, update: isAdminOrEditor },
   fields: [
     {
       type: 'tabs',
