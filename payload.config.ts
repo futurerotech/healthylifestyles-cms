@@ -41,7 +41,6 @@ import { csvImport } from './src/endpoints/csvImport';
 import { sendPush } from './src/endpoints/sendPush';
 import { subscriberSync } from './src/endpoints/subscriberSync';
 import { generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint } from './src/endpoints/generateArticle';
-import { runMigration } from './src/endpoints/run-migration';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -101,6 +100,7 @@ export default buildConfig({
       url: process.env.DATABASE_URI || 'file:./payload.db',
       authToken: process.env.DATABASE_TOKEN,
     },
+    push: true,
   }),
   secret: process.env.PAYLOAD_SECRET,
   serverURL: process.env.SERVER_URL || SITE_URL,
@@ -110,5 +110,5 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   sharp,
-  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, runMigration],
+  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint],
 });

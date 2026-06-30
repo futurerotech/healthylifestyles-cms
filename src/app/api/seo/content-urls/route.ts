@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { authorizeSeoRequest } from '../../../../lib/seo-guard';
 
 export const runtime = 'nodejs';
-export const revalidate = 60; // stale-while-revalidate
+export const dynamic = 'force-dynamic';
 
 interface ContentUrl {
   id: string;
