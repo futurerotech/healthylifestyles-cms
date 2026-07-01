@@ -21,6 +21,7 @@
     "@payloadcms/db-postgres": "^3.85.1",
     "@payloadcms/next": "^3.0.0",
     "@payloadcms/richtext-lexical": "^3.0.0",
+    "@payloadcms/storage-s3": "^3.85.1",
     "@payloadcms/ui": "^3.0.0",
     "cross-env": "^7.0.3",
     "googleapis": "^173.0.0",

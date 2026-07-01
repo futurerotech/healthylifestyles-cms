@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import { buildConfig } from 'payload';
 import { postgresAdapter } from '@payloadcms/db-postgres';
 import { lexicalEditor } from '@payloadcms/richtext-lexical';
+import { s3Storage } from '@payloadcms/storage-s3';
 import sharp from 'sharp';
 
 import { Users } from './src/collections/Users';
@@ -71,6 +72,54 @@ if (!process.env.DATABASE_URI) {
   );
 }
 
+/**
+ * Persistent media storage. Hostinger wipes the app folder on every redeploy, so
+ * locally-stored uploads vanish. When the S3/R2 env vars are present, uploads go
+ * to the bucket instead and survive deploys. When S3_PUBLIC_URL is also set, media
+ * docs get ABSOLUTE public URLs (served straight from the bucket / CDN) so the
+ * static Astro site can load them directly. Without S3 env (local dev) it falls
+ * back to the Media collection's local staticDir — nothing else changes.
+ */
+const S3_PUBLIC_URL = (process.env.S3_PUBLIC_URL || '').replace(/\/$/, '');
+const s3Enabled = !!(
+  process.env.S3_BUCKET &&
+  process.env.S3_ENDPOINT &&
+  process.env.S3_ACCESS_KEY_ID &&
+  process.env.S3_SECRET_ACCESS_KEY
+);
+
+const storagePlugins = s3Enabled
+  ? [
+      s3Storage({
+        collections: {
+          media: {
+            prefix: 'media',
+            // With a public base URL, serve files straight from the bucket (no
+            // Payload proxy) so their `url` is absolute + public for the SSG site.
+            ...(S3_PUBLIC_URL
+              ? {
+                  disablePayloadAccessControl: true as const,
+                  generateFileURL: ({ filename, prefix }: { filename: string; prefix?: string }) =>
+                    `${S3_PUBLIC_URL}/${prefix ? `${prefix}/` : ''}${filename}`,
+                }
+              : {}),
+          },
+        },
+        bucket: process.env.S3_BUCKET as string,
+        config: {
+          endpoint: process.env.S3_ENDPOINT,
+          region: process.env.S3_REGION || 'auto',
+          credentials: {
+            accessKeyId: process.env.S3_ACCESS_KEY_ID as string,
+            secretAccessKey: process.env.S3_SECRET_ACCESS_KEY as string,
+          },
+          // Required for Cloudflare R2 (and MinIO); harmless for AWS S3.
+          forcePathStyle: true,
+        },
+      }),
+    ]
+  : [];
+
 export default buildConfig({
   admin: {
     user: Users.slug,
@@ -103,6 +152,7 @@ export default buildConfig({
   collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory],
   globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience],
   editor: lexicalEditor(),
+  plugins: storagePlugins,
   db: postgresAdapter({
     pool: {
       connectionString: process.env.DATABASE_URI,
