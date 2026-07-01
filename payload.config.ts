@@ -88,37 +88,44 @@ const s3Enabled = !!(
   process.env.S3_SECRET_ACCESS_KEY
 );
 
-const storagePlugins = s3Enabled
-  ? [
-      s3Storage({
-        collections: {
-          media: {
-            prefix: 'media',
-            // With a public base URL, serve files straight from the bucket (no
-            // Payload proxy) so their `url` is absolute + public for the SSG site.
-            ...(S3_PUBLIC_URL
-              ? {
-                  disablePayloadAccessControl: true as const,
-                  generateFileURL: ({ filename, prefix }: { filename: string; prefix?: string }) =>
-                    `${S3_PUBLIC_URL}/${prefix ? `${prefix}/` : ''}${filename}`,
-                }
-              : {}),
-          },
-        },
-        bucket: process.env.S3_BUCKET as string,
-        config: {
-          endpoint: process.env.S3_ENDPOINT,
-          region: process.env.S3_REGION || 'auto',
-          credentials: {
-            accessKeyId: process.env.S3_ACCESS_KEY_ID as string,
-            secretAccessKey: process.env.S3_SECRET_ACCESS_KEY as string,
-          },
-          // Required for Cloudflare R2 (and MinIO); harmless for AWS S3.
-          forcePathStyle: true,
-        },
-      }),
-    ]
-  : [];
+// The S3 plugin is ALWAYS instantiated so the DB schema (its `prefix` field) and
+// the admin importMap are identical in every environment — they never differ
+// based on whether the S3 env vars happen to be set, which is what caused the
+// blank admin (missing importMap entry) and migration flip-flops. `enabled` only
+// toggles whether uploads actually go to the bucket: on in prod, off in local dev
+// (falls back to the Media collection's local staticDir). `alwaysInsertFields`
+// keeps the `prefix` column present regardless of `enabled`.
+const storagePlugins = [
+  s3Storage({
+    enabled: s3Enabled,
+    alwaysInsertFields: true,
+    collections: {
+      media: {
+        prefix: 'media',
+        // With a public base URL, serve files straight from the bucket (no
+        // Payload proxy) so their `url` is absolute + public for the SSG site.
+        ...(S3_PUBLIC_URL
+          ? {
+              disablePayloadAccessControl: true as const,
+              generateFileURL: ({ filename, prefix }: { filename: string; prefix?: string }) =>
+                `${S3_PUBLIC_URL}/${prefix ? `${prefix}/` : ''}${filename}`,
+            }
+          : {}),
+      },
+    },
+    bucket: process.env.S3_BUCKET || 'healthylifestyles-media',
+    config: {
+      endpoint: process.env.S3_ENDPOINT,
+      region: process.env.S3_REGION || 'auto',
+      credentials: {
+        accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
+      },
+      // Required for Cloudflare R2 (and MinIO); harmless for AWS S3.
+      forcePathStyle: true,
+    },
+  }),
+];
 
 export default buildConfig({
   admin: {
