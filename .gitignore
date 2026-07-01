@@ -13,3 +13,6 @@ nul
 *service-account*.json
 *-credentials*.json
 google-*.json
+
+# Local SQLite database (production uses Postgres)
+payload.db
