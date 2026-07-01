@@ -114,10 +114,13 @@ export default buildConfig({
     // Pin the migration folder so `payload migrate` finds it on deploy
     // regardless of the host's working directory.
     migrationDir: path.resolve(dirname, 'src/migrations'),
-    // Schema is owned by committed migrations, which run on deploy
-    // (`payload migrate` in the build step). Auto-push only in local dev so a
-    // production deploy can never silently mutate the live Postgres schema.
-    push: process.env.NODE_ENV !== 'production',
+    // Schema is owned by committed migrations, applied manually via
+    // `npm run migrate`. `push` (Payload's dev auto-schema-sync) is OFF
+    // everywhere by default and only turns on when a developer explicitly sets
+    // ALLOW_DB_PUSH=true — intended for a throwaway local dev database. This
+    // universally protects the live Supabase schema from accidental
+    // mutation/drops during local `npm run dev`.
+    push: process.env.ALLOW_DB_PUSH === 'true',
   }),
   secret: process.env.PAYLOAD_SECRET,
   serverURL: process.env.SERVER_URL || SITE_URL,
