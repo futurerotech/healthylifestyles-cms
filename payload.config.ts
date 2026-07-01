@@ -1,7 +1,7 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { buildConfig } from 'payload';
-import { postgresAdapter } from '@payloadcms/db-postgres';
+import { sqliteAdapter } from '@payloadcms/db-sqlite';
 import { lexicalEditor } from '@payloadcms/richtext-lexical';
 import sharp from 'sharp';
 
@@ -63,14 +63,6 @@ if (!process.env.PAYLOAD_SECRET) {
   );
 }
 
-// Postgres connection string is mandatory — without it the CMS has no database.
-if (!process.env.DATABASE_URI) {
-  throw new Error(
-    'DATABASE_URI is not set. Provide a PostgreSQL connection string ' +
-      '(e.g. postgres://user:pass@host/db?sslmode=require).',
-  );
-}
-
 export default buildConfig({
   admin: {
     user: Users.slug,
@@ -93,8 +85,6 @@ export default buildConfig({
       beforeLogin: ['@/components/admin/BeforeLogin#BeforeLogin'],
       beforeDashboard: ['@/components/admin/Dashboard#Dashboard'],
     },
-    // Suppress Payload's default collection/global "card" widgets so the only
-    // dashboard content is our custom analytics Dashboard (beforeDashboard).
     dashboard: {
       widgets: [],
       defaultLayout: [],
@@ -103,24 +93,11 @@ export default buildConfig({
   collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory],
   globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience],
   editor: lexicalEditor(),
-  db: postgresAdapter({
-    pool: {
-      connectionString: process.env.DATABASE_URI,
-      // Supabase presents a cert that isn't in Node's default trust store, and
-      // recent pg treats sslmode=require as verify-full. Encrypt the connection
-      // without CA verification (the documented Supabase + node-postgres setup).
-      ssl: { rejectUnauthorized: false },
+  db: sqliteAdapter({
+    client: {
+      url: process.env.DATABASE_URI || 'file:./payload.db',
     },
-    // Pin the migration folder so `payload migrate` finds it on deploy
-    // regardless of the host's working directory.
-    migrationDir: path.resolve(dirname, 'src/migrations'),
-    // Schema is owned by committed migrations, applied manually via
-    // `npm run migrate`. `push` (Payload's dev auto-schema-sync) is OFF
-    // everywhere by default and only turns on when a developer explicitly sets
-    // ALLOW_DB_PUSH=true — intended for a throwaway local dev database. This
-    // universally protects the live Supabase schema from accidental
-    // mutation/drops during local `npm run dev`.
-    push: process.env.ALLOW_DB_PUSH === 'true',
+    push: true,
   }),
   secret: process.env.PAYLOAD_SECRET,
   serverURL: process.env.SERVER_URL || SITE_URL,

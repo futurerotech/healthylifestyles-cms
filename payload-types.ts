@@ -957,7 +957,20 @@ export interface Article {
   /**
    * Which AI model drafts this article. Falls back to Gemini if unset.
    */
-  aiProvider?: ('gemini' | 'nararouter' | 'deepseek' | 'zai' | 'local' | 'anthropic') | null;
+  aiProvider?:
+    | (
+        | 'gemini'
+        | 'nararouter'
+        | 'mimo-v2.5-free'
+        | 'mimo-v2.5-pro-free'
+        | 'mistral-large'
+        | 'mistral-medium-3-5'
+        | 'deepseek'
+        | 'zai'
+        | 'local'
+        | 'anthropic'
+      )
+    | null;
   /**
    * Set automatically when AI drafts this article.
    */
