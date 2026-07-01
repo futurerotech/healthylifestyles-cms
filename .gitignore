@@ -16,3 +16,6 @@ google-*.json
 
 # Local SQLite database (production uses Postgres)
 payload.db
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
