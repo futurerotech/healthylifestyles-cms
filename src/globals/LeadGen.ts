@@ -1,6 +1,5 @@
 import type { GlobalConfig } from 'payload';
 import { isAdmin, publicRead } from '../access/roles';
-import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
 
 export const LeadGen: GlobalConfig = {
   slug: 'lead-gen',
@@ -139,5 +138,4 @@ export const LeadGen: GlobalConfig = {
       ],
     },
   ],
-  hooks: { afterChange: [triggerVercelDeploy] },
 };

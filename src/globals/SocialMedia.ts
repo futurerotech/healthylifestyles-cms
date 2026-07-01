@@ -1,6 +1,5 @@
 import type { GlobalConfig } from 'payload';
 import { isAdmin } from '../access/roles';
-import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
 
 const SOCIAL_PLATFORMS = [
   'Facebook', 'X (Twitter)', 'Instagram', 'YouTube', 'LinkedIn',
@@ -78,5 +77,4 @@ export const SocialMedia: GlobalConfig = {
       ],
     },
   ],
-  hooks: { afterChange: [triggerVercelDeploy] },
 };

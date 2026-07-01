@@ -1,6 +1,5 @@
 import type { GlobalConfig } from 'payload';
 import { isAdmin } from '../access/roles';
-import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
 
 export const Indexing: GlobalConfig = {
   slug: 'indexing',
@@ -24,5 +23,4 @@ export const Indexing: GlobalConfig = {
       admin: { components: { Field: '@/components/admin/IndexingDashboard#IndexingDashboard' } },
     },
   ],
-  hooks: { afterChange: [triggerVercelDeploy] },
 };

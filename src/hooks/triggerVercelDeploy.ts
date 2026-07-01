@@ -50,12 +50,7 @@ function fireAndForget(reason: string): void {
 }
 
 const run = (args: DeployHookArgs = {}): void => {
-  const status = args.doc?._status;
-  const prevStatus = args.previousDoc?._status;
-
-  // Skip pure draft saves/autosaves; still rebuild on publish and on unpublish
-  // (published -> draft) so the removed page leaves the static site.
-  if (status === 'draft' && prevStatus !== 'published') return;
+  if (args.doc?._status !== 'published') return;
 
   const label = args.collection?.slug ?? args.global?.slug ?? 'content';
   fireAndForget(args.operation ? `${label}:${args.operation}` : label);

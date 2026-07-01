@@ -1,6 +1,5 @@
 import type { GlobalConfig } from 'payload';
 import { isAdminOrEditor } from '../access/roles';
-import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
 
 export const AdManagement: GlobalConfig = {
   slug: 'ad-management',
@@ -149,5 +148,4 @@ export const AdManagement: GlobalConfig = {
       ],
     },
   ],
-  hooks: { afterChange: [triggerVercelDeploy] },
 };

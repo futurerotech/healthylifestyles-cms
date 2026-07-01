@@ -1,6 +1,5 @@
 import type { GlobalConfig } from 'payload';
 import { isAdmin } from '../access/roles';
-import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
 
 export const Audience: GlobalConfig = {
   slug: 'audience',
@@ -154,5 +153,4 @@ export const Audience: GlobalConfig = {
       ],
     },
   ],
-  hooks: { afterChange: [triggerVercelDeploy] },
 };

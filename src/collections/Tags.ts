@@ -1,8 +1,6 @@
 import type { CollectionConfig } from 'payload';
 import { isAdminOrEditor, publicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
-import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
-
 export const Tags: CollectionConfig = {
   slug: 'tags',
   admin: {
@@ -17,5 +15,4 @@ export const Tags: CollectionConfig = {
     slugField('name'),
     { name: 'description', type: 'textarea' },
   ],
-  hooks: { afterChange: [triggerVercelDeploy] },
 };
