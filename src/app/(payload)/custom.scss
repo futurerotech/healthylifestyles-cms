@@ -70,28 +70,34 @@ html[data-theme='light'] {
    elevation designed for glassy cards and charts. Declared again on :root
    (below) so dark is the effective default on first load. */
 html[data-theme='dark'] {
-  --theme-bg: #0b1220;
-  --theme-input-bg: #0f1a30;
-  --theme-text: #e8edf6;
+  color-scheme: dark;
+
+  --theme-bg: #0f1b2d;
+  --theme-input-bg: #14243a;
+  --theme-text: #edeae0; /* warm off-white — ~12:1 on #14243a */
   --theme-overlay: rgba(2, 6, 23, 0.65);
 
-  --theme-elevation-0: #0b1220;
-  --theme-elevation-50: #0d1626;
-  --theme-elevation-100: #111c31;
-  --theme-elevation-150: #162238;
-  --theme-elevation-200: #1b2944;
-  --theme-elevation-250: #223355;
-  --theme-elevation-300: #2c3f63;
-  --theme-elevation-350: #3a4f76;
-  --theme-elevation-400: #4a6088;
-  --theme-elevation-450: #5b72a0;
-  --theme-elevation-500: #6e85ad;
-  --theme-elevation-550: #8398bd;
-  --theme-elevation-600: #99adce;
-  --theme-elevation-700: #c2d0e4;
-  --theme-elevation-800: #dfe7f2;
-  --theme-elevation-900: #f0f4fa;
-  --theme-elevation-1000: #ffffff;
+  /* Low steps = navy SURFACES (#0f1b2d → #456180); high steps = warm TEXT
+     grays anchored on #9c9a92 (muted, ~4.9:1 on #14243a = WCAG AA) up to
+     #edeae0. Components read text from 450+, surfaces/borders from 0–400,
+     so nothing dark ever lands on a dark surface. */
+  --theme-elevation-0: #0f1b2d;
+  --theme-elevation-50: #132135;
+  --theme-elevation-100: #17273e;
+  --theme-elevation-150: #1c2e48;
+  --theme-elevation-200: #223752;
+  --theme-elevation-250: #2a4160;
+  --theme-elevation-300: #345071;
+  --theme-elevation-350: #456180;
+  --theme-elevation-400: #5d7690;
+  --theme-elevation-450: #9c9a92;
+  --theme-elevation-500: #a8a69e;
+  --theme-elevation-550: #b5b3ab;
+  --theme-elevation-600: #c2c0b8;
+  --theme-elevation-700: #d5d3cb;
+  --theme-elevation-800: #e2e0d8;
+  --theme-elevation-900: #edeae0;
+  --theme-elevation-1000: #f7f5ee;
 }
 
 /* Accent ramps + surface treatments (both themes; harmless when unused). */
@@ -102,8 +108,8 @@ html[data-theme='dark'] {
   --hls-accent-amber: #f59e0b;
   --hls-accent-rose: #f43f5e;
 
-  --hls-card-bg: #0f1a30;
-  --hls-card-border: #1e2d4a;
+  --hls-card-bg: #14243a;
+  --hls-card-border: #23344f;
   --hls-card-shadow: 0 1px 2px rgba(2, 6, 23, 0.4), 0 8px 24px -12px rgba(2, 6, 23, 0.6);
   --hls-nav-bg: rgba(13, 22, 41, 0.85);
 }
@@ -2320,3 +2326,57 @@ html[data-theme='dark'] .hls-aigen__verify-note { background: rgba(217, 119, 6, 
 .hls-aigen__claim-flag { display: inline-block; margin-right: 0.4rem; font-size: 0.68rem; font-weight: 700; color: #b45309; }
 .hls-aigen__src { list-style: none; margin: 0.4rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.2rem; }
 .hls-aigen__src a { font-size: 0.74rem; color: var(--theme-success-600, #15803d); word-break: break-word; }
+
+/* ============================================================
+   SITE AUDIT — severity badges + issues table (WCAG AA both themes)
+   Light: pale fill + dark label. Dark: deep fill + LIGHT label — never
+   dark-on-dark.
+   ============================================================ */
+.hls-sev {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.14rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.hls-sev--high { background: #fee2e2; color: #991b1b; }
+.hls-sev--medium { background: #fef3c7; color: #854d0e; }
+.hls-sev--low { background: #dbeafe; color: #1e40af; }
+html[data-theme='dark'] .hls-sev--high { background: #7f1d1d; color: #fecaca; }
+html[data-theme='dark'] .hls-sev--medium { background: #854f0b; color: #faeeda; }
+html[data-theme='dark'] .hls-sev--low { background: #1e3a8a; color: #dbeafe; }
+
+.hls-audit-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.hls-audit-table th {
+  text-align: left;
+  padding: 6px 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--theme-elevation-500);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hls-audit-table td {
+  padding: 7px 8px;
+  font-size: 0.82rem;
+  vertical-align: top;
+  border-top: 1px solid var(--theme-elevation-150);
+  color: var(--theme-text);
+}
+.hls-audit-table tbody tr { transition: background-color 0.1s ease; }
+.hls-audit-table tbody tr:hover { background: color-mix(in srgb, var(--theme-elevation-200) 45%, transparent); }
+.hls-audit-table a { color: var(--theme-text); }
+.hls-audit-table a:hover { color: var(--theme-success-500); }
+html[data-theme='dark'] .hls-audit-table a:hover { color: var(--theme-success-300); }
+.hls-audit__fix { font-size: 0.76rem; color: var(--theme-elevation-500); }
+.hls-audit__jump { font-weight: 700; font-size: 0.78rem; color: var(--theme-success-600) !important; }
+html[data-theme='dark'] .hls-audit__jump { color: var(--theme-success-300) !important; }

@@ -150,8 +150,7 @@ export function SiteAuditPanel() {
     background: active ? `${color || 'var(--theme-elevation-400)'}22` : 'transparent',
     color: 'inherit',
   });
-  const th: React.CSSProperties = { textAlign: 'left', padding: '6px 8px', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em', opacity: 0.7, cursor: 'pointer', whiteSpace: 'nowrap' };
-  const td: React.CSSProperties = { padding: '7px 8px', fontSize: 13, verticalAlign: 'top', borderTop: '1px solid var(--theme-elevation-100)' };
+  const tdEllipsis: React.CSSProperties = { maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 
   return (
     <div className="hls-bi__card hls-bi__card--span2" style={{ marginTop: '1rem' }}>
@@ -200,36 +199,36 @@ export function SiteAuditPanel() {
             <p style={{ fontSize: 13, opacity: 0.7 }}>No issues match the current filter — nice.</p>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <table className="hls-audit-table">
                 <thead>
                   <tr>
-                    <th style={th} onClick={() => setSortKey('severity')}>Severity {sortKey === 'severity' ? '▾' : ''}</th>
-                    <th style={th} onClick={() => setSortKey('category')}>Category {sortKey === 'category' ? '▾' : ''}</th>
-                    <th style={th} onClick={() => setSortKey('page')}>Page {sortKey === 'page' ? '▾' : ''}</th>
-                    <th style={{ ...th, cursor: 'default' }}>Issue → Fix</th>
-                    <th style={{ ...th, cursor: 'default' }} />
+                    <th onClick={() => setSortKey('severity')}>Severity {sortKey === 'severity' ? '▾' : ''}</th>
+                    <th onClick={() => setSortKey('category')}>Category {sortKey === 'category' ? '▾' : ''}</th>
+                    <th onClick={() => setSortKey('page')}>Page {sortKey === 'page' ? '▾' : ''}</th>
+                    <th style={{ cursor: 'default' }}>Issue → Fix</th>
+                    <th style={{ cursor: 'default' }} />
                   </tr>
                 </thead>
                 <tbody>
                   {shown.map((i, idx) => (
                     <tr key={idx}>
-                      <td style={td}>
-                        <span style={{ color: SEV_COLOR[i.severity], fontWeight: 800, fontSize: 12, textTransform: 'uppercase' }}>{i.severity}</span>
+                      <td>
+                        <span className={`hls-sev hls-sev--${i.severity}`}>{i.severity}</span>
                       </td>
-                      <td style={td}>{CAT_LABEL[i.category]}</td>
-                      <td style={{ ...td, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td>{CAT_LABEL[i.category]}</td>
+                      <td style={tdEllipsis}>
                         {i.page.startsWith('/') && !i.page.includes(',') && !i.page.includes('↔') ? (
                           <a href={i.page} target="_blank" rel="noopener noreferrer" title={i.page}>{i.page}</a>
                         ) : (
                           <span title={i.page}>{i.page}</span>
                         )}
                       </td>
-                      <td style={td}>
+                      <td>
                         <div>{i.message}</div>
-                        <div style={{ fontSize: 12, opacity: 0.65 }}>{i.fix}</div>
+                        <div className="hls-audit__fix">{i.fix}</div>
                       </td>
-                      <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                        {i.adminPath && <a href={i.adminPath} style={{ fontWeight: 700, fontSize: 12 }}>Fix →</a>}
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        {i.adminPath && <a href={i.adminPath} className="hls-audit__jump">Fix →</a>}
                       </td>
                     </tr>
                   ))}
