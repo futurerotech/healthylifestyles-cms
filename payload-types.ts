@@ -91,6 +91,7 @@ export interface Config {
     'outreach-templates': OutreachTemplate;
     backlinks: Backlink;
     'embed-logs': EmbedLog;
+    'site-audits': SiteAudit;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -123,6 +124,7 @@ export interface Config {
     'outreach-templates': OutreachTemplatesSelect<false> | OutreachTemplatesSelect<true>;
     backlinks: BacklinksSelect<false> | BacklinksSelect<true>;
     'embed-logs': EmbedLogsSelect<false> | EmbedLogsSelect<true>;
+    'site-audits': SiteAuditsSelect<false> | SiteAuditsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -1817,6 +1819,44 @@ export interface EmbedLog {
   createdAt: string;
 }
 /**
+ * Read-only scan results. Run a new scan from the dashboard (or POST /api/audit/run).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-audits".
+ */
+export interface SiteAudit {
+  id: number;
+  status: 'running' | 'complete' | 'failed';
+  /**
+   * 100 = clean; −5/high, −2/medium, −0.5/low.
+   */
+  healthScore?: number | null;
+  pagesScanned?: number | null;
+  highCount?: number | null;
+  mediumCount?: number | null;
+  lowCount?: number | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  /**
+   * Populated only when the scan failed.
+   */
+  error?: string | null;
+  /**
+   * Array of { severity, category, page, message, fix, adminPath? }.
+   */
+  issues?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -2027,6 +2067,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'embed-logs';
         value: number | EmbedLog;
+      } | null)
+    | ({
+        relationTo: 'site-audits';
+        value: number | SiteAudit;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -2937,6 +2981,24 @@ export interface EmbedLogsSelect<T extends boolean = true> {
   referrerUrl?: T;
   count?: T;
   lastSeenAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "site-audits_select".
+ */
+export interface SiteAuditsSelect<T extends boolean = true> {
+  status?: T;
+  healthScore?: T;
+  pagesScanned?: T;
+  highCount?: T;
+  mediumCount?: T;
+  lowCount?: T;
+  startedAt?: T;
+  finishedAt?: T;
+  error?: T;
+  issues?: T;
   updatedAt?: T;
   createdAt?: T;
 }

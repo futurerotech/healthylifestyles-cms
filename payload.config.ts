@@ -30,6 +30,7 @@ import { LinkProspects } from './src/collections/LinkProspects';
 import { OutreachTemplates } from './src/collections/OutreachTemplates';
 import { Backlinks } from './src/collections/Backlinks';
 import { EmbedLogs } from './src/collections/EmbedLogs';
+import { SiteAudits } from './src/collections/SiteAudits';
 import { Settings } from './src/globals/Settings';
 import { Indexing } from './src/globals/Indexing';
 import { SocialMedia } from './src/globals/SocialMedia';
@@ -48,6 +49,7 @@ import { subscriberSync } from './src/endpoints/subscriberSync';
 import { generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint } from './src/endpoints/generateArticle';
 import { trackEmbed } from './src/endpoints/trackEmbed';
 import { checkBacklinks } from './src/endpoints/checkBacklinks';
+import { runAudit } from './src/endpoints/runAudit';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -162,7 +164,7 @@ export default buildConfig({
       defaultLayout: [],
     },
   },
-  collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory, LinkProspects, OutreachTemplates, Backlinks, EmbedLogs],
+  collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory, LinkProspects, OutreachTemplates, Backlinks, EmbedLogs, SiteAudits],
   globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience],
   editor: lexicalEditor(),
   plugins: storagePlugins,
@@ -193,7 +195,7 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   sharp,
-  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks],
+  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks, runAudit],
   // Seed the four default outreach templates once (idempotent: only when the
   // collection is empty). Runs at server boot, never during `payload migrate`.
   onInit: async (payload) => {

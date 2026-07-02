@@ -13,6 +13,7 @@ import { DonutCard } from './dashboard/DonutCard';
 import { computeToolAnalytics, type UsageRecord } from '../../lib/analytics';
 import { SeoIndexingEngine } from '../dashboard/SeoIndexingEngine';
 import { LinkBuildingPanel } from './dashboard/LinkBuildingPanel';
+import { SiteAuditPanel } from './dashboard/SiteAuditPanel';
 
 type AdminUser = { name?: string | null; email?: string | null } | null | undefined;
 type Props = { user?: AdminUser };
@@ -274,6 +275,9 @@ export async function Dashboard({ user }: Props) {
           </a>
         ))}
       </div>
+
+      {/* ---- Site Audit ---- */}
+      <SiteAuditPanel />
 
       {/* ---- Link Building & Outreach ---- */}
       <LinkBuildingPanel />

@@ -2,6 +2,7 @@ import * as migration_20260630_225705_init from './20260630_225705_init';
 import * as migration_20260701_225833_s3_media_prefix from './20260701_225833_s3_media_prefix';
 import * as migration_20260701_232459 from './20260701_232459';
 import * as migration_20260702_183704_link_building from './20260702_183704_link_building';
+import * as migration_20260702_191106_site_audits from './20260702_191106_site_audits';
 
 export const migrations = [
   {
@@ -22,6 +23,11 @@ export const migrations = [
   {
     up: migration_20260702_183704_link_building.up,
     down: migration_20260702_183704_link_building.down,
-    name: '20260702_183704_link_building'
+    name: '20260702_183704_link_building',
+  },
+  {
+    up: migration_20260702_191106_site_audits.up,
+    down: migration_20260702_191106_site_audits.down,
+    name: '20260702_191106_site_audits'
   },
 ];
