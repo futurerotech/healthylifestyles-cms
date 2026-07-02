@@ -73,8 +73,8 @@ html[data-theme='dark'] .seo-engine__error { color: #fca5a5; background: rgba(18
 .seo-btn--primary { background: var(--color-accent); color: #ffffff; }
 .seo-btn--primary:hover:not(:disabled) { background: var(--color-accent-hover); }
 html[data-theme='dark'] .seo-btn--primary { color: #052e16; }
-.seo-btn--danger { background: #ef4444; color: #ffffff; }
-.seo-btn--danger:hover:not(:disabled) { background: #dc2626; }
+.seo-btn--danger { background: #dc2626; color: #ffffff; } /* 4.5:1 with white */
+.seo-btn--danger:hover:not(:disabled) { background: #b91c1c; }
 .seo-btn:disabled { background: var(--color-border); color: var(--color-text-muted); cursor: not-allowed; }
 
 /* Quota bar */

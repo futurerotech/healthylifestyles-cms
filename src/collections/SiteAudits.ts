@@ -13,7 +13,7 @@ export const SiteAudits: CollectionConfig = {
   labels: { singular: 'Site Audit', plural: 'Site Audits' },
   admin: {
     group: 'SEO',
-    useAsTitle: 'id',
+    useAsTitle: 'status',
     defaultColumns: ['createdAt', 'status', 'healthScore', 'highCount', 'mediumCount', 'lowCount', 'pagesScanned'],
     description: 'Read-only scan results. Run a new scan from the dashboard (or POST /api/audit/run).',
   },

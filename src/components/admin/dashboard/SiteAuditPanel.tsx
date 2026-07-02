@@ -166,7 +166,7 @@ export function SiteAuditPanel() {
         </span>
       </div>
 
-      {error && <p style={{ color: '#f43f5e', fontSize: 13 }}>{error}</p>}
+      {error && <p className="hls-audit__error">{error}</p>}
       {loading ? (
         <p style={{ fontSize: 13, opacity: 0.6 }}>Loading…</p>
       ) : !audit ? (

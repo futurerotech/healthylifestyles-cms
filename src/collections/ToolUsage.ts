@@ -5,6 +5,7 @@ export const ToolUsage: CollectionConfig = {
   slug: 'tool-usage',
   admin: {
     group: 'Analytics',
+    useAsTitle: 'sessionId',
     defaultColumns: ['tool', 'completed', 'duration', 'lastFieldReached', 'createdAt'],
     listSearchableFields: ['sessionId'],
     description: 'Anonymous per-session usage data for calculator tools.',

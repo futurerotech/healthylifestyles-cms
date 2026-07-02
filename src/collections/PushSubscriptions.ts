@@ -11,7 +11,7 @@ const internalKeyCreate: Access = ({ req }) => {
 export const PushSubscriptions: CollectionConfig = {
   slug: 'push-subscriptions',
   admin: {
-    useAsTitle: 'id',
+    useAsTitle: 'endpoint',
     group: 'Audience',
     defaultColumns: ['endpoint', 'userAgent', 'subscribedAt', 'createdAt'],
     description: 'Browser push notification subscriptions (VAPID web push).',

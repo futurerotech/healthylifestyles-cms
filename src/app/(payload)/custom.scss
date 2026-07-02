@@ -1721,8 +1721,8 @@ html[data-theme='dark'] .hls-idx__badge--pending { background: #854d0e; color: #
 .hls-soc__v-count { font-variant-numeric: tabular-nums; }
 .hls-soc__v-reco { font-size: 0.72rem; color: var(--theme-elevation-500); }
 .hls-soc__v-row--ok .hls-soc__v-icon { color: var(--theme-success-600); }
-.hls-soc__v-row--warn .hls-soc__v-icon { color: #d97706; }
-.hls-soc__v-row--warn .hls-soc__v-count { color: #d97706; }
+.hls-soc__v-row--warn .hls-soc__v-icon { color: #b45309; }
+.hls-soc__v-row--warn .hls-soc__v-count { color: #b45309; }
 .hls-soc__v-row--over .hls-soc__v-icon { color: #b91c1c; }
 .hls-soc__v-row--over .hls-soc__v-count { color: #b91c1c; font-weight: 700; }
 .hls-soc__v-row--muted .hls-soc__v-icon { color: var(--theme-elevation-400); }
@@ -1756,7 +1756,7 @@ html[data-theme='dark'] .hls-soc__fb-desc { color: var(--theme-elevation-500); }
 .hls-soc__x-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .hls-soc__x-img--empty { display: flex; align-items: center; justify-content: center; font-size: 0.82rem; color: var(--theme-elevation-500); }
 .hls-soc__x-body { padding: 0.6rem 0.75rem; background: #fff; }
-.hls-soc__x-domain { font-size: 0.7rem; color: #8899a6; margin-bottom: 0.15rem; }
+.hls-soc__x-domain { font-size: 0.7rem; color: #5b7083; margin-bottom: 0.15rem; }
 .hls-soc__x-title { font-size: 0.9rem; font-weight: 600; line-height: 1.3; color: #14171a; margin-bottom: 0.15rem; }
 .hls-soc__x-desc { font-size: 0.8rem; line-height: 1.3; color: #697787; }
 html[data-theme='dark'] .hls-soc__x { border-color: var(--theme-elevation-200); }
@@ -1791,6 +1791,7 @@ html[data-theme='dark'] .hls-soc__sms-desc { color: #9ca3af; }
 .hls-seo-ai__chip { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.1rem 0.35rem; border-radius: 0.25rem; background: var(--theme-elevation-100); font-size: 0.82rem; line-height: 1.5; color: var(--theme-elevation-700); }
 .hls-seo-ai__chip-x { border: none; background: none; cursor: pointer; font-size: 1rem; line-height: 1; color: var(--theme-elevation-500); padding: 0; margin: 0; }
 .hls-seo-ai__chip-x:hover { color: #b91c1c; }
+html[data-theme='dark'] .hls-seo-ai__chip-x:hover { color: #fca5a5; }
 .hls-seo-ai__kw-input { flex: 1; min-width: 120px; border: none; background: none; outline: none; font-size: 0.88rem; color: var(--theme-text); padding: 0.1rem 0.2rem; }
 .hls-seo-ai__btn { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.35rem 0.55rem; border: 1px solid var(--theme-elevation-200); border-radius: var(--style-radius-s); background: var(--theme-elevation-50); color: var(--theme-elevation-600); font-size: 0.78rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.15s; flex-shrink: 0; }
 .hls-seo-ai__btn:hover { background: var(--theme-elevation-100); border-color: var(--theme-elevation-300); color: var(--theme-elevation-800); }
@@ -2324,6 +2325,7 @@ html[data-theme='dark'] .hls-aigen__verify-note { background: rgba(217, 119, 6, 
 .hls-aigen__claim--check { border-left: 3px solid #d97706; }
 .hls-aigen__claim-text { font-size: 0.78rem; line-height: 1.45; color: var(--theme-elevation-700); }
 .hls-aigen__claim-flag { display: inline-block; margin-right: 0.4rem; font-size: 0.68rem; font-weight: 700; color: #b45309; }
+html[data-theme='dark'] .hls-aigen__claim-flag { color: #fcd34d; }
 .hls-aigen__src { list-style: none; margin: 0.4rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.2rem; }
 .hls-aigen__src a { font-size: 0.74rem; color: var(--theme-success-600, #15803d); word-break: break-word; }
 
@@ -2380,3 +2382,5 @@ html[data-theme='dark'] .hls-audit-table a:hover { color: var(--theme-success-30
 .hls-audit__fix { font-size: 0.76rem; color: var(--theme-elevation-500); }
 .hls-audit__jump { font-weight: 700; font-size: 0.78rem; color: var(--theme-success-600) !important; }
 html[data-theme='dark'] .hls-audit__jump { color: var(--theme-success-300) !important; }
+.hls-audit__error { color: #b91c1c; font-size: 0.82rem; }
+html[data-theme='dark'] .hls-audit__error { color: #fca5a5; }

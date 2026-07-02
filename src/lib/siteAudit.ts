@@ -220,6 +220,7 @@ async function auditAdminUx(payload: Payload, add: (severity: AuditIssue['severi
       const colorHex = r.body.match(/(?:^|;)\s*color\s*:\s*#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/)?.[1];
       if (!colorHex) continue;
       const bgHex = r.body.match(/(?:^|;)\s*background(?:-color)?\s*:\s*#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/)?.[1];
+      const hasAnyBg = /(?:^|;)\s*background(?:-color)?\s*:/.test(r.body);
       const sel = r.selector.replace(/\s+/g, ' ').slice(0, 70);
       const file = path.basename(rel);
 
@@ -230,6 +231,10 @@ async function auditAdminUx(payload: Payload, add: (severity: AuditIssue['severi
           add(ratio < 3 ? 'high' : 'medium', 'admin', file, `Badge/text "${sel}" is #${colorHex} on #${bgHex} (${ratio.toFixed(1)}:1 — needs 4.5:1).`, 'Use a darker/lighter pair, or theme variables.');
         continue;
       }
+      // Text on its OWN unresolvable background (var()/gradient buttons etc.):
+      // the page surface isn't behind it, so surface comparison would be a
+      // false positive (e.g. white labels on brand-green buttons). Skip.
+      if (hasAnyBg) continue;
 
       if (r.dark) {
         const ratio = contrast(colorHex, DARK_SURFACE);
@@ -276,8 +281,7 @@ async function auditAdminUx(payload: Payload, add: (severity: AuditIssue['severi
       }
       if (failing.size) {
         const name = path.basename(file);
-        const both = [...failing].some((f) => f.includes('both'));
-        add(both ? 'medium' : 'low', 'admin', name, `Inline text color(s) below 4.5:1 in ${name}: ${[...failing].join(', ')}.`, 'Inline styles hit both themes — use theme variables or a CSS class with a dark override.');
+        add('low', 'admin', name, `Inline color(s) below 4.5:1 text contrast in ${name}: ${[...failing].join(', ')}.`, 'If it colors TEXT, use a theme-aware class (icons/graphics only need 3:1 and may be fine).');
       }
     }
   }
