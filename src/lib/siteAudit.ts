@@ -210,9 +210,15 @@ async function auditAdminUx(payload: Payload, add: (severity: AuditIssue['severi
 
     // Class tokens that get a text color inside a dark-scoped rule (= has override).
     const darkColorClasses = new Set<string>();
+    // Class tokens that declare their OWN background in ANY rule (buttons/pills):
+    // their text never sits on the page surface, so surface checks would lie.
+    const bgClasses = new Set<string>();
     for (const r of rules) {
       if (r.dark && /(?:^|;)\s*color\s*:/.test(r.body)) {
         for (const t of r.selector.matchAll(/\.[a-zA-Z][\w-]*/g)) darkColorClasses.add(t[0]);
+      }
+      if (/(?:^|;)\s*background(?:-color)?\s*:/.test(r.body)) {
+        for (const t of r.selector.matchAll(/\.[a-zA-Z][\w-]*/g)) bgClasses.add(t[0]);
       }
     }
 
@@ -233,8 +239,11 @@ async function auditAdminUx(payload: Payload, add: (severity: AuditIssue['severi
       }
       // Text on its OWN unresolvable background (var()/gradient buttons etc.):
       // the page surface isn't behind it, so surface comparison would be a
-      // false positive (e.g. white labels on brand-green buttons). Skip.
-      if (hasAnyBg) continue;
+      // false positive (e.g. white labels on brand-green buttons). Also skip
+      // when ANY rule for the same class declares a background (theme override
+      // blocks often set only `color:` while the base rule owns the bg).
+      const ownBg = [...r.selector.matchAll(/\.[a-zA-Z][\w-]*/g)].some((t) => bgClasses.has(t[0]));
+      if (hasAnyBg || ownBg) continue;
 
       if (r.dark) {
         const ratio = contrast(colorHex, DARK_SURFACE);
