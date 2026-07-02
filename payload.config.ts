@@ -26,6 +26,10 @@ import { Subscribers } from './src/collections/Subscribers';
 import { PushSubscriptions } from './src/collections/PushSubscriptions';
 import { PushHistory } from './src/collections/PushHistory';
 import { Tags } from './src/collections/Tags';
+import { LinkProspects } from './src/collections/LinkProspects';
+import { OutreachTemplates } from './src/collections/OutreachTemplates';
+import { Backlinks } from './src/collections/Backlinks';
+import { EmbedLogs } from './src/collections/EmbedLogs';
 import { Settings } from './src/globals/Settings';
 import { Indexing } from './src/globals/Indexing';
 import { SocialMedia } from './src/globals/SocialMedia';
@@ -42,6 +46,8 @@ import { csvImport } from './src/endpoints/csvImport';
 import { sendPush } from './src/endpoints/sendPush';
 import { subscriberSync } from './src/endpoints/subscriberSync';
 import { generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint } from './src/endpoints/generateArticle';
+import { trackEmbed } from './src/endpoints/trackEmbed';
+import { checkBacklinks } from './src/endpoints/checkBacklinks';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -156,7 +162,7 @@ export default buildConfig({
       defaultLayout: [],
     },
   },
-  collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory],
+  collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory, LinkProspects, OutreachTemplates, Backlinks, EmbedLogs],
   globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience],
   editor: lexicalEditor(),
   plugins: storagePlugins,
@@ -187,5 +193,65 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   sharp,
-  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint],
+  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks],
+  // Seed the four default outreach templates once (idempotent: only when the
+  // collection is empty). Runs at server boot, never during `payload migrate`.
+  onInit: async (payload) => {
+    try {
+      const { totalDocs } = await payload.count({ collection: 'outreach-templates' as never });
+      if (totalDocs > 0) return;
+      const templates = [
+        {
+          name: 'Guest post pitch',
+          type: 'guest-post',
+          subject: 'Guest post idea for {{siteName}}',
+          body:
+            'Hi {{contactName}},\n\n' +
+            "I'm {{myName}} from HealthyLifeStyles — we build free, evidence-based health calculators.\n\n" +
+            'I had an article idea your readers might genuinely use: a practical, non-preachy piece I could write for {{siteName}} (happy to share 2–3 title options). I write from the data our calculators produce, cite primary sources (CDC/WHO/NHS), and keep it educational — no medical claims.\n\n' +
+            'If guest contributions are open, could you point me at your guidelines?\n\nThanks either way,\n{{myName}}',
+          notes: 'Personalize with a line about a recent post of theirs BEFORE the pitch. Never send as-is.',
+        },
+        {
+          name: '“We made a free calculator”',
+          type: 'free-calculator',
+          subject: 'A free {{toolName}} your readers can use',
+          body:
+            'Hi {{contactName}},\n\n' +
+            'I noticed {{pageUrl}} covers this topic well. We built a free, no-signup {{toolName}} that might be a useful add-on for your readers: {{toolUrl}}\n\n' +
+            "It's evidence-based (sources cited on the page), mobile-friendly, and embeddable — if you'd rather host it inside your article, the embed snippet is one copy-paste.\n\n" +
+            'If it fits, a mention or embed would make my day. Happy to return the favor with a look at anything you want feedback on.\n\n{{myName}}',
+          notes: 'Best template for a tools site — the tool does the persuading. Only send to genuinely relevant pages.',
+        },
+        {
+          name: 'Broken-link outreach',
+          type: 'broken-link',
+          subject: 'Broken link on {{pageUrl}}',
+          body:
+            'Hi {{contactName}},\n\n' +
+            'Quick heads-up: {{pageUrl}} links to a resource that now 404s (happy to send the exact anchor if useful).\n\n' +
+            'If you want a drop-in replacement, we maintain a free {{toolName}} that covers the same ground: {{toolUrl}} — evidence-based and no signup.\n\n' +
+            'Either way, hope the heads-up helps!\n\n{{myName}}',
+          notes: 'Verify the broken link yourself first (curl/browser). The value = the heads-up; the link is the ask.',
+        },
+        {
+          name: 'Data-study pitch',
+          type: 'data-study',
+          subject: 'New data: what {{toolName}} usage reveals',
+          body:
+            'Hi {{contactName}},\n\n' +
+            'We aggregated anonymous usage from our {{toolName}} and found a pattern your audience might care about (happy to share the chart + methodology).\n\n' +
+            "If you cover this, you're welcome to the data with attribution — full dataset, methodology, and a quotable summary here: {{toolUrl}}\n\n" +
+            'Want the one-page summary?\n\n{{myName}}',
+          notes: 'Only use with REAL aggregated data you can defend. Never invent statistics — that torches trust and rankings.',
+        },
+      ];
+      for (const t of templates) {
+        await payload.create({ collection: 'outreach-templates' as never, data: t as never });
+      }
+      payload.logger.info('Seeded 4 default outreach templates.');
+    } catch (err) {
+      payload.logger.warn('Outreach template seeding skipped: ' + ((err as Error)?.message || 'unknown'));
+    }
+  },
 });

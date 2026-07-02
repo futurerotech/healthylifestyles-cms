@@ -12,6 +12,7 @@ import { FunnelChart } from './dashboard/FunnelChart';
 import { DonutCard } from './dashboard/DonutCard';
 import { computeToolAnalytics, type UsageRecord } from '../../lib/analytics';
 import { SeoIndexingEngine } from '../dashboard/SeoIndexingEngine';
+import { LinkBuildingPanel } from './dashboard/LinkBuildingPanel';
 
 type AdminUser = { name?: string | null; email?: string | null } | null | undefined;
 type Props = { user?: AdminUser };
@@ -273,6 +274,9 @@ export async function Dashboard({ user }: Props) {
           </a>
         ))}
       </div>
+
+      {/* ---- Link Building & Outreach ---- */}
+      <LinkBuildingPanel />
 
       {/* ---- SEO Indexing Engine ---- */}
       <SeoIndexingEngine />

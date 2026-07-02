@@ -87,6 +87,10 @@ export interface Config {
     subscribers: Subscriber;
     'push-subscriptions': PushSubscription;
     'push-history': PushHistory;
+    'link-prospects': LinkProspect;
+    'outreach-templates': OutreachTemplate;
+    backlinks: Backlink;
+    'embed-logs': EmbedLog;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -115,6 +119,10 @@ export interface Config {
     subscribers: SubscribersSelect<false> | SubscribersSelect<true>;
     'push-subscriptions': PushSubscriptionsSelect<false> | PushSubscriptionsSelect<true>;
     'push-history': PushHistorySelect<false> | PushHistorySelect<true>;
+    'link-prospects': LinkProspectsSelect<false> | LinkProspectsSelect<true>;
+    'outreach-templates': OutreachTemplatesSelect<false> | OutreachTemplatesSelect<true>;
+    backlinks: BacklinksSelect<false> | BacklinksSelect<true>;
+    'embed-logs': EmbedLogsSelect<false> | EmbedLogsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -232,6 +240,7 @@ export interface Media {
    * Optional photographer/source credit.
    */
   credit?: string | null;
+  prefix?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -1675,6 +1684,139 @@ export interface PushHistory {
   createdAt: string;
 }
 /**
+ * Outreach pipeline: Prospect → Contacted → Replied → Won / Rejected.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "link-prospects".
+ */
+export interface LinkProspect {
+  id: number;
+  siteName: string;
+  /**
+   * Homepage or the specific page you want the link from.
+   */
+  url: string;
+  status: 'prospect' | 'contacted' | 'replied' | 'won' | 'rejected';
+  /**
+   * DA/DR — paste manually from Moz/Ahrefs/etc.
+   */
+  domainAuthority?: number | null;
+  topicRelevance?: ('high' | 'medium' | 'low') | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  /**
+   * Dashboard reminds you when this date arrives.
+   */
+  followUpDate?: string | null;
+  /**
+   * Context: why this site, which page fits, personal angle for the pitch.
+   */
+  notes?: string | null;
+  /**
+   * Log every send and reply so the history lives with the prospect.
+   */
+  outreachLog?:
+    | {
+        date: string;
+        direction: 'sent' | 'reply' | 'note';
+        /**
+         * Template used (if any).
+         */
+        template?: (number | null) | OutreachTemplate;
+        subject?: string | null;
+        /**
+         * What was said / what they replied.
+         */
+        summary?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Merge fields you can use anywhere: {{siteName}}, {{contactName}}, {{pageUrl}}, {{toolName}}, {{toolUrl}}, {{myName}}. Replace them before sending.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "outreach-templates".
+ */
+export interface OutreachTemplate {
+  id: number;
+  name: string;
+  type: 'guest-post' | 'free-calculator' | 'broken-link' | 'data-study' | 'custom';
+  /**
+   * Email subject line (merge fields allowed).
+   */
+  subject: string;
+  /**
+   * Email body (merge fields allowed). Personalize every send — template + no personalization = spam folder.
+   */
+  body: string;
+  /**
+   * When to use this template; what response rate you see.
+   */
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Every earned link. “Check links now” = GET /api/backlinks/check (admin session or x-api-key).
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "backlinks".
+ */
+export interface Backlink {
+  id: number;
+  /**
+   * The page on THEIR site that contains the link.
+   */
+  sourceUrl: string;
+  /**
+   * Page on OUR site the link points to (e.g. /tools/bmi-calculator).
+   */
+  targetPage: string;
+  anchorText?: string | null;
+  linkType?: ('dofollow' | 'nofollow') | null;
+  dateEarned?: string | null;
+  /**
+   * Set by the live-check endpoint.
+   */
+  liveStatus?: ('pending' | 'live' | 'lost') | null;
+  lastCheckedAt?: string | null;
+  /**
+   * The outreach prospect this link came from (if any).
+   */
+  prospect?: (number | null) | LinkProspect;
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Who embeds your calculators (auto-logged). Created by the tracking endpoint — not by hand.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "embed-logs".
+ */
+export interface EmbedLog {
+  id: number;
+  toolSlug: string;
+  /**
+   * Host of the page embedding the tool.
+   */
+  referrerHost: string;
+  /**
+   * Most recent full page URL seen.
+   */
+  referrerUrl?: string | null;
+  /**
+   * Embed loads seen from this host for this tool.
+   */
+  count?: number | null;
+  lastSeenAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -1869,6 +2011,22 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'push-history';
         value: number | PushHistory;
+      } | null)
+    | ({
+        relationTo: 'link-prospects';
+        value: number | LinkProspect;
+      } | null)
+    | ({
+        relationTo: 'outreach-templates';
+        value: number | OutreachTemplate;
+      } | null)
+    | ({
+        relationTo: 'backlinks';
+        value: number | Backlink;
+      } | null)
+    | ({
+        relationTo: 'embed-logs';
+        value: number | EmbedLog;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -1947,6 +2105,7 @@ export interface UsersSelect<T extends boolean = true> {
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
   credit?: T;
+  prefix?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -2708,6 +2867,76 @@ export interface PushHistorySelect<T extends boolean = true> {
   failedCount?: T;
   errors?: T;
   sentAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "link-prospects_select".
+ */
+export interface LinkProspectsSelect<T extends boolean = true> {
+  siteName?: T;
+  url?: T;
+  status?: T;
+  domainAuthority?: T;
+  topicRelevance?: T;
+  contactName?: T;
+  contactEmail?: T;
+  followUpDate?: T;
+  notes?: T;
+  outreachLog?:
+    | T
+    | {
+        date?: T;
+        direction?: T;
+        template?: T;
+        subject?: T;
+        summary?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "outreach-templates_select".
+ */
+export interface OutreachTemplatesSelect<T extends boolean = true> {
+  name?: T;
+  type?: T;
+  subject?: T;
+  body?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "backlinks_select".
+ */
+export interface BacklinksSelect<T extends boolean = true> {
+  sourceUrl?: T;
+  targetPage?: T;
+  anchorText?: T;
+  linkType?: T;
+  dateEarned?: T;
+  liveStatus?: T;
+  lastCheckedAt?: T;
+  prospect?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "embed-logs_select".
+ */
+export interface EmbedLogsSelect<T extends boolean = true> {
+  toolSlug?: T;
+  referrerHost?: T;
+  referrerUrl?: T;
+  count?: T;
+  lastSeenAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
