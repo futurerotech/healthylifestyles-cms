@@ -13,7 +13,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 type Severity = 'high' | 'medium' | 'low';
 interface Issue {
   severity: Severity;
-  category: 'technical' | 'eeat' | 'content';
+  category: 'technical' | 'eeat' | 'content' | 'admin';
   page: string;
   message: string;
   fix: string;
@@ -34,7 +34,7 @@ interface Audit {
 
 const SEV_COLOR: Record<Severity, string> = { high: '#f43f5e', medium: '#f59e0b', low: '#3b82f6' };
 const SEV_ORDER: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
-const CAT_LABEL: Record<Issue['category'], string> = { technical: 'Technical', eeat: 'E-E-A-T', content: 'Content' };
+const CAT_LABEL: Record<Issue['category'], string> = { technical: 'Technical', eeat: 'E-E-A-T', content: 'Content', admin: 'Admin UX' };
 const scoreColor = (s: number) => (s >= 85 ? '#22c55e' : s >= 60 ? '#f59e0b' : '#f43f5e');
 
 function ScoreRing({ score }: { score: number }) {
@@ -184,7 +184,7 @@ export function SiteAuditPanel() {
                   </button>
                 );
               })}
-              {(['technical', 'eeat', 'content'] as Issue['category'][]).map((c) => (
+              {(['technical', 'eeat', 'content', 'admin'] as Issue['category'][]).map((c) => (
                 <button key={c} type="button" style={chip(catFilter === c)} onClick={() => setCatFilter(catFilter === c ? 'all' : c)}>
                   {CAT_LABEL[c]}
                 </button>

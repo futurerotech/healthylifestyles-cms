@@ -1,3 +1,5 @@
+import { readFile, readdir } from 'node:fs/promises';
+import path from 'node:path';
 import type { Payload } from 'payload';
 
 /**
@@ -13,7 +15,7 @@ import type { Payload } from 'payload';
 
 export interface AuditIssue {
   severity: 'high' | 'medium' | 'low';
-  category: 'technical' | 'eeat' | 'content';
+  category: 'technical' | 'eeat' | 'content' | 'admin';
   page: string;
   message: string;
   fix: string;
@@ -150,6 +152,148 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return inter / (a.size + b.size - inter);
 }
 
+/* ─────────────────────────── admin UX: contrast math ─────────────────────────── */
+
+/** WCAG relative luminance of a 3/6-digit hex (no #). */
+function luminance(hex: string): number {
+  const h = hex.length === 3 ? [...hex].map((c) => c + c).join('') : hex;
+  const [r, g, b] = [0, 2, 4].map((i) => {
+    const v = parseInt(h.slice(i, i + 2), 16) / 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** WCAG contrast ratio between two hex colors (no #). */
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** The admin theme's canonical surfaces (must match custom.scss). */
+const DARK_SURFACE = '14243a';
+const LIGHT_SURFACE = 'ffffff';
+const AA = 4.5;
+
+/**
+ * ADMIN / UX health. Deterministic, non-visual checks:
+ *  1. Stylesheet contrast scan — every literal `color: #hex` in the admin CSS is
+ *     contrast-checked against its own literal background (badges) or against
+ *     both theme surfaces; unscoped text with no [data-theme='dark'] override
+ *     that fails on the dark card surface is exactly the dark-on-dark bug class.
+ *  2. Inline-style scan of admin components (`color: '#hex'`) — inline styles
+ *     apply in BOTH themes, so they must pass on both surfaces.
+ *  3. Collection list-view config — missing admin.defaultColumns (raw noisy
+ *     lists that look empty/unscannable) and useAsTitle left on `id`.
+ * File reads are best-effort: on a build without source files the scans skip
+ * silently rather than fail the audit.
+ */
+async function auditAdminUx(payload: Payload, add: (severity: AuditIssue['severity'], category: AuditIssue['category'], page: string, message: string, fix: string, adminPath?: string) => void): Promise<void> {
+  /* ---- 1. stylesheet contrast scan ---- */
+  const cssFiles = ['src/app/(payload)/custom.scss', 'src/styles/theme-override.css'];
+  for (const rel of cssFiles) {
+    let css = '';
+    try {
+      css = await readFile(path.join(process.cwd(), rel), 'utf8');
+    } catch {
+      continue;
+    }
+    css = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    interface Rule { selector: string; body: string; dark: boolean }
+    const rules: Rule[] = [];
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const selector = m[1].trim();
+      if (!selector || selector.startsWith('@') || /^\d|^from$|^to$/.test(selector)) continue;
+      rules.push({ selector, body: m[2], dark: /\[data-theme=.?dark/.test(selector) });
+    }
+
+    // Class tokens that get a text color inside a dark-scoped rule (= has override).
+    const darkColorClasses = new Set<string>();
+    for (const r of rules) {
+      if (r.dark && /(?:^|;)\s*color\s*:/.test(r.body)) {
+        for (const t of r.selector.matchAll(/\.[a-zA-Z][\w-]*/g)) darkColorClasses.add(t[0]);
+      }
+    }
+
+    for (const r of rules) {
+      const colorHex = r.body.match(/(?:^|;)\s*color\s*:\s*#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/)?.[1];
+      if (!colorHex) continue;
+      const bgHex = r.body.match(/(?:^|;)\s*background(?:-color)?\s*:\s*#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/)?.[1];
+      const sel = r.selector.replace(/\s+/g, ' ').slice(0, 70);
+      const file = path.basename(rel);
+
+      if (bgHex) {
+        // Self-contained pair (badge/pill) — theme-independent.
+        const ratio = contrast(colorHex, bgHex);
+        if (ratio < AA)
+          add(ratio < 3 ? 'high' : 'medium', 'admin', file, `Badge/text "${sel}" is #${colorHex} on #${bgHex} (${ratio.toFixed(1)}:1 — needs 4.5:1).`, 'Use a darker/lighter pair, or theme variables.');
+        continue;
+      }
+
+      if (r.dark) {
+        const ratio = contrast(colorHex, DARK_SURFACE);
+        if (ratio < AA)
+          add('high', 'admin', file, `Dark-mode text "${sel}" is #${colorHex} on the dark surface (${ratio.toFixed(1)}:1).`, 'Lighten the color (aim ≥4.5:1 on #14243a).');
+        continue;
+      }
+
+      // Unscoped rule: applies to both themes unless a dark override exists.
+      const lightRatio = contrast(colorHex, LIGHT_SURFACE);
+      if (lightRatio < AA)
+        add('medium', 'admin', file, `Text "${sel}" is #${colorHex} on light surfaces (${lightRatio.toFixed(1)}:1).`, 'Darken the color or use var(--theme-text)/elevation tokens.');
+      const hasOverride = [...r.selector.matchAll(/\.[a-zA-Z][\w-]*/g)].some((t) => darkColorClasses.has(t[0]));
+      const darkRatio = contrast(colorHex, DARK_SURFACE);
+      if (!hasOverride && darkRatio < AA)
+        add('high', 'admin', file, `Text "${sel}" (#${colorHex}) has NO [data-theme='dark'] override and reads ${darkRatio.toFixed(1)}:1 on dark surfaces — dark-on-dark.`, "Add a html[data-theme='dark'] override or switch to var(--theme-text).");
+    }
+  }
+
+  /* ---- 2. inline styles in admin components ---- */
+  const componentDirs = ['src/components/admin', 'src/components/dashboard'];
+  for (const dir of componentDirs) {
+    let files: string[] = [];
+    try {
+      files = (await readdir(path.join(process.cwd(), dir), { recursive: true, withFileTypes: true }))
+        .filter((e) => e.isFile() && e.name.endsWith('.tsx'))
+        .map((e) => path.join(e.parentPath ?? (e as unknown as { path: string }).path, e.name));
+    } catch {
+      continue;
+    }
+    for (const file of files) {
+      let src = '';
+      try {
+        src = await readFile(file, 'utf8');
+      } catch {
+        continue;
+      }
+      const failing = new Set<string>();
+      for (const m of src.matchAll(/color:\s*['"]#([0-9a-fA-F]{6})['"]/g)) {
+        const hex = m[1];
+        const failsLight = contrast(hex, LIGHT_SURFACE) < AA;
+        const failsDark = contrast(hex, DARK_SURFACE) < AA;
+        if (failsLight || failsDark) failing.add(`#${hex}${failsLight && failsDark ? ' (both themes)' : failsLight ? ' (light)' : ' (dark)'}`);
+      }
+      if (failing.size) {
+        const name = path.basename(file);
+        const both = [...failing].some((f) => f.includes('both'));
+        add(both ? 'medium' : 'low', 'admin', name, `Inline text color(s) below 4.5:1 in ${name}: ${[...failing].join(', ')}.`, 'Inline styles hit both themes — use theme variables or a CSS class with a dark override.');
+      }
+    }
+  }
+
+  /* ---- 3. collection list-view config ---- */
+  for (const c of payload.config.collections) {
+    if (c.slug.startsWith('payload-')) continue;
+    const admin = (c.admin || {}) as { defaultColumns?: string[]; useAsTitle?: string };
+    const pagePath = `/admin/collections/${c.slug}`;
+    if (!admin.defaultColumns || admin.defaultColumns.length < 2)
+      add('low', 'admin', pagePath, `Collection "${c.slug}" has no curated list columns — the list view falls back to raw defaults and can look empty/unscannable.`, 'Set admin.defaultColumns to the 3–5 most useful fields.');
+    if (!admin.useAsTitle || admin.useAsTitle === 'id')
+      add('low', 'admin', pagePath, `Collection "${c.slug}" titles rows by raw id.`, 'Set admin.useAsTitle to a human-readable field.');
+  }
+}
+
 /* ─────────────────────────── per-page extraction ─────────────────────────── */
 
 interface PageData {
@@ -263,6 +407,9 @@ export async function runSiteAudit(payload: Payload): Promise<AuditResult> {
     if (artSlug && articleBySlug.has(artSlug)) return `/admin/collections/articles/${articleBySlug.get(artSlug).id}`;
     return undefined;
   };
+
+  /* ---- admin / UX health (config + stylesheet introspection; cheap) ---- */
+  await auditAdminUx(payload, add);
 
   /* ---- robots.txt ---- */
   const robots = await fetchPage(`${SITE}/robots.txt`);
