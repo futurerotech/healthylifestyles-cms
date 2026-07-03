@@ -4,6 +4,7 @@ import * as migration_20260701_232459 from './20260701_232459';
 import * as migration_20260702_183704_link_building from './20260702_183704_link_building';
 import * as migration_20260702_191106_site_audits from './20260702_191106_site_audits';
 import * as migration_20260703_123018_tool_risk_review from './20260703_123018_tool_risk_review';
+import * as migration_20260704_010500_enable_rls_public from './20260704_010500_enable_rls_public';
 
 export const migrations = [
   {
@@ -35,5 +36,10 @@ export const migrations = [
     up: migration_20260703_123018_tool_risk_review.up,
     down: migration_20260703_123018_tool_risk_review.down,
     name: '20260703_123018_tool_risk_review'
+  },
+  {
+    up: migration_20260704_010500_enable_rls_public.up,
+    down: migration_20260704_010500_enable_rls_public.down,
+    name: '20260704_010500_enable_rls_public',
   },
 ];
