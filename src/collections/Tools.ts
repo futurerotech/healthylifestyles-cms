@@ -49,6 +49,22 @@ export const Tools: CollectionConfig = {
             if (!r.ok) throw new Error(`Output "${o.key || o.label || '?'}": ${r.error}`);
           }
         }
+
+        // YMYL safety gate. High risk ALWAYS requires medical review, and a
+        // review-required tool cannot go live (enabled + published) until a
+        // human ticks "Medically reviewed". Save it as draft/disabled instead —
+        // the review flag is a human attestation, never set automatically.
+        if (data) {
+          if (data.riskLevel === 'high') data.medicalReviewRequired = true;
+          const goingLive = data.enabled === true && data._status !== 'draft';
+          if (data.medicalReviewRequired && !data.medicallyReviewed && goingLive) {
+            throw new Error(
+              'This tool requires medical review before it can be enabled and published. ' +
+                'Save it as a draft (or untick "Enabled") until a qualified reviewer has checked it, ' +
+                'then tick "Medically reviewed".',
+            );
+          }
+        }
         return data;
       },
     ],
@@ -273,5 +289,48 @@ export const Tools: CollectionConfig = {
     // ---- Sidebar fields ----
     slugField('name'),
     { name: 'sortOrder', type: 'number', defaultValue: 0, admin: { position: 'sidebar' } },
+    {
+      name: 'riskLevel',
+      type: 'select',
+      required: true,
+      defaultValue: 'low',
+      options: [
+        { label: 'Low (lifestyle/informational)', value: 'low' },
+        { label: 'Medium (health guidance)', value: 'medium' },
+        { label: 'High (medical/risk assessment)', value: 'high' },
+      ],
+      admin: {
+        position: 'sidebar',
+        description:
+          'YMYL risk tier. High = mandatory medical review before the tool can go live, and the public page shows the prominent disclaimer.',
+      },
+    },
+    {
+      name: 'medicalReviewRequired',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        position: 'sidebar',
+        description: 'Forced on for high-risk tools. While required and unreviewed, the tool cannot be enabled + published.',
+      },
+    },
+    {
+      name: 'medicallyReviewed',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        position: 'sidebar',
+        description: 'Human attestation — tick ONLY after a qualified reviewer checked the formula, bands, and copy.',
+      },
+    },
+    {
+      name: 'reviewedBy',
+      type: 'text',
+      admin: {
+        position: 'sidebar',
+        condition: (data) => Boolean(data?.medicallyReviewed),
+        description: 'Reviewer name/credential (shown nowhere publicly yet; audit trail).',
+      },
+    },
   ],
 };

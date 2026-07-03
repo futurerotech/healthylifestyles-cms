@@ -718,6 +718,22 @@ export interface Tool {
    */
   slug?: string | null;
   sortOrder?: number | null;
+  /**
+   * YMYL risk tier. High = mandatory medical review before the tool can go live, and the public page shows the prominent disclaimer.
+   */
+  riskLevel: 'low' | 'medium' | 'high';
+  /**
+   * Forced on for high-risk tools. While required and unreviewed, the tool cannot be enabled + published.
+   */
+  medicalReviewRequired?: boolean | null;
+  /**
+   * Human attestation — tick ONLY after a qualified reviewer checked the formula, bands, and copy.
+   */
+  medicallyReviewed?: boolean | null;
+  /**
+   * Reviewer name/credential (shown nowhere publicly yet; audit trail).
+   */
+  reviewedBy?: string | null;
   updatedAt: string;
   createdAt: string;
   _status?: ('draft' | 'published') | null;
@@ -2367,6 +2383,10 @@ export interface ToolsSelect<T extends boolean = true> {
       };
   slug?: T;
   sortOrder?: T;
+  riskLevel?: T;
+  medicalReviewRequired?: T;
+  medicallyReviewed?: T;
+  reviewedBy?: T;
   updatedAt?: T;
   createdAt?: T;
   _status?: T;
