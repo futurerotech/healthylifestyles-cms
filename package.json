@@ -8,7 +8,7 @@
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
     "prebuild": "npm run clean",
     "build": "node scripts/clear-dev-migrations.mjs && payload generate:importmap && payload migrate --force-accept-warning && next build",
-    "start": "next start",
+    "start": "next start -p 3000",
     "migrate": "payload migrate",
     "migrate:create": "payload migrate:create",
     "generate:importmap": "payload generate:importmap",
