@@ -13,6 +13,16 @@ export const isAdminOrEditor: Access = ({ req }) =>
 /** Public read of published content (so Astro can fetch at build time). */
 export const publicRead: Access = () => true;
 
+/**
+ * Public read for drafts-enabled collections: anonymous requests only see
+ * PUBLISHED docs; logged-in staff see everything (incl. drafts in the admin).
+ * Without this, Payload returns never-published drafts to anonymous reads —
+ * plain `publicRead` on a versioned collection leaks unreviewed drafts to the
+ * public API and therefore to the static site build.
+ */
+export const publishedPublicRead: Access = ({ req }) =>
+  req.user ? true : { _status: { equals: 'published' } };
+
 /** Logged-in staff (any role). */
 export const isStaff: Access = ({ req }) => Boolean(req.user);
 

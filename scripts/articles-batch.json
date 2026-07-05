@@ -1,0 +1,295 @@
+[
+  {
+    "tool": "recipe-nutrition-analyzer",
+    "title": "How Do You Calculate the Calories in a Homemade Recipe?",
+    "excerpt": "The reliable way to get calories for a homemade dish: weigh ingredients, use USDA data, divide by servings — or let our free analyzer do it in seconds.",
+    "category": "nutrition",
+    "author": "editorial-team",
+    "reviewer": "",
+    "featured": false,
+    "primaryTool": "recipe-nutrition-analyzer",
+    "relatedTools": ["recipe-nutrition-analyzer", "keto-calculator", "food-symptom-diary"],
+    "layoutBlocks": [
+      { "type": "paragraph", "text": "Every homemade recipe has a calorie count — it's just hidden across ten ingredients and a messy kitchen scale. The math itself is simple: convert each ingredient to grams, look up its nutrition in the USDA FoodData Central database, add everything up, and divide by servings. The tedious part is the lookups and conversions, which is exactly what this tool automates." },
+      { "type": "toolEmbed", "toolSlug": "recipe-nutrition-analyzer" },
+      { "type": "heading", "level": 2, "text": "What's the manual method, step by step?" },
+      { "type": "paragraph", "text": "If you want to do it by hand, you need three things: a kitchen scale, the USDA FoodData Central database (it's free and public), and fifteen patient minutes. First, weigh each ingredient in grams — raw, as it goes into the pot. Second, search FoodData Central for the closest generic match (\"chicken breast, raw\" beats a brand name) and note the calories, protein, carbs, and fat per 100 g. Third, scale each ingredient's values to your actual weight, total the columns, and divide by how many servings the dish makes. That last step is where most home counts go wrong — a \"serving\" defined as one-sixth of the pot only works if you actually eat one-sixth of the pot." },
+      { "type": "heading", "level": 2, "text": "Why don't my numbers match the package label?" },
+      { "type": "paragraph", "text": "Because you're comparing two different measurement systems. Package labels come from the manufacturer's own formulation and serving-size assumptions under FDA labeling rules; database values describe generic versions of foods. Both can be right and still disagree. For a homemade dish built from whole ingredients, USDA generic data is the more honest reference — but if half your recipe is a specific branded sauce, the label on that jar is the better number for that ingredient." },
+      { "type": "heading", "level": 2, "text": "How do household measures convert to grams?" },
+      { "type": "table", "headers": ["Household measure", "Typical weight"], "rows": [["1 cup uncooked white rice", "about 185 g"], ["1 tablespoon olive oil", "about 14 g"], ["1 medium egg", "about 44 g without shell"], ["1 cup chopped onion", "about 160 g"]] },
+      { "type": "paragraph", "text": "Volume-to-weight conversion is the biggest source of error in recipe math. A \"cup of flour\" can swing 20% depending on how it's scooped. Weights above are typical USDA portion values — useful defaults, but when accuracy matters, the scale always beats the cup. Our analyzer flags every converted measurement with a badge so you know which numbers are approximations." },
+      { "type": "heading", "level": 2, "text": "Does cooking change the numbers?" },
+      { "type": "paragraph", "text": "Cooking changes weight more than it changes calories. Rice triples in weight as it absorbs water; meat loses water and shrinks. The calories mostly stay, but the per-gram density changes completely — 100 g of cooked rice is far lighter in calories than 100 g of dry rice. The fix is to be explicit: enter \"1 cup cooked rice\" rather than \"1 cup rice\", because USDA carries separate entries for raw and cooked forms. Oil is the other trap: marinades and frying oil only partially end up in the food, so drained dishes usually land below the calculated total." },
+      { "type": "heading", "level": 2, "text": "What can you do with a per-serving number?" },
+      { "type": "paragraph", "text": "Once a recipe has a real per-serving count, it plugs into everything else. If you're tracking macros for a low-carb approach, the [keto calculator](/tools/keto-calculator) turns your calorie target into daily fat, protein, and carb grams you can check recipes against. And if certain meals leave you bloated or tired, logging the dish in a [food and symptom diary](/tools/food-symptom-diary) alongside its ingredients makes patterns much easier to spot." },
+      { "type": "heading", "level": 2, "text": "How accurate should you expect any of this to be?" },
+      { "type": "list", "ordered": false, "items": ["Generic whole ingredients with weighed amounts: typically within 10–20% of lab analysis", "Volume measures instead of weights: add another meaningful margin of error", "Branded or restaurant-style ingredients: use the actual product label instead", "Missing nutrient values (a dash) mean \"not reported\", never zero — fiber and sugar are the usual gaps"] },
+      { "type": "paragraph", "text": "Treat every recipe count — manual or automated — as a good estimate, not a lab report. Estimates are plenty for planning meals, comparing two dinner options, or keeping a week roughly on target." },
+      { "type": "disclaimer", "text": "This article and the Recipe Nutrition Analyzer are for general education, not medical or dietary advice. If you need precise nutrition data for a medical condition, work with a registered dietitian or your clinician." }
+    ],
+    "faq": [
+      { "question": "Is there a free way to calculate recipe nutrition?", "answer": "Yes. USDA FoodData Central is free to search by hand, and our Recipe Nutrition Analyzer automates the same lookups — paste your ingredient list, set servings, and it returns per-serving calories, protein, carbs, fat, fiber, sugar, and sodium. No signup." },
+      { "question": "Should I weigh ingredients raw or cooked?", "answer": "Pick one and be consistent with the database entry you use. Weighing raw is usually easier and matches most USDA entries; if you weigh cooked, search for the cooked version of the food so the water change doesn't distort the math." },
+      { "question": "Why is my calculated calorie count different from a recipe website's?", "answer": "Different ingredient matches, different assumed weights per cup, and different serving counts. Two honest calculations of the same dish can differ by 15% or more — which is why the method and the serving definition matter more than the exact number." },
+      { "question": "Do I need to count fiber separately?", "answer": "Fiber is part of total carbohydrate on US labels. If you track net carbs, subtract fiber from total carbs per serving — but note that some database entries don't report fiber, and a missing value means unknown, not zero." },
+      { "question": "How many servings should I divide a recipe into?", "answer": "Divide by what you actually eat, not what sounds virtuous. If a \"6-serving\" lasagna feeds your household twice, it's a 4-serving lasagna for calorie purposes. Weighing the finished dish and your portion gives the most honest split." }
+    ],
+    "sources": [
+      { "label": "USDA Agricultural Research Service — FoodData Central", "url": "https://fdc.nal.usda.gov/" },
+      { "label": "FDA — How to Understand and Use the Nutrition Facts Label", "url": "https://www.fda.gov/food/nutrition-education-resources-materials/how-understand-and-use-nutrition-facts-label" },
+      { "label": "ODPHP — Dietary Guidelines for Americans", "url": "https://odphp.health.gov/our-work/nutrition-physical-activity/dietary-guidelines" }
+    ],
+    "semanticEntities": [
+      { "term": "USDA FoodData Central", "url": "https://fdc.nal.usda.gov/" },
+      { "term": "Macronutrients", "url": "https://medlineplus.gov/ency/article/002404.htm" },
+      { "term": "Dietary fiber", "url": "https://medlineplus.gov/dietaryfiber.html" },
+      { "term": "Sodium", "url": "https://medlineplus.gov/sodium.html" },
+      { "term": "Nutrition Facts label", "url": "https://www.fda.gov/food/nutrition-education-resources-materials/how-understand-and-use-nutrition-facts-label" }
+    ],
+    "seo": {
+      "metaTitle": "How to Calculate Calories in a Homemade Recipe",
+      "metaDescription": "Learn how to calculate the calories and macros in any homemade recipe — by hand, or in just seconds with our free USDA-powered Recipe Nutrition Analyzer.",
+      "slug": "how-to-calculate-calories-in-a-recipe",
+      "canonical": "",
+      "noindex": false,
+      "keywords": ["calculate calories in a recipe", "recipe calorie calculator", "recipe nutrition facts", "homemade food calories", "recipe macros", "recipe nutrition analyzer", "USDA FoodData Central", "Macronutrients", "Dietary fiber", "Sodium", "Nutrition Facts label"]
+    },
+    "ogTitle": "Count the Calories in Any Homemade Recipe",
+    "ogDescription": "Paste in your ingredient list and get per-serving calories, protein, carbs, and fat from real USDA data — plus the manual method if you like doing math.",
+    "twitterTitle": "What's really in your homemade recipe?",
+    "twitterDescription": "Free USDA-powered recipe analyzer: per-serving calories and macros for any homemade meal, no signup."
+  },
+  {
+    "tool": "keto-calculator",
+    "title": "How Many Carbs Can You Eat on Keto?",
+    "excerpt": "Most ketogenic plans cap carbs around 20–50 g a day. Here's what that looks like on a plate — and how to set fat and protein targets that fit your body.",
+    "category": "nutrition",
+    "author": "editorial-team",
+    "reviewer": "",
+    "featured": false,
+    "primaryTool": "keto-calculator",
+    "relatedTools": ["keto-calculator", "recipe-nutrition-analyzer", "weight-loss-percentage-calculator"],
+    "layoutBlocks": [
+      { "type": "paragraph", "text": "The number most people are looking for: popular ketogenic plans cap carbohydrate somewhere between 20 and 50 grams a day. For scale, a single bagel can spend that entire budget before lunch. Everything else about keto — the high fat, the moderate protein, the \"keto flu\" week — follows from holding that line. Here's how the pieces fit, and how to get targets matched to your body instead of a generic template." },
+      { "type": "toolEmbed", "toolSlug": "keto-calculator" },
+      { "type": "heading", "level": 2, "text": "What actually happens below 50 grams of carbs?" },
+      { "type": "paragraph", "text": "Carbohydrate is your body's default fuel. Cut it low enough for long enough and the liver starts converting fat into ketones — an alternative fuel your brain and muscles can run on. That metabolic state is ketosis, and it's measurable: ketones show up in blood, breath, and urine, which is why test strips exist (MedlinePlus explains the blood test used clinically). The threshold isn't identical for everyone — activity level, body size, and how consistently you stay under your cap all move it — which is why plans quote a 20–50 g range rather than one magic number." },
+      { "type": "heading", "level": 2, "text": "How do the macros split on a keto plan?" },
+      { "type": "paragraph", "text": "Where the Dietary Guidelines describe a general pattern of 45–65% of calories from carbohydrate, keto flips the pyramid: most calories come from fat, protein stays moderate, and carbs become a rounding error. On a 2,000-calorie plan, a common keto split looks something like this:" },
+      { "type": "table", "headers": ["Macro", "Share of calories", "Grams on 2,000 kcal"], "rows": [["Fat", "about 70%", "about 156 g"], ["Protein", "about 25%", "about 125 g"], ["Carbohydrate", "about 5%", "about 25 g"]] },
+      { "type": "paragraph", "text": "Those grams shift with your calorie target — that's the whole point of using the calculator above rather than copying someone else's numbers. Once you have targets, checking whether tonight's dinner fits is exactly what the [recipe nutrition analyzer](/tools/recipe-nutrition-analyzer) is for." },
+      { "type": "heading", "level": 2, "text": "Who should not try keto?" },
+      { "type": "paragraph", "text": "This diet is a significant metabolic change, not a casual tweak. Skip it — or clear it with your clinician first — if you take diabetes or blood-pressure medication (doses often need adjusting as intake changes), if you are pregnant or breastfeeding, if you have kidney, liver, or pancreatic conditions, or if you have any history of disordered eating; rigid food rules can be genuinely harmful there. And if you simply love bread more than you care about ketones, a moderate, sustainable pattern you can keep beats a strict one you'll abandon in three weeks. Weight change at a safe pace is the goal on any approach — the [weight loss percentage calculator](/tools/weight-loss-percentage-calculator) helps you keep the rate honest." },
+      { "type": "heading", "level": 2, "text": "What is keto flu, and why do electrolytes matter?" },
+      { "type": "paragraph", "text": "In the first days of carb restriction, your body sheds stored glycogen and the water bound to it — and with that water go sodium and other electrolytes. The result for many people is a rough week: headache, fatigue, irritability, muscle cramps. It usually passes, and it's mostly a fluid-and-sodium story rather than a mysterious illness. Drinking to thirst, salting food normally, and eating potassium-rich low-carb vegetables covers most of it. If you take any medication that affects fluid or blood pressure, this is another talk-to-your-clinician-first situation." },
+      { "type": "heading", "level": 2, "text": "Net carbs or total carbs — which should you count?" },
+      { "type": "paragraph", "text": "Net carbs are total carbohydrates minus fiber, on the logic that fiber isn't digested into glucose. Counting net carbs makes vegetables easier to fit and is what most keto plans mean by their 20–50 g cap. The practical rule: count net carbs, but get them mostly from vegetables and nuts rather than processed \"keto products\" engineered to look low-carb. A cap spent on broccoli and a cap spent on sweetened bars are not the same diet, even if the arithmetic matches." },
+      { "type": "disclaimer", "text": "General education only, not medical advice. A ketogenic diet is a significant dietary change — talk to your doctor or a registered dietitian before starting, especially if you take medication or manage any medical condition." }
+    ],
+    "faq": [
+      { "question": "How long does it take to get into ketosis?", "answer": "Typically a few days of staying under your carb cap, though it varies with activity, body size, and how much glycogen you started with. Blood or urine ketone tests are the objective way to know rather than guessing from how you feel." },
+      { "question": "Can I do keto as a vegetarian?", "answer": "It's harder but possible — eggs, cheese, tofu, nuts, seeds, and low-carb vegetables do the heavy lifting. Protein variety is the main challenge, and a dietitian's input is worth more here than on a standard keto plan." },
+      { "question": "Do I have to eat 70% fat exactly?", "answer": "No. The split is a working template, not a law. The defining feature of keto is the carb cap; fat fills most of the remaining calories because something has to, and protein stays moderate. Your calculator targets are a starting point to adjust from." },
+      { "question": "Is keto safe long-term?", "answer": "Long-term evidence is limited and individual results vary, which is why medical organizations describe it as one option among several rather than a default. Periodic check-ins with a clinician — including blood work — are sensible if you stay on it for months." },
+      { "question": "Why did my weight drop fast in week one?", "answer": "Mostly water. Glycogen stores bind water, and both go quickly when carbs drop. The scale movement that matters is the trend after the first two weeks, at a safe, sustainable pace." }
+    ],
+    "sources": [
+      { "label": "MedlinePlus — Ketones in Blood (lab test explainer)", "url": "https://medlineplus.gov/lab-tests/ketones-in-blood/" },
+      { "label": "ODPHP — Dietary Guidelines for Americans (macronutrient ranges)", "url": "https://odphp.health.gov/our-work/nutrition-physical-activity/dietary-guidelines" },
+      { "label": "MedlinePlus — Carbohydrates", "url": "https://medlineplus.gov/carbohydrates.html" }
+    ],
+    "semanticEntities": [
+      { "term": "Ketosis", "url": "https://medlineplus.gov/lab-tests/ketones-in-blood/" },
+      { "term": "Carbohydrates", "url": "https://medlineplus.gov/carbohydrates.html" },
+      { "term": "Dietary fats", "url": "https://medlineplus.gov/dietaryfats.html" },
+      { "term": "Macronutrients", "url": "https://medlineplus.gov/ency/article/002404.htm" },
+      { "term": "Sodium", "url": "https://medlineplus.gov/sodium.html" }
+    ],
+    "seo": {
+      "metaTitle": "How Many Carbs on Keto? Set Your Limit",
+      "metaDescription": "Keto plans typically cap net carbs near 20–50 g a day. See how the limit works, who should skip keto, and set your macros with our free Keto Calculator.",
+      "slug": "how-many-carbs-on-keto",
+      "canonical": "",
+      "noindex": false,
+      "keywords": ["how many carbs on keto", "keto carb limit", "net carbs keto", "keto macros", "keto calculator", "Ketosis", "Carbohydrates", "Dietary fats", "Macronutrients", "Sodium"]
+    },
+    "ogTitle": "Keto Carb Limits, Explained Simply",
+    "ogDescription": "What 20–50 g of carbs a day actually looks like, why electrolytes matter in week one, and a free calculator that sets your keto macros in seconds flat.",
+    "twitterTitle": "How many carbs keep you in ketosis?",
+    "twitterDescription": "The keto carb limit explained — plus a free calculator for your personal fat, protein, and carb targets."
+  },
+  {
+    "tool": "anti-inflammatory-score",
+    "title": "What Is an Anti-Inflammatory Diet? Foods to Eat and Limit",
+    "excerpt": "An anti-inflammatory diet isn't a product — it's a pattern: vegetables, fruit, fish, nuts, olive oil, and less ultra-processed food. See where you stand.",
+    "category": "nutrition",
+    "author": "editorial-team",
+    "reviewer": "",
+    "featured": false,
+    "primaryTool": "anti-inflammatory-score",
+    "relatedTools": ["anti-inflammatory-score", "gut-health-score", "healthspan-score"],
+    "layoutBlocks": [
+      { "type": "paragraph", "text": "Strip away the marketing and an anti-inflammatory diet is simply a recognizable pattern: plants in abundance, fish and legumes over processed meat, olive oil over industrial fats, and as little ultra-processed food as your real life allows. No single \"superfood\" makes a diet anti-inflammatory, and no single dessert breaks one. What matters is the weekly pattern — which is exactly what the score below measures." },
+      { "type": "toolEmbed", "toolSlug": "anti-inflammatory-score" },
+      { "type": "heading", "level": 2, "text": "What does inflammation have to do with food?" },
+      { "type": "paragraph", "text": "Inflammation is your immune system's normal response to injury and infection — short-lived and useful. The concern is the low-grade, long-running kind, which researchers have linked to patterns in diet, activity, sleep, and stress. Food is one lever among several, and the research points consistently in the same direction: eating patterns heavy in plants, fiber, and unsaturated fats travel with better long-term health outcomes than patterns heavy in ultra-processed food. That's the honest claim — a pattern-level association, not a promise that any one meal changes your blood work." },
+      { "type": "heading", "level": 2, "text": "Which foods anchor the pattern?" },
+      { "type": "list", "ordered": false, "items": ["Vegetables and fruit — WHO's healthy-diet guidance suggests at least 400 g (about five servings) a day", "Oily fish like salmon and sardines, plus legumes as protein staples", "Nuts, seeds, and extra-virgin olive oil as the main fat sources", "Whole grains over refined grains", "Herbs, spices, coffee, and tea — flavor without added sugar"] },
+      { "type": "heading", "level": 2, "text": "What gets trimmed back?" },
+      { "type": "paragraph", "text": "Not eliminated — trimmed. Ultra-processed foods (packaged snacks, sweetened drinks, reconstituted meats) are the biggest category, alongside added sugars, refined grains, and heavy alcohol. If that list sounds familiar, it should: it overlaps almost perfectly with general healthy-eating advice from WHO and the Dietary Guidelines. \"Anti-inflammatory\" is less a separate diet than a well-marketed name for the pattern nutrition science keeps arriving at. The Mediterranean way of eating is its best-known real-world example." },
+      { "type": "heading", "level": 2, "text": "How does the score work — and what it can't tell you" },
+      { "type": "paragraph", "text": "The tool above asks about your typical week — how often vegetables, fish, nuts, and olive oil show up, and how often ultra-processed food does — and scores the pattern against the principles on this page. It's transparent arithmetic, not a lab test: it cannot measure the inflammation in your body (that takes blood work a clinician orders). What it can do is show you, concretely, which one or two swaps would move your week most." },
+      { "type": "heading", "level": 2, "text": "Where should you actually start?" },
+      { "type": "paragraph", "text": "Pick the swap that costs you the least willpower. Sweetened drinks to sparkling water or coffee. The afternoon packaged snack to a handful of nuts. One processed-meat dinner a week to a fish or bean one. Boring advice, but the pattern-level evidence favors consistency over intensity — and your gut tends to benefit from the same fiber-forward swaps, which is why this score and the [gut health score](/tools/gut-health-score) often move together. Food is also just one habit among several: the [healthspan score](/tools/healthspan-score) shows how your eating pattern sits alongside sleep, movement, and the rest." },
+      { "type": "disclaimer", "text": "General education, not medical advice. If you have an inflammatory condition or are changing your diet to manage symptoms, work with your doctor or a registered dietitian — dietary changes complement medical care, they don't replace it." }
+    ],
+    "faq": [
+      { "question": "Is the anti-inflammatory diet the same as the Mediterranean diet?", "answer": "They overlap heavily — vegetables, fish, legumes, nuts, olive oil, few ultra-processed foods. The Mediterranean diet is the best-studied named version of the pattern; \"anti-inflammatory diet\" is a looser umbrella term for eating the same way." },
+      { "question": "Are nightshades (tomatoes, peppers) inflammatory?", "answer": "For most people, no — vegetables including nightshades sit firmly on the encouraged side of the pattern. Individuals with specific sensitivities are the exception, and a structured food-and-symptom log is a better way to check that than cutting whole food groups on suspicion." },
+      { "question": "Do supplements like turmeric replace the diet?", "answer": "No. The evidence behind this pattern is about whole eating habits, not isolated compounds. Supplements can also interact with medication — ask a pharmacist or clinician before adding them." },
+      { "question": "How fast would I notice anything?", "answer": "Set expectations at weeks-to-months, and mostly in mundane ways: steadier energy, better digestion, easier weight management. Anyone promising a 48-hour \"de-inflaming\" is selling something." },
+      { "question": "Can I still eat red meat?", "answer": "The pattern trims processed meat hardest; unprocessed red meat fits in moderation. Frequency is the lever — the pattern is defined by what fills most plates most days, not by any single food being forbidden." }
+    ],
+    "sources": [
+      { "label": "WHO — Healthy diet fact sheet", "url": "https://www.who.int/news-room/fact-sheets/detail/healthy-diet" },
+      { "label": "MedlinePlus — Dietary Fats", "url": "https://medlineplus.gov/dietaryfats.html" },
+      { "label": "ODPHP — Dietary Guidelines for Americans", "url": "https://odphp.health.gov/our-work/nutrition-physical-activity/dietary-guidelines" }
+    ],
+    "semanticEntities": [
+      { "term": "Chronic inflammation" },
+      { "term": "Unsaturated fats", "url": "https://medlineplus.gov/dietaryfats.html" },
+      { "term": "Dietary fiber", "url": "https://medlineplus.gov/dietaryfiber.html" },
+      { "term": "Ultra-processed food" },
+      { "term": "Mediterranean diet" }
+    ],
+    "seo": {
+      "metaTitle": "Anti-Inflammatory Diet: What to Eat & Limit",
+      "metaDescription": "An anti-inflammatory diet centers vegetables, fruit, fish, nuts, and olive oil while limiting ultra-processed food. Score your week with our free tool.",
+      "slug": "what-is-an-anti-inflammatory-diet",
+      "canonical": "",
+      "noindex": false,
+      "keywords": ["anti-inflammatory diet", "anti inflammatory foods", "foods that reduce inflammation", "anti-inflammatory eating pattern", "anti-inflammatory score", "Chronic inflammation", "Unsaturated fats", "Dietary fiber", "Ultra-processed food", "Mediterranean diet"]
+    },
+    "ogTitle": "Eat to Calm Inflammation: A Practical Guide",
+    "ogDescription": "The eating pattern linked with lower chronic inflammation — what fills the plate, what to trim back, and a free score showing where your week now stands.",
+    "twitterTitle": "Is your diet fighting inflammation — or feeding it?",
+    "twitterDescription": "Check your week against the anti-inflammatory eating pattern with our free score — no signup, honest feedback."
+  },
+  {
+    "tool": "gut-health-score",
+    "title": "How Do You Know If Your Gut Is Healthy?",
+    "excerpt": "Comfortable digestion, regularity, and steady energy are the everyday signs of a healthy gut. Here's what feeds your microbiome — and what starves it.",
+    "category": "nutrition",
+    "author": "editorial-team",
+    "reviewer": "",
+    "featured": false,
+    "primaryTool": "gut-health-score",
+    "relatedTools": ["gut-health-score", "food-symptom-diary", "anti-inflammatory-score"],
+    "layoutBlocks": [
+      { "type": "paragraph", "text": "A healthy gut is mostly defined by what you don't notice: no daily bloating, no meal-to-meal roulette, no afternoon energy crashes traced to lunch. Digestion runs quietly in the background. The noisy version — irregularity, discomfort, reflux — is your most honest feedback system, and it responds to habits faster than most people expect." },
+      { "type": "toolEmbed", "toolSlug": "gut-health-score" },
+      { "type": "heading", "level": 2, "text": "What is the gut microbiome, in plain terms?" },
+      { "type": "paragraph", "text": "Your large intestine hosts trillions of bacteria and other microbes — collectively, the gut microbiome. They ferment the fiber you can't digest, produce compounds your body uses, and interact with your immune system. The composition of that community shifts with what you feed it, which is why diet is the lever researchers keep returning to. There's plenty science hasn't settled about the microbiome, but the practical guidance is stable: feed it fiber from a variety of plants, and it tends to reward you." },
+      { "type": "heading", "level": 2, "text": "What are the everyday signs worth watching?" },
+      { "type": "list", "ordered": false, "items": ["Regularity — a rhythm that's normal for you, without straining or urgency", "Comfort — meals that don't routinely end in bloating, cramping, or reflux", "Steady energy — no reliable post-meal crashes", "Tolerance — being able to eat a wide range of foods without incident", "Stability — symptoms that don't lurch dramatically week to week"] },
+      { "type": "paragraph", "text": "None of these is a diagnosis in either direction — they're trend lines. The score above turns them, plus your fiber, fermented-food, sleep, and movement habits, into a single number so you can see which habit is doing the least work." },
+      { "type": "heading", "level": 2, "text": "Why is fiber the headline habit?" },
+      { "type": "paragraph", "text": "Fiber is the microbiome's food supply, and it's the nutrient Americans most consistently under-eat — the Dietary Guidelines flag it as a nutrient of public health concern. The fix is unglamorous: beans, oats, vegetables, fruit, nuts, whole grains, in rotation rather than the same two plants forever. Variety matters because different microbes prefer different fibers. Go gradually — a sudden fiber doubling is its own bloating festival — and drink water alongside it. If you want to know how your overall eating pattern stacks up beyond fiber, the [anti-inflammatory score](/tools/anti-inflammatory-score) looks at the same week through a wider lens." },
+      { "type": "heading", "level": 2, "text": "Do fermented foods and probiotics actually help?" },
+      { "type": "paragraph", "text": "Fermented foods — yogurt with live cultures, kefir, sauerkraut, kimchi — deliver live microbes and are a reasonable, food-first habit. Probiotic supplements are more situational: effects are strain-specific and the evidence is mixed enough that MedlinePlus describes benefits cautiously. The sensible order of operations is fiber and fermented foods first, supplements only for a specific reason, ideally one a clinician or dietitian agrees with." },
+      { "type": "heading", "level": 2, "text": "When is it more than a habit problem?" },
+      { "type": "paragraph", "text": "Habits fix a lot, but not everything. Persistent abdominal pain, blood in stool, unintentional weight loss, symptoms that wake you at night, or a major lasting change in bowel habits are see-a-doctor signals — conditions like irritable bowel syndrome, celiac disease, and inflammatory bowel disease need real evaluation, not a better breakfast. If your symptoms seem food-triggered but the culprit is unclear, two weeks with the [food and symptom diary](/tools/food-symptom-diary) gives your clinician far better material than memory ever will." },
+      { "type": "disclaimer", "text": "This article and the Gut Health Score are general education, not medical advice or a diagnosis. Persistent or severe digestive symptoms deserve a real medical evaluation — see your doctor or a gastroenterologist." }
+    ],
+    "faq": [
+      { "question": "How much fiber should I aim for?", "answer": "US guidance ties fiber to calories — roughly 14 g per 1,000 calories eaten, which lands most adults in the mid-20s to mid-30s of grams per day. Most people are well under that, so any sustained increase from whole foods is progress. Increase gradually to keep bloating manageable." },
+      { "question": "Is bloating after every meal normal?", "answer": "Occasional bloating is normal; predictable, daily bloating isn't something you have to accept. Common culprits include rapid fiber increases, large late meals, and specific trigger foods — a food and symptom diary is the practical way to narrow it down before assuming the worst." },
+      { "question": "Do I need a microbiome test kit?", "answer": "For most people, no. Consumer microbiome tests describe what's there but rarely change the advice: more plant variety, more fiber, fermented foods, sleep, movement. Save the money for groceries unless a clinician has a specific reason to test." },
+      { "question": "How long until gut habits show results?", "answer": "Microbial composition starts shifting within days of a diet change, but comfortable digestion and steadier energy typically show over weeks. Re-score yourself monthly rather than daily — trend, not noise." },
+      { "question": "Can stress really affect my gut?", "answer": "Yes — the gut and brain are in constant two-way communication, and stress reliably shows up as digestive symptoms for many people. It's one reason sleep and stress questions are part of the score, not just food." }
+    ],
+    "sources": [
+      { "label": "MedlinePlus — Dietary Fiber", "url": "https://medlineplus.gov/dietaryfiber.html" },
+      { "label": "NIDDK — Irritable Bowel Syndrome (IBS)", "url": "https://www.niddk.nih.gov/health-information/digestive-diseases/irritable-bowel-syndrome" },
+      { "label": "MedlinePlus — Probiotics", "url": "https://medlineplus.gov/ency/article/007165.htm" }
+    ],
+    "semanticEntities": [
+      { "term": "Gut microbiome" },
+      { "term": "Probiotics", "url": "https://medlineplus.gov/ency/article/007165.htm" },
+      { "term": "Dietary fiber", "url": "https://medlineplus.gov/dietaryfiber.html" },
+      { "term": "Irritable bowel syndrome", "url": "https://www.niddk.nih.gov/health-information/digestive-diseases/irritable-bowel-syndrome" },
+      { "term": "Fermented foods" }
+    ],
+    "seo": {
+      "metaTitle": "Gut Health: Signs It's Working (or Not)",
+      "metaDescription": "Regular digestion, steady energy, and little bloating are good gut signs. Learn what helps your microbiome and check yours with our free Gut Health Score.",
+      "slug": "how-do-you-know-if-your-gut-is-healthy",
+      "canonical": "",
+      "noindex": false,
+      "keywords": ["gut health", "signs of healthy gut", "gut microbiome", "improve gut health", "gut health score", "Gut microbiome", "Probiotics", "Dietary fiber", "Irritable bowel syndrome", "Fermented foods"]
+    },
+    "ogTitle": "Your Gut Is Talking. Here's How to Listen",
+    "ogDescription": "The everyday signs of a healthy gut, the fiber and fermented-food habits that feed your microbiome, plus a free 2-minute score to see where you stand.",
+    "twitterTitle": "How healthy is your gut, really?",
+    "twitterDescription": "Bloating, irregularity, low energy? Check your gut habits with our free Gut Health Score — 2 minutes, no signup."
+  },
+  {
+    "tool": "food-symptom-diary",
+    "title": "How to Keep a Food and Symptom Diary That Finds Your Triggers",
+    "excerpt": "Memory is a terrible food detective. A structured food and symptom diary catches patterns — here's what to record and for how long.",
+    "category": "nutrition",
+    "author": "editorial-team",
+    "reviewer": "",
+    "featured": false,
+    "primaryTool": "food-symptom-diary",
+    "relatedTools": ["food-symptom-diary", "gut-health-score", "recipe-nutrition-analyzer"],
+    "layoutBlocks": [
+      { "type": "paragraph", "text": "Ask anyone what they ate last Tuesday and you'll get fiction. That's the whole problem with finding food triggers by memory: the suspect meal was three days and eleven meals ago. A written food and symptom diary solves this with brute honesty — everything you eat, every symptom that follows, timestamped, for a few weeks. It's low-tech, it's what allergists and gastroenterologists actually ask patients to do, and it works because patterns repeat even when memory doesn't." },
+      { "type": "toolEmbed", "toolSlug": "food-symptom-diary" },
+      { "type": "heading", "level": 2, "text": "What exactly should you write down?" },
+      { "type": "table", "headers": ["Column", "Example entry"], "rows": [["Time & meal", "13:10 — lunch"], ["What & roughly how much", "Lentil soup (large bowl), 2 slices sourdough, latte"], ["Symptoms & severity", "Bloating (moderate), gas"], ["Onset after eating", "~2 hours"]] },
+      { "type": "paragraph", "text": "Two additions make a good diary a great one. First, context: sleep, stress, exercise, and (where relevant) cycle phase, because symptoms blamed on food are often partly about the day around it. Second, honesty about amounts — \"some cheese\" hides exactly the dose information that makes lactose patterns visible. If a recurring homemade dish is a suspect, running it through the [recipe nutrition analyzer](/tools/recipe-nutrition-analyzer) tells you what's actually in a serving of it." },
+      { "type": "heading", "level": 2, "text": "How long do you need to track?" },
+      { "type": "paragraph", "text": "Two weeks minimum, four if symptoms are intermittent. One appearance of a symptom after a food is coincidence; the same pairing three times with a consistent delay is a pattern worth taking seriously. Onset time is the most underrated clue — reflux tends to follow meals quickly, while some intolerance symptoms arrive hours later, which is exactly why undated mental notes fail." },
+      { "type": "heading", "level": 2, "text": "What patterns do clinicians actually look for?" },
+      { "type": "paragraph", "text": "A few classics show up constantly. Dairy portions tracking with gas and bloating suggests lactose intolerance — dose-dependent, which the amounts column reveals. Symptoms clustering after large, late, or fatty meals point toward reflux (GERD) patterns. Consistent trouble after wheat-based meals is worth discussing with a doctor before you change anything, because celiac disease testing requires you to still be eating gluten to give a valid result. And a diary that shows symptoms scattered across stressful days more than across any food is a genuinely useful negative finding." },
+      { "type": "heading", "level": 2, "text": "Why shouldn't you jump straight to cutting foods?" },
+      { "type": "paragraph", "text": "Because eliminations have costs. Cutting food groups on suspicion shrinks your diet, can starve the gut of fiber variety, and — in the celiac case — can actively ruin diagnostic tests. The diary's job is to narrow suspicion so that any elimination is short, targeted, and ideally supervised by a dietitian or your doctor. One important boundary: if you've ever had swelling, hives, or trouble breathing after a food, that's possible food allergy territory — emergency care if it's happening now, and an allergist's evaluation rather than a diary experiment if it happened before." },
+      { "type": "heading", "level": 2, "text": "What do you do with the diary afterward?" },
+      { "type": "paragraph", "text": "Bring it to the appointment. A month of timestamped entries turns a vague \"my stomach's been off\" conversation into a specific, testable one — clinicians can scan for the patterns above in minutes. If your symptoms are more everyday-digestive than trigger-shaped, pairing the diary with your [gut health score](/tools/gut-health-score) shows whether the boring fundamentals — fiber, sleep, movement — are the actual story." },
+      { "type": "disclaimer", "text": "A food and symptom diary is an educational self-observation tool, not a diagnostic test. Symptoms of a possible food allergy (swelling, hives, difficulty breathing) need emergency care; persistent digestive symptoms deserve evaluation by your doctor, a gastroenterologist, or a registered dietitian." }
+    ],
+    "faq": [
+      { "question": "What's the difference between a food allergy and an intolerance?", "answer": "An allergy involves the immune system, can be severe or life-threatening, and even tiny amounts can trigger it. An intolerance (like lactose intolerance) is usually digestive, dose-dependent, and uncomfortable rather than dangerous. Diaries help with intolerance patterns; suspected allergies belong with an allergist." },
+      { "question": "Should I count calories in the diary too?", "answer": "Only if that's already your goal. For trigger-finding, what and when matter more than calorie totals — adding calorie pressure can make entries less honest, which defeats the point." },
+      { "question": "Can I just use my memory or photos instead?", "answer": "Photos help with the what, but they miss timing, amounts, and symptoms — the three fields where patterns live. A structured log beats a camera roll." },
+      { "question": "My diary shows no food pattern at all. Was it wasted?", "answer": "No — that's information. Symptoms that track with stress, poor sleep, or large meal size rather than any ingredient point away from intolerances and toward habits, which changes what you and your clinician try next." },
+      { "question": "Do I have to keep the diary forever?", "answer": "No. Two to four honest weeks is usually enough to either surface a pattern or rule the obvious ones out. Some people re-run a short diary later to check whether a change actually helped." }
+    ],
+    "sources": [
+      { "label": "MedlinePlus — Food Allergy", "url": "https://medlineplus.gov/foodallergy.html" },
+      { "label": "MedlinePlus — Lactose Intolerance", "url": "https://medlineplus.gov/lactoseintolerance.html" },
+      { "label": "NIDDK — Irritable Bowel Syndrome (IBS)", "url": "https://www.niddk.nih.gov/health-information/digestive-diseases/irritable-bowel-syndrome" }
+    ],
+    "semanticEntities": [
+      { "term": "Food allergy", "url": "https://medlineplus.gov/foodallergy.html" },
+      { "term": "Food intolerance" },
+      { "term": "Lactose intolerance", "url": "https://medlineplus.gov/lactoseintolerance.html" },
+      { "term": "Celiac disease", "url": "https://medlineplus.gov/celiacdisease.html" },
+      { "term": "GERD", "url": "https://medlineplus.gov/gerd.html" }
+    ],
+    "seo": {
+      "metaTitle": "Food & Symptom Diary: Find Your Triggers",
+      "metaDescription": "A food and symptom diary links what you eat to how you feel. Learn what to record, how long to track, and start free with our Food & Symptom Diary tool.",
+      "slug": "how-to-keep-a-food-and-symptom-diary",
+      "canonical": "",
+      "noindex": false,
+      "keywords": ["food and symptom diary", "food diary for intolerance", "how to find food triggers", "food sensitivity tracking", "food symptom diary tool", "Food allergy", "Food intolerance", "Lactose intolerance", "Celiac disease", "GERD"]
+    },
+    "ogTitle": "Find the Food Behind the Symptom",
+    "ogDescription": "What to write down, how long to track, and the patterns clinicians look for — plus a free structured diary that makes doctor visits far more useful to you.",
+    "twitterTitle": "Which food is causing that symptom?",
+    "twitterDescription": "Track meals and symptoms side by side with our free structured diary — spot patterns worth showing your doctor."
+  }
+]

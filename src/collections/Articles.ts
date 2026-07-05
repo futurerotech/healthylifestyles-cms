@@ -1,5 +1,5 @@
 import type { CollectionConfig, SelectField } from 'payload';
-import { isAdminOrEditor, publicRead } from '../access/roles';
+import { isAdminOrEditor, publishedPublicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { pageBlocks } from '../blocks';
@@ -40,7 +40,7 @@ export const Articles: CollectionConfig = {
     listSearchableFields: ['title', 'excerpt'],
     preview: (doc) => (doc?.slug ? `https://www.healthylifesstyles.com/wellness-hub/${doc.slug}` : null),
   },
-  access: { read: publicRead, create: isAdminOrEditor, update: isAdminOrEditor, delete: isAdminOrEditor },
+  access: { read: publishedPublicRead, create: isAdminOrEditor, update: isAdminOrEditor, delete: isAdminOrEditor },
   versions: { drafts: { autosave: { interval: 800 }, schedulePublish: true }, maxPerDoc: 50 },
   fields: [
     {
