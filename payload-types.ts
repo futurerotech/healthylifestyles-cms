@@ -714,6 +714,19 @@ export interface Tool {
     twitterImage?: (number | null) | Media;
   };
   /**
+   * Deep, machine-readable medical/physiological entities (e.g. "insulin resistance", "basal metabolic rate equation"). Emitted into the article JSON-LD `about` + keywords for Google E-E-A-T and AI citation.
+   */
+  semanticEntities?:
+    | {
+        term: string;
+        /**
+         * Optional authoritative URL (NIH / MeSH / Wikipedia) used as sameAs.
+         */
+        url?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
    * Lowercase URL segment. Auto-generated from the name — edit if you need a custom URL.
    */
   slug?: string | null;
@@ -2380,6 +2393,13 @@ export interface ToolsSelect<T extends boolean = true> {
         twitterTitle?: T;
         twitterDescription?: T;
         twitterImage?: T;
+      };
+  semanticEntities?:
+    | T
+    | {
+        term?: T;
+        url?: T;
+        id?: T;
       };
   slug?: T;
   sortOrder?: T;
