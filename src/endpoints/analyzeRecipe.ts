@@ -117,7 +117,7 @@ export const analyzeRecipe: Endpoint = {
       return Response.json({ error: 'Recipe analyzer is not configured. Set USDA_FDC_API_KEY on the server.' }, { status: 503 });
     }
     if (!isParseConfigured()) {
-      return Response.json({ error: 'AI parsing is not configured. Set DEEPSEEK_API_KEY on the server.' }, { status: 503 });
+      return Response.json({ error: 'Recipe analyzer is not configured. Set NARAROUTER_API_KEY and USDA_FDC_API_KEY on the server.' }, { status: 503 });
     }
 
     // Parse body
