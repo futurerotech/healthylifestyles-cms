@@ -50,6 +50,7 @@ import { generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoi
 import { trackEmbed } from './src/endpoints/trackEmbed';
 import { checkBacklinks } from './src/endpoints/checkBacklinks';
 import { runAudit } from './src/endpoints/runAudit';
+import { analyzeRecipe } from './src/endpoints/analyzeRecipe';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -195,7 +196,7 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   sharp,
-  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks, runAudit],
+  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks, runAudit, analyzeRecipe],
   // Seed the four default outreach templates once (idempotent: only when the
   // collection is empty). Runs at server boot, never during `payload migrate`.
   onInit: async (payload) => {
