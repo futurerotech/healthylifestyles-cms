@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload';
-import { isAdminOrEditor, publicRead } from '../access/roles';
+import { isAdminOrEditor, publishedPublicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { validateFormula } from '../lib/formula';
@@ -34,7 +34,9 @@ export const Tools: CollectionConfig = {
     description: 'Create and edit calculators with no code. Formula tools use safe math expressions.',
     preview: (doc) => (doc?.slug ? `https://www.healthylifesstyles.com/tools/${doc.slug}` : null),
   },
-  access: { read: publicRead, create: isAdminOrEditor, update: isAdminOrEditor, delete: isAdminOrEditor },
+  // Anonymous readers only see PUBLISHED tools (all 70 existing tools were
+  // bulk-published 2026-07-06); future draft tools stay hidden until published.
+  access: { read: publishedPublicRead, create: isAdminOrEditor, update: isAdminOrEditor, delete: isAdminOrEditor },
   versions: { drafts: { autosave: { interval: 800 } }, maxPerDoc: 50 },
 
   hooks: {
