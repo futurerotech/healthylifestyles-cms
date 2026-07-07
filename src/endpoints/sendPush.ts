@@ -30,7 +30,7 @@ export const sendPush: Endpoint = {
       }
 
       const pushConfig: PushConfig = {
-        vapidSubject: audience.vapidSubject || 'mailto:hello@healthylifesstyles.com',
+        vapidSubject: audience.vapidSubject || `mailto:hello@${process.env.SITE_BASE_URL ? new URL(process.env.SITE_BASE_URL).hostname : 'healthylifesstyles.com'}`,
         vapidPublicKey: audience.vapidPublicKey || '',
         vapidPrivateKey: audience.vapidPrivateKey || '',
         defaultIcon: audience.defaultIcon || undefined,

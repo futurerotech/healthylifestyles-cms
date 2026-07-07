@@ -120,7 +120,7 @@ export const afterPublishPushHook: CollectionAfterChangeHook = async ({
 
   const title = doc.title || 'New article';
   const body = doc.excerpt || 'Check out our latest wellness guide.';
-  const url = `https://www.healthylifesstyles.com/wellness-hub/${doc.slug}`;
+  const url = `${process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'}/wellness-hub/${doc.slug}`;
 
   const result = await broadcast(payload, pushConfig, { title, body, url });
 

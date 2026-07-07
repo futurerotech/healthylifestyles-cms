@@ -38,7 +38,7 @@ export const Articles: CollectionConfig = {
     group: 'Content',
     defaultColumns: ['title', '_status', 'featured', 'category', 'author', 'updatedAt'],
     listSearchableFields: ['title', 'excerpt'],
-    preview: (doc) => (doc?.slug ? `https://www.healthylifesstyles.com/wellness-hub/${doc.slug}` : null),
+    preview: (doc) => (doc?.slug ? `${process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'}/wellness-hub/${doc.slug}` : null),
   },
   access: { read: publishedPublicRead, create: isAdminOrEditor, update: isAdminOrEditor, delete: isAdminOrEditor },
   versions: { drafts: { autosave: { interval: 800 }, schedulePublish: true }, maxPerDoc: 50 },

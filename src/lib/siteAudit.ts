@@ -33,7 +33,7 @@ export interface AuditResult {
 
 /* ─────────────────────────── config ─────────────────────────── */
 
-const SITE = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com').replace(/\/$/, '');
+const SITE = (process.env.SITE_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com').replace(/\/$/, '');
 const SITE_HOST = new URL(SITE).hostname.replace(/^www\./, '');
 const UA = 'HealthyLifeStyles-SiteAudit/1.0 (+' + SITE + ')';
 const MAX_PAGES = 300;

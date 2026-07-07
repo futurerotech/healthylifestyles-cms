@@ -32,7 +32,7 @@ export const Tools: CollectionConfig = {
     defaultColumns: ['name', 'category', 'enabled', 'featured', 'updatedAt'],
     listSearchableFields: ['name', 'slug'],
     description: 'Create and edit calculators with no code. Formula tools use safe math expressions.',
-    preview: (doc) => (doc?.slug ? `https://www.healthylifesstyles.com/tools/${doc.slug}` : null),
+    preview: (doc) => (doc?.slug ? `${process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'}/tools/${doc.slug}` : null),
   },
   // Anonymous readers only see PUBLISHED tools (all 70 existing tools were
   // bulk-published 2026-07-06); future draft tools stay hidden until published.
