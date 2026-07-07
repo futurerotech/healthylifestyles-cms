@@ -161,6 +161,7 @@ export default buildConfig({
       Nav: '@/components/admin/Nav#Nav',
       beforeLogin: ['@/components/admin/BeforeLogin#BeforeLogin'],
       beforeDashboard: ['@/components/admin/Dashboard#Dashboard'],
+      afterNavLinks: ['@/components/admin/DeployButton#default'],
     },
     // Suppress Payload's default collection/global "card" widgets so the only
     // dashboard content is our custom analytics Dashboard (beforeDashboard).
