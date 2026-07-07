@@ -5,7 +5,7 @@ import { seoField } from '../fields/seo';
 import { pageBlocks } from '../blocks';
 import { afterChangeIndexingHook } from '../lib/indexing';
 import { afterPublishPushHook } from '../lib/push';
-import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
+import { trackPendingChange } from '../hooks/trackPendingChange';
 
 /** Which AI model generates this article (read per-request by the generator). */
 const aiProviderField: SelectField = {
@@ -167,6 +167,6 @@ export const Articles: CollectionConfig = {
     { name: 'sendPushButton', type: 'ui', admin: { position: 'sidebar', components: { Field: '@/components/admin/SendPushButton#SendPushButton' } } },
   ],
   hooks: {
-    afterChange: [afterChangeIndexingHook, afterPublishPushHook, triggerVercelDeploy],
+    afterChange: [afterChangeIndexingHook, afterPublishPushHook, trackPendingChange],
   },
 };

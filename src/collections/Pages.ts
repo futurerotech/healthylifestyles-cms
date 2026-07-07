@@ -4,7 +4,7 @@ import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { pageBlocks } from '../blocks';
 import { afterChangeIndexingHook } from '../lib/indexing';
-import { triggerVercelDeploy } from '../hooks/triggerVercelDeploy';
+import { trackPendingChange } from '../hooks/trackPendingChange';
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -37,6 +37,6 @@ export const Pages: CollectionConfig = {
     { name: 'publishDate', type: 'date', admin: { description: 'Used for ordering and scheduling.' } },
   ],
   hooks: {
-    afterChange: [afterChangeIndexingHook, triggerVercelDeploy],
+    afterChange: [afterChangeIndexingHook, trackPendingChange],
   },
 };

@@ -31,6 +31,10 @@ import { OutreachTemplates } from './src/collections/OutreachTemplates';
 import { Backlinks } from './src/collections/Backlinks';
 import { EmbedLogs } from './src/collections/EmbedLogs';
 import { SiteAudits } from './src/collections/SiteAudits';
+import { AuditLog } from './src/collections/AuditLog';
+import { PromptRegistry } from './src/collections/PromptRegistry';
+import { PendingDeploys } from './src/collections/PendingDeploys';
+import { DeployLog } from './src/collections/DeployLog';
 import { Settings } from './src/globals/Settings';
 import { Indexing } from './src/globals/Indexing';
 import { SocialMedia } from './src/globals/SocialMedia';
@@ -165,7 +169,7 @@ export default buildConfig({
       defaultLayout: [],
     },
   },
-  collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory, LinkProspects, OutreachTemplates, Backlinks, EmbedLogs, SiteAudits],
+  collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory, LinkProspects, OutreachTemplates, Backlinks, EmbedLogs, SiteAudits, AuditLog, PromptRegistry, PendingDeploys, DeployLog],
   globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience],
   editor: lexicalEditor(),
   plugins: storagePlugins,
