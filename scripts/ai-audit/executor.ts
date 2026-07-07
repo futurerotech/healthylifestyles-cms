@@ -8,7 +8,7 @@
  */
 
 import { z } from 'zod'
-import { chat } from '../../services/ai'
+import { chat } from '../../src/services/ai'
 import type { Finding } from './detectors'
 
 export interface ProposedFix {

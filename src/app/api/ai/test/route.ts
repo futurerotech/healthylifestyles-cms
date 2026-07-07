@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import { decryptField } from '../../../lib/crypto'
+import { decryptField } from '../../../../lib/crypto'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

@@ -42,7 +42,7 @@ export const AiSettings: GlobalConfig = {
           type: 'text',
           required: true,
           defaultValue: 'https://api.openai.com/v1',
-          validate: (v: string) => /^https?:\/\/.+/.test(v || '') || 'Must be a valid base URL (no trailing /chat/completions)',
+          validate: (v: unknown) => /^https?:\/\/.+/.test(String(v || '')) || 'Must be a valid base URL (no trailing /chat/completions)',
         },
         {
           name: 'apiKey',
