@@ -41,6 +41,7 @@ import { SocialMedia } from './src/globals/SocialMedia';
 import { AdManagement } from './src/globals/AdManagement';
 import { LeadGen } from './src/globals/LeadGen';
 import { Audience } from './src/globals/Audience';
+import { AiSettings } from './src/globals/AiSettings';
 import { aiAssist } from './src/endpoints/aiAssist';
 import { trackUsage } from './src/endpoints/trackUsage';
 import { aiWriting } from './src/endpoints/aiWriting';
@@ -171,7 +172,7 @@ export default buildConfig({
     },
   },
   collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory, LinkProspects, OutreachTemplates, Backlinks, EmbedLogs, SiteAudits, AuditLog, PromptRegistry, PendingDeploys, DeployLog],
-  globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience],
+  globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience, AiSettings],
   editor: lexicalEditor(),
   plugins: storagePlugins,
   db: postgresAdapter({
