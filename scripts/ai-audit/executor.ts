@@ -2,33 +2,37 @@
  * AI SEO Autopilot — Executor (§5 Phase 2, DRY-RUN MODE).
  *
  * Takes findings from the audit crawler/detectors and generates proposed
- * fixes using Gemini. In DRY-RUN mode, proposed fixes are written to the
- * audit-log collection but NEVER applied to the live content.
- *
- * A human reviews the proposed fixes in the admin panel and can approve
- * them individually. No payload.update() is called on articles/tools.
+ * fixes using the provider-agnostic AI gateway. In DRY-RUN mode, proposed
+ * fixes are written to the audit-log collection but NEVER applied to the
+ * live content.
  */
 
-import { generateWithProvider, type AIProvider } from '../../services/ai';
-import type { Finding } from './detectors';
+import { z } from 'zod'
+import { chat } from '../../services/ai'
+import type { Finding } from './detectors'
 
 export interface ProposedFix {
-  pageId: number;
-  collection: string;
-  slug: string;
-  title: string;
-  url: string;
-  field: string;
-  issue: string;
-  currentValue: string;
-  proposedValue: string;
-  aiModel: string;
-  confidence: 'high' | 'medium' | 'low';
-  status: 'proposed'; // never 'applied' in dry-run mode
+  pageId: number
+  collection: string
+  slug: string
+  title: string
+  url: string
+  field: string
+  issue: string
+  currentValue: string
+  proposedValue: string
+  aiModel: string
+  confidence: 'high' | 'medium' | 'low'
+  status: 'proposed'
 }
 
+// Zod schema for the meta-description fix response
+const metaDescSchema = z.object({
+  metaDescription: z.string().min(100).max(160),
+})
+
 /**
- * Generate a proposed meta description fix using Gemini.
+ * Generate a proposed meta description fix using the AI gateway.
  * The AI is instructed to write a 150-155 char description with the
  * primary keyword in the first 120 chars. It NEVER writes the fix to
  * the database — it only proposes text for human review.
@@ -51,27 +55,41 @@ Rules:
 - End with a soft CTA ("Free calculator included", "Learn how", etc.)
 - No quotes, no ALL CAPS, no em dashes
 
-Output ONLY the meta description text. No explanation, no labels.`;
+Respond as JSON: {"metaDescription": "your description here"}`
 
-  let proposedValue = '';
-  let confidence: 'high' | 'medium' | 'low' = 'medium';
+  let proposedValue = ''
+  let confidence: 'high' | 'medium' | 'low' = 'medium'
+  let model = 'unknown'
 
   try {
-    const provider: AIProvider = 'gemini';
-    const response = await generateWithProvider(provider, prompt);
-    proposedValue = response.trim();
+    const result = await chat({
+      taskType: 'meta_trim',
+      messages: [
+        { role: 'system', content: 'You are an SEO meta description writer. Respond only with valid JSON.' },
+        { role: 'user', content: prompt },
+      ],
+      schema: metaDescSchema,
+    })
 
-    // Validate length
-    if (proposedValue.length >= 150 && proposedValue.length <= 155) {
-      confidence = 'high';
-    } else if (proposedValue.length >= 140 && proposedValue.length <= 160) {
-      confidence = 'medium';
+    if (result.ok) {
+      proposedValue = result.data.metaDescription
+      model = result.model
+
+      // Validate length
+      if (proposedValue.length >= 150 && proposedValue.length <= 155) {
+        confidence = 'high'
+      } else if (proposedValue.length >= 140 && proposedValue.length <= 160) {
+        confidence = 'medium'
+      } else {
+        confidence = 'low'
+      }
     } else {
-      confidence = 'low';
+      proposedValue = `[AI unavailable: ${result.error}]`
+      confidence = 'low'
     }
   } catch (err) {
-    proposedValue = `[AI unavailable: ${(err as Error).message}]`;
-    confidence = 'low';
+    proposedValue = `[AI error: ${(err as Error).message}]`
+    confidence = 'low'
   }
 
   return {
@@ -84,10 +102,10 @@ Output ONLY the meta description text. No explanation, no labels.`;
     issue: finding.issue,
     currentValue: finding.currentValue,
     proposedValue,
-    aiModel: 'gemini-2.0-flash',
+    aiModel: model,
     confidence,
     status: 'proposed',
-  };
+  }
 }
 
 /**
@@ -98,14 +116,14 @@ Output ONLY the meta description text. No explanation, no labels.`;
 export async function executeDryRun(
   findings: Finding[],
 ): Promise<ProposedFix[]> {
-  const fixes: ProposedFix[] = [];
+  const fixes: ProposedFix[] = []
 
   for (const finding of findings) {
     if (finding.issue.startsWith('Missing meta description') || finding.issue.includes('too long') || finding.issue.includes('too short')) {
-      const fix = await proposeMetaDescriptionFix(finding);
-      fixes.push(fix);
+      const fix = await proposeMetaDescriptionFix(finding)
+      fixes.push(fix)
     }
   }
 
-  return fixes;
+  return fixes
 }

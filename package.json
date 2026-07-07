@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
-    "@google/generative-ai": "^0.24.1",
     "@payloadcms/db-postgres": "^3.85.1",
     "@payloadcms/next": "^3.0.0",
     "@payloadcms/richtext-lexical": "^3.0.0",
