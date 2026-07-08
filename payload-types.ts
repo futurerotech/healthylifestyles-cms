@@ -92,6 +92,10 @@ export interface Config {
     backlinks: Backlink;
     'embed-logs': EmbedLog;
     'site-audits': SiteAudit;
+    'audit-log': AuditLog;
+    'prompt-registry': PromptRegistry;
+    'pending-deploys': PendingDeploy;
+    'deploy-log': DeployLog;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -125,6 +129,10 @@ export interface Config {
     backlinks: BacklinksSelect<false> | BacklinksSelect<true>;
     'embed-logs': EmbedLogsSelect<false> | EmbedLogsSelect<true>;
     'site-audits': SiteAuditsSelect<false> | SiteAuditsSelect<true>;
+    'audit-log': AuditLogSelect<false> | AuditLogSelect<true>;
+    'prompt-registry': PromptRegistrySelect<false> | PromptRegistrySelect<true>;
+    'pending-deploys': PendingDeploysSelect<false> | PendingDeploysSelect<true>;
+    'deploy-log': DeployLogSelect<false> | DeployLogSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -1887,6 +1895,126 @@ export interface SiteAudit {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audit-log".
+ */
+export interface AuditLog {
+  id: number;
+  /**
+   * Unique run identifier (e.g. "2026-07-07-meta-desc").
+   */
+  runId: string;
+  type: 'meta-description' | 'broken-links' | 'cannibalization' | 'schema' | 'full';
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  /**
+   * Number of items scanned.
+   */
+  scannedCount?: number | null;
+  /**
+   * Number of issues found.
+   */
+  issueCount?: number | null;
+  /**
+   * Structured findings array (issue, severity, proposed fix).
+   */
+  findings?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Human-readable summary of the run.
+   */
+  summary?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "prompt-registry".
+ */
+export interface PromptRegistry {
+  id: number;
+  /**
+   * Human-readable prompt name.
+   */
+  name: string;
+  /**
+   * Lowercase URL segment. Auto-generated from the name — edit if you need a custom URL.
+   */
+  slug?: string | null;
+  type: 'detector' | 'fixer' | 'analyzer';
+  /**
+   * Prompt version — bump when the prompt changes.
+   */
+  version: number;
+  /**
+   * Only one prompt per type+name should be active.
+   */
+  active?: boolean | null;
+  /**
+   * The full prompt text. Variables in {{double braces}}.
+   */
+  prompt: string;
+  model?: ('gemini-2.0-flash' | 'gemini-1.5-flash' | 'deepseek-chat') | null;
+  /**
+   * Schema of variables this prompt expects (for validation).
+   */
+  variables?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pending-deploys".
+ */
+export interface PendingDeploy {
+  id: number;
+  /**
+   * Which collection was changed.
+   */
+  collectionSlug: string;
+  /**
+   * Document ID that was changed.
+   */
+  docId: string;
+  /**
+   * ISO timestamp of the change.
+   */
+  changedAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "deploy-log".
+ */
+export interface DeployLog {
+  id: number;
+  /**
+   * Email of the user who triggered the deploy.
+   */
+  triggeredBy?: string | null;
+  /**
+   * Number of pending changes cleared by this deploy.
+   */
+  pendingCount?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -2100,6 +2228,22 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'site-audits';
         value: number | SiteAudit;
+      } | null)
+    | ({
+        relationTo: 'audit-log';
+        value: number | AuditLog;
+      } | null)
+    | ({
+        relationTo: 'prompt-registry';
+        value: number | PromptRegistry;
+      } | null)
+    | ({
+        relationTo: 'pending-deploys';
+        value: number | PendingDeploy;
+      } | null)
+    | ({
+        relationTo: 'deploy-log';
+        value: number | DeployLog;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -3039,6 +3183,58 @@ export interface SiteAuditsSelect<T extends boolean = true> {
   finishedAt?: T;
   error?: T;
   issues?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "audit-log_select".
+ */
+export interface AuditLogSelect<T extends boolean = true> {
+  runId?: T;
+  type?: T;
+  status?: T;
+  scannedCount?: T;
+  issueCount?: T;
+  findings?: T;
+  summary?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "prompt-registry_select".
+ */
+export interface PromptRegistrySelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  type?: T;
+  version?: T;
+  active?: T;
+  prompt?: T;
+  model?: T;
+  variables?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pending-deploys_select".
+ */
+export interface PendingDeploysSelect<T extends boolean = true> {
+  collectionSlug?: T;
+  docId?: T;
+  changedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "deploy-log_select".
+ */
+export interface DeployLogSelect<T extends boolean = true> {
+  triggeredBy?: T;
+  pendingCount?: T;
   updatedAt?: T;
   createdAt?: T;
 }
