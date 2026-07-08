@@ -81,6 +81,26 @@
   NOT fire the Vercel deploy hook (empty locally) — a **frontend rebuild is required**
   to reflect C5/C9 (and the C6/C7/C8 frontend edits) on the live static site.
 
+**2b — GROUP B applied (CDC reorg paths, owner-verified override, 2026-07-09)**
+- Pre-flight override: CDC bot-blocks automated requests (curl/WebFetch → 403), so the
+  HTTP 200 gate could not run. Satisfied by **human verification (owner, 2026-07-08) —
+  CDC bot-blocks curl**. The 4 mapped URLs were written verbatim; no substitutions, no
+  403 re-block.
+- Applied to CMS article content (`fix-external-link.ts`, Local API, idempotent, republished):
+  - B1 `cdc.gov/healthyweight/assessing/bmi/adult_bmi/index.html` → `cdc.gov/bmi/index.html` — `healthy-bmi-by-age` (×1)
+  - B3 `cdc.gov/healthyweight/physical_activity/index.html` → `cdc.gov/physical-activity-basics/index.html` — `metabolic-age-calculator-guide` (×1)
+  - B4 `cdc.gov/physicalactivity/basics/index.htm` → `cdc.gov/physical-activity-basics/index.html` — `calories-burned-calculator-guide` (×1)
+- Applied to frontend static fallback (same B1 URL, `href` only, text unchanged): `src/data/articles.ts` (×2).
+- **B2 NOT applied — confirmed scan/DB DRIFT (not a real occurrence).**
+  `cdc.gov/healthyweight/healthy_eating/water-and-healthier-drinks.html` matched **0 CMS
+  docs** (exact + `healthyweight`/`healthy_eating`/`water-and-healthier` variants) and **0
+  frontend files**. The current CMS `how-much-water` doc's only CDC link is
+  `cdc.gov/bmi/adult-calculator/index.html`. B2 appears ONLY on the **stale live build**
+  and will disappear on the next frontend rebuild. Proposed target (general nutrition page)
+  was not written. **Link-2 content-fit flag: N/A** — no live occurrence in the source to evaluate.
+- Idempotency: re-run of B1/B3/B4 → 0 changes. Side-effect hooks (indexing/push) no-op (no creds).
+- Go-live: frontend rebuild required (CMS updated; local run did not fire the Vercel hook).
+
 ### Phase 3 — Toxic backlinks
 - Created `docs/disavow.txt` with 8 domains (rankinghighseo.shop, blog5.net, qowap.com, blog2learn.com, onesmablog.com, jaiblogs.com, getblogs.net, dbblog.net)
 - Created `scripts/seo/check-new-backlinks.ts` (weekly monitor, requires Ahrefs/Moz API key)
