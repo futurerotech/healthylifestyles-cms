@@ -6,7 +6,7 @@
  * Both are fire-and-forget; failures are logged to the IndexingStatus collection.
  */
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com';
+const SITE_URL = process.env.SITE_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com';
 
 /* -------------------------------------------------------------------------- */
 /*  IndexNow                                                                  */

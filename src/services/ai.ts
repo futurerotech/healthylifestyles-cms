@@ -367,3 +367,189 @@ function sectionToolSchema(section: RegenSection): Record<string, unknown> {
       return { type: 'object', additionalProperties: false, properties: { body: a.body }, required: ['body'] };
   }
 }
+
+/* ──────────────────────────────────────────────────────────────────
+ * §3 — Provider-agnostic AI gateway (OpenAI-compatible /chat/completions)
+ *
+ * Replaces hardcoded Gemini with a configurable failover chain.
+ * Reads from the AiSettings Payload global (admin-configurable).
+ * All provider-specific SDKs are bypassed — native fetch only.
+ * ────────────────────────────────────────────────────────────────── */
+
+import { getPayload } from 'payload'
+import configPromise from '@payload-config'
+import { z } from 'zod'
+
+// Re-import to avoid circular dependency at module load time
+import { encryptField, decryptField } from '../lib/crypto'
+
+export interface AiSettingsResolved {
+  providers: { label: string; providerUrl: string; apiKey: string; enabled: boolean }[]
+  defaultModel: string
+  taskModelMap: { taskType: string; model: string; maxTokens: number; temperature: number }[]
+  requestTimeoutMs: number
+  dailyCostCapUsd: number
+}
+
+let aiSettingsCache: { settings: AiSettingsResolved; at: number } | null = null
+const AI_SETTINGS_TTL = 5 * 60_000
+
+export const invalidateAiSettingsCache = () => { aiSettingsCache = null }
+
+async function getAiSettings(): Promise<AiSettingsResolved> {
+  if (aiSettingsCache && Date.now() - aiSettingsCache.at < AI_SETTINGS_TTL) {
+    return aiSettingsCache.settings
+  }
+  const payload = await getPayload({ config: configPromise })
+  const raw = await payload.findGlobal({ slug: 'ai-settings', context: { internal: true } }) as any
+
+  const settings: AiSettingsResolved = {
+    providers: (raw.providers || []).map((p: any) => ({
+      label: p.label || 'Unknown',
+      providerUrl: p.providerUrl || 'https://api.openai.com/v1',
+      apiKey: decryptField(p.apiKey || ''),
+      enabled: p.enabled !== false,
+    })),
+    defaultModel: raw.defaultModel || 'glm-5.2-plan',
+    taskModelMap: (raw.taskModelMap || []).map((t: any) => ({
+      taskType: t.taskType,
+      model: t.model,
+      maxTokens: t.maxTokens || 4096,
+      temperature: t.temperature ?? 0.3,
+    })),
+    requestTimeoutMs: raw.requestTimeoutMs || 60000,
+    dailyCostCapUsd: raw.dailyCostCapUsd ?? 20,
+  }
+
+  aiSettingsCache = { settings, at: Date.now() }
+  return settings
+}
+
+// Register the cache invalidator with the AiSettings global
+import { registerAiSettingsCacheInvalidator } from '../globals/AiSettings'
+registerAiSettingsCacheInvalidator(invalidateAiSettingsCache)
+
+/** Track today's total cost for the budget cap guardrail (§4.1). */
+let todayCost = 0
+let costDate = new Date().toISOString().slice(0, 10)
+
+function resetCostIfNewDay() {
+  const today = new Date().toISOString().slice(0, 10)
+  if (today !== costDate) {
+    todayCost = 0
+    costDate = today
+  }
+}
+
+/** Estimate cost from usage tokens (rough — $0.50/1M tokens default). */
+function estimateCost(usage: any): number {
+  if (!usage) return 0
+  const total = (usage.total_tokens || usage.completion_tokens || 0)
+  return (total / 1_000_000) * 0.5
+}
+
+/** Exponential backoff for retries. */
+function backoff(attempt: number): Promise<void> {
+  const ms = Math.min(1000 * Math.pow(2, attempt - 1), 8000)
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+/**
+ * The universal AI gateway entry point.
+ *
+ * Sends a chat completion request through the provider failover chain,
+ * validates the response against a Zod schema, and enforces the daily cost cap.
+ * Returns `{ ok: true, data, provider, model }` or `{ ok: false, error }`.
+ */
+export async function chat(opts: {
+  taskType: string
+  messages: { role: 'system' | 'user'; content: string }[]
+  schema: z.ZodTypeAny
+}): Promise<
+  | { ok: true; data: any; provider: string; model: string }
+  | { ok: false; error: string }
+> {
+  const s = await getAiSettings()
+
+  // Budget cap check
+  resetCostIfNewDay()
+  if (todayCost >= s.dailyCostCapUsd) {
+    return { ok: false, error: 'BUDGET_CAP' }
+  }
+
+  const route = s.taskModelMap.find((t) => t.taskType === opts.taskType)
+  const model = route?.model ?? s.defaultModel
+  const maxTokens = route?.maxTokens ?? 4096
+  const temperature = route?.temperature ?? 0.3
+
+  const errors: string[] = []
+
+  for (const p of s.providers.filter((p) => p.enabled)) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const url = `${p.providerUrl.replace(/\/$/, '')}/chat/completions`
+        const res = await fetch(url, {
+          method: 'POST',
+          signal: AbortSignal.timeout(s.requestTimeoutMs),
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${p.apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: opts.messages,
+            max_tokens: maxTokens,
+            temperature,
+            response_format: { type: 'json_object' },
+          }),
+        })
+
+        if (res.status === 429 || res.status >= 500) {
+          if (attempt < 3) { await backoff(attempt); continue }
+          errors.push(`${p.label}: HTTP ${res.status} (after ${attempt} attempts)`)
+          break
+        }
+        if (!res.ok) {
+          errors.push(`${p.label}: HTTP ${res.status}`)
+          break // auth/4xx → next provider
+        }
+
+        const data = await res.json()
+        const content = data.choices?.[0]?.message?.content
+        if (!content) {
+          errors.push(`${p.label}: empty response`)
+          break
+        }
+
+        let parsed
+        try {
+          parsed = JSON.parse(content)
+        } catch {
+          errors.push(`${p.label}: invalid JSON`)
+          break
+        }
+
+        const validated = opts.schema.safeParse(parsed)
+        if (!validated.success) {
+          errors.push(`${p.label}: schema fail`)
+          break
+        }
+
+        // Track cost
+        todayCost += estimateCost(data.usage)
+
+        return { ok: true, data: validated.data, provider: p.label, model }
+      } catch (e) {
+        const name = (e as Error).name
+        if (attempt === 3) {
+          errors.push(`${p.label}: ${name}`)
+          break
+        }
+        // retry with backoff
+        await backoff(attempt)
+      }
+    }
+  }
+
+  return { ok: false, error: `All providers failed: ${errors.join(' | ')}` }
+}

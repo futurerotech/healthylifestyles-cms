@@ -1,8 +1,7 @@
 import type { MetadataRoute } from 'next';
+import { SITE_BASE_URL } from '../lib/site-config';
 
 export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com';
-
   return {
     rules: [
       {
@@ -11,6 +10,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/api/', '/admin/'],
       },
     ],
-    sitemap: `${siteUrl}/sitemap.xml`,
+    sitemap: `${SITE_BASE_URL}/sitemap.xml`,
   };
 }

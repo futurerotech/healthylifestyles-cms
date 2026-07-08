@@ -1,10 +1,9 @@
 import type { MetadataRoute } from 'next';
 import config from '@payload-config';
 import { getPayload } from 'payload';
+import { SITE_BASE_URL } from '../lib/site-config';
 
 export const dynamic = 'force-dynamic';
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const payload = await getPayload({ config });
@@ -21,7 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Homepage
   entries.push({
-    url: SITE_URL,
+    url: SITE_BASE_URL,
     lastModified: new Date(),
     changeFrequency: 'daily',
     priority: 1.0,
@@ -31,7 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const page of pages.docs) {
     if (page._status === 'draft' || !page.slug) continue;
     entries.push({
-      url: `${SITE_URL}/${page.slug}`,
+      url: `${SITE_BASE_URL}/${page.slug}`,
       lastModified: new Date(page.updatedAt),
       changeFrequency: 'weekly',
       priority: 0.8,
@@ -42,7 +41,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const article of articles.docs) {
     if (article._status === 'draft' || !article.slug) continue;
     entries.push({
-      url: `${SITE_URL}/wellness-hub/${article.slug}`,
+      url: `${SITE_BASE_URL}/wellness-hub/${article.slug}`,
       lastModified: new Date(article.updatedAt),
       changeFrequency: 'monthly',
       priority: 0.6,
@@ -53,7 +52,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const tool of tools.docs) {
     if (tool._status === 'draft' || !tool.slug) continue;
     entries.push({
-      url: `${SITE_URL}/tools/${tool.slug}`,
+      url: `${SITE_BASE_URL}/tools/${tool.slug}`,
       lastModified: new Date(tool.updatedAt),
       changeFrequency: 'monthly',
       priority: 0.7,
@@ -65,7 +64,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (!cat.slug) continue;
     const prefix = cat.kind === 'section' ? 'wellness-hub' : 'tools';
     entries.push({
-      url: `${SITE_URL}/${prefix}/${cat.slug}`,
+      url: `${SITE_BASE_URL}/${prefix}/${cat.slug}`,
       lastModified: new Date(cat.updatedAt),
       changeFrequency: 'weekly',
       priority: 0.5,
@@ -76,7 +75,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   for (const p of pseoPages.docs) {
     if (p.status === 'draft' || !p.slug) continue;
     entries.push({
-      url: `${SITE_URL}/tools/pseo/${p.slug}`,
+      url: `${SITE_BASE_URL}/tools/pseo/${p.slug}`,
       lastModified: new Date(p.updatedAt),
       changeFrequency: 'weekly',
       priority: 0.4,
