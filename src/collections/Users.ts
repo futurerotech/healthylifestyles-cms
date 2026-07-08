@@ -20,9 +20,15 @@ export const Users: CollectionConfig = {
     listSearchableFields: ['name', 'email'],
   },
   access: {
-    read: ({ req }) => req.user?.role === 'admin' || { id: { equals: req.user?.id } },
+    read: ({ req }) => {
+      if (!req.user) return false;
+      return req.user.role === 'admin' || { id: { equals: req.user.id } };
+    },
     create: isAdmin,
-    update: ({ req }) => req.user?.role === 'admin' || { id: { equals: req.user?.id } },
+    update: ({ req }) => {
+      if (!req.user) return false;
+      return req.user.role === 'admin' || { id: { equals: req.user.id } };
+    },
     delete: isAdmin,
   },
   fields: [

@@ -15,6 +15,7 @@ import { EntityType, groupNavItems } from '@payloadcms/ui/shared';
 import React from 'react';
 import { formatAdminURL } from 'payload/shared';
 import { NavClient } from './NavClient';
+import DeployButton from '@/components/admin/DeployButton';
 
 const baseClass = 'nav';
 
@@ -73,6 +74,7 @@ export const Nav = async (props: NavProps) => {
       </nav>
 
       <div className={`${baseClass}__footer`}>
+        <DeployButton />
         <a className={`${baseClass}__link ${baseClass}__link--logout`} href={logoutHref}>
           <svg className={`${baseClass}__link-icon`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

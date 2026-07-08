@@ -8,6 +8,7 @@ export async function GET() {
     const payload = await getPayload({ config: configPromise })
     return Response.json({ success: true, message: 'Database schema pushed successfully!' })
   } catch (error: any) {
-    return Response.json({ success: false, error: error.message })
+    // Removed error.message to prevent server info leakage
+    return Response.json({ success: false, error: 'Service temporarily unavailable' }, { status: 503 })
   }
 }

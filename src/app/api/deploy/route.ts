@@ -15,6 +15,14 @@ export const dynamic = 'force-dynamic';
  * - Logs every trigger to deploy-log and clears the pending-deploys queue.
  */
 export async function POST(req: Request): Promise<NextResponse> {
+  // الحماية ضد هجمات CSRF (التحقق من مصدر الطلب)
+  const origin = req.headers.get('origin');
+  const allowedOrigin = process.env.NEXT_PUBLIC_SITE_URL;
+  
+  if (origin && origin !== allowedOrigin) {
+    return NextResponse.json({ error: 'Forbidden: Invalid Origin' }, { status: 403 });
+  }
+
   const payload = await getPayload({ config });
 
   // Auth: admin only
