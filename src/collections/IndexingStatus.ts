@@ -6,9 +6,9 @@ export const IndexingStatus: CollectionConfig = {
   admin: {
     group: 'SEO',
     useAsTitle: 'url',
-    defaultColumns: ['url', 'engine', 'status', 'submittedAt'],
+    defaultColumns: ['url', 'engine', 'status', 'verdict', 'coverageState', 'inspectedAt'],
     listSearchableFields: ['url', 'docSlug'],
-    description: 'History of IndexNow and Google Indexing API pings.',
+    description: 'Index submission history + GSC URL Inspection results.',
   },
   access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
   fields: [
@@ -24,6 +24,7 @@ export const IndexingStatus: CollectionConfig = {
         { label: 'Bing', value: 'https://www.bing.com/indexnow' },
         { label: 'Yandex', value: 'https://search.yandex.com/indexnow' },
         { label: 'Google', value: 'google' },
+        { label: 'GSC Inspection', value: 'gsc-inspection' },
       ],
     },
     {
@@ -40,5 +41,12 @@ export const IndexingStatus: CollectionConfig = {
     { name: 'httpStatus', type: 'number', admin: { readOnly: true } },
     { name: 'error', type: 'textarea', admin: { readOnly: true } },
     { name: 'submittedAt', type: 'date', required: true, admin: { readOnly: true, date: { pickerAppearance: 'dayAndTime' } } },
+    // GSC URL Inspection fields (§3)
+    { name: 'verdict', type: 'text', admin: { readOnly: true, description: 'GSC inspection verdict (PASS/FAIL/NEUTRAL).' } },
+    { name: 'coverageState', type: 'text', admin: { readOnly: true, description: 'e.g. "Submitted and indexed", "Discovered — currently not indexed".' } },
+    { name: 'lastCrawled', type: 'text', admin: { readOnly: true, description: 'Last crawl timestamp from GSC.' } },
+    { name: 'canonicalGoogle', type: 'text', admin: { readOnly: true, description: 'Canonical URL Google chose.' } },
+    { name: 'canonicalDeclared', type: 'text', admin: { readOnly: true, description: 'Canonical URL declared on the page.' } },
+    { name: 'inspectedAt', type: 'date', admin: { readOnly: true, date: { pickerAppearance: 'dayAndTime' } } },
   ],
 };

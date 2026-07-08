@@ -13,7 +13,7 @@ import type { Endpoint, PayloadRequest } from 'payload';
  * only a successful fetch WITHOUT our domain in the HTML marks it lost.
  */
 
-const OUR_DOMAIN = 'healthylifesstyles.com';
+const OUR_DOMAIN = process.env.SITE_BASE_URL ? new URL(process.env.SITE_BASE_URL).hostname : 'healthylifesstyles.com';
 const BATCH = 20;
 const FETCH_TIMEOUT_MS = 8000;
 
@@ -47,7 +47,7 @@ export const checkBacklinks: Endpoint = {
         const res = await fetch(doc.sourceUrl, {
           signal: controller.signal,
           redirect: 'follow',
-          headers: { 'User-Agent': 'HealthyLifeStyles-LinkCheck/1.0 (+https://www.healthylifesstyles.com)' },
+          headers: { 'User-Agent': `HealthyLifeStyles-LinkCheck/1.0 (+${process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'})` },
         });
         clearTimeout(timer);
 

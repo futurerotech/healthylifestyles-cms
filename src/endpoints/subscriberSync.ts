@@ -6,6 +6,7 @@ import type { Endpoint, PayloadRequest } from 'payload';
  * endpoint ships. We hardcode known origins; everyone else gets no ACAO.
  */
 const ALLOWED_ORIGINS = new Set<string>([
+  process.env.SITE_BASE_URL || '',
   process.env.NEXT_PUBLIC_SITE_URL || '',
   'https://www.healthylifesstyles.com',
   'http://localhost:4321',
