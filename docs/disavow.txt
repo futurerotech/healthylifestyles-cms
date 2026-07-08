@@ -1,0 +1,20 @@
+# HealthyLifeStyles — Google Disavow File
+# Created: 2026-07-08
+# Rationale: 8 confirmed PBN/toxic referring domains with spam score >30%.
+# Site has near-zero authority (DR 0.1, DA 6) and 11% spam score.
+# Google ignores most spam links automatically, but with this volume
+# relative to the site's small backlink profile (332 total, 18% dofollow),
+# these 8 domains represent a disproportionate spam signal.
+#
+# Upload at: https://search.google.com/search-console/disavow-links
+# Property: sc-domain:healthylifesstyles.com
+# Effect: 2-4 weeks for Google to process.
+
+domain:rankinghighseo.shop
+domain:blog5.net
+domain:qowap.com
+domain:blog2learn.com
+domain:onesmablog.com
+domain:jaiblogs.com
+domain:getblogs.net
+domain:dbblog.net

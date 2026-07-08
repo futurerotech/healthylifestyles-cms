@@ -17,7 +17,8 @@
     "generate:types": "payload generate:types",
     "payload": "payload",
     "test": "vitest run",
-    "test:engine": "node scripts/test-engine.mjs"
+    "test:engine": "node scripts/test-engine.mjs",
+    "audit:backlinks": "npx tsx --env-file=.env scripts/seo/check-new-backlinks.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
