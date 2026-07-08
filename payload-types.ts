@@ -1417,7 +1417,7 @@ export interface Persona {
   createdAt: string;
 }
 /**
- * History of IndexNow and Google Indexing API pings.
+ * Index submission history + GSC URL Inspection results.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "indexing-status".
@@ -1434,11 +1434,33 @@ export interface IndexingStatus {
     | 'https://api.indexnow.org/indexnow'
     | 'https://www.bing.com/indexnow'
     | 'https://search.yandex.com/indexnow'
-    | 'google';
+    | 'google'
+    | 'gsc-inspection';
   status: 'pending' | 'success' | 'failed';
   httpStatus?: number | null;
   error?: string | null;
   submittedAt: string;
+  /**
+   * GSC inspection verdict (PASS/FAIL/NEUTRAL).
+   */
+  verdict?: string | null;
+  /**
+   * e.g. "Submitted and indexed", "Discovered — currently not indexed".
+   */
+  coverageState?: string | null;
+  /**
+   * Last crawl timestamp from GSC.
+   */
+  lastCrawled?: string | null;
+  /**
+   * Canonical URL Google chose.
+   */
+  canonicalGoogle?: string | null;
+  /**
+   * Canonical URL declared on the page.
+   */
+  canonicalDeclared?: string | null;
+  inspectedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2979,6 +3001,12 @@ export interface IndexingStatusSelect<T extends boolean = true> {
   httpStatus?: T;
   error?: T;
   submittedAt?: T;
+  verdict?: T;
+  coverageState?: T;
+  lastCrawled?: T;
+  canonicalGoogle?: T;
+  canonicalDeclared?: T;
+  inspectedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
