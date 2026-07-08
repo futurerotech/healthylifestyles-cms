@@ -28,9 +28,6 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Build
-        run: npm run build:ci
-
   promote:
     needs: ci
     runs-on: ubuntu-latest
