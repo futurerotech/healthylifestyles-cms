@@ -50,7 +50,7 @@ function deepReplace<T>(value: T, oldU: string, newU: string): [T, number] {
   return [walk(value) as T, count];
 }
 
-const CONTENT_FIELDS = ['layout', 'faq', 'sources', 'excerpt'] as const;
+const CONTENT_FIELDS = ['layout', 'faq', 'sources', 'excerpt', 'semanticEntities'] as const;
 
 const payload = await getPayload({ config });
 
