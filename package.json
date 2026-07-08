@@ -9,6 +9,7 @@
     "prebuild": "npm run clean",
     "check:domain": "node scripts/check-domain.mjs",
     "build": "node scripts/clear-dev-migrations.mjs && npm run check:domain && payload generate:importmap && payload migrate --force-accept-warning && next build",
+    "build:ci": "npm run check:domain && payload generate:importmap && next build",
     "start": "next start -p 3000",
     "migrate": "payload migrate",
     "migrate:create": "payload migrate:create",
