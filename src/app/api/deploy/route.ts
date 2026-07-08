@@ -98,13 +98,12 @@ export async function POST(req: Request): Promise<NextResponse> {
     // non-fatal if deploy-log table is missing
   }
 
-  // Clear the pending-deploys queue
+  // Clear the pending-deploys queue in one bulk delete (no 500-row cap, so a
+  // large backlog fully drains). Non-fatal: the deploy already fired, and a
+  // leftover queue entry only means the next deploy shows a stale count.
   if (pendingCount > 0) {
     try {
-      const allPending = await payload.find({ collection: 'pending-deploys', limit: 500 });
-      for (const doc of allPending.docs) {
-        await payload.delete({ collection: 'pending-deploys', id: (doc as any).id });
-      }
+      await payload.delete({ collection: 'pending-deploys', where: { id: { exists: true } } });
     } catch {
       // non-fatal
     }
