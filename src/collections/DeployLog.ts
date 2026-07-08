@@ -15,13 +15,16 @@ export const DeployLog: CollectionConfig = {
   },
   access: {
     read: isAdminOrEditor,
-    create: () => true,
+    // Read-only in the admin panel: no manual create/edit/delete. The /api/deploy
+    // endpoint writes entries through the Local API (overrideAccess: true by
+    // default), so logging still works with every mutation denied here.
+    create: () => false,
     update: () => false,
     delete: () => false,
   },
   fields: [
-    { name: 'triggeredBy', type: 'text', admin: { description: 'Email of the user who triggered the deploy.' } },
-    { name: 'pendingCount', type: 'number', admin: { description: 'Number of pending changes cleared by this deploy.' } },
+    { name: 'triggeredBy', type: 'email', admin: { readOnly: true, description: 'Email of the user who triggered the deploy.' } },
+    { name: 'pendingCount', type: 'number', admin: { readOnly: true, description: 'Number of pending changes cleared by this deploy.' } },
   ],
   timestamps: true,
 };

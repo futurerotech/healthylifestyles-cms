@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload';
 import { isAdminOrEditor, publicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
+import { trackPendingChange } from '../hooks/trackPendingChange';
 const isHex = (v: string | null | undefined) =>
   v ? /^#[0-9a-fA-F]{6}$/.test(v) || /^#[0-9a-fA-F]{3}$/.test(v) : true;
 
@@ -49,4 +50,9 @@ export const Authors: CollectionConfig = {
       ],
     },
   ],
+  // Author pages (/author/[slug]) are site-rendered and their bios appear on
+  // every article byline, so a change must queue a rebuild like other content.
+  hooks: {
+    afterChange: [trackPendingChange],
+  },
 };

@@ -13,7 +13,12 @@ export const PendingDeploys: CollectionConfig = {
     useAsTitle: 'collectionSlug',
     defaultColumns: ['collectionSlug', 'docId', 'changedAt'],
     listSearchableFields: ['collectionSlug', 'docId'],
-    hidden: false,
+    // Completely hidden from the admin navigation. This queue is machine-managed
+    // (written by the trackPendingChange hook on content saves, drained by
+    // /api/deploy) — staff never browse it directly. `hidden` only removes the
+    // nav entry and list view; the REST/Local API the hook and endpoint use
+    // keeps working.
+    hidden: true,
   },
   access: {
     read: isAdminOrEditor,
