@@ -7,6 +7,9 @@ import * as migration_20260703_123018_tool_risk_review from './20260703_123018_t
 import * as migration_20260704_010500_enable_rls_public from './20260704_010500_enable_rls_public';
 import * as migration_20260704_020000_harden_rls_auto_enable from './20260704_020000_harden_rls_auto_enable';
 import * as migration_20260705_165510_add_tools_semantic_entities from './20260705_165510_add_tools_semantic_entities';
+import * as migration_20260707_113916_add_audit_collections from './20260707_113916_add_audit_collections';
+import * as migration_20260707_152543_add_ai_settings_global from './20260707_152543_add_ai_settings_global';
+import * as migration_20260707_235442_add_gsc_inspection_fields from './20260707_235442_add_gsc_inspection_fields';
 
 export const migrations = [
   {
@@ -52,6 +55,21 @@ export const migrations = [
   {
     up: migration_20260705_165510_add_tools_semantic_entities.up,
     down: migration_20260705_165510_add_tools_semantic_entities.down,
-    name: '20260705_165510_add_tools_semantic_entities'
+    name: '20260705_165510_add_tools_semantic_entities',
+  },
+  {
+    up: migration_20260707_113916_add_audit_collections.up,
+    down: migration_20260707_113916_add_audit_collections.down,
+    name: '20260707_113916_add_audit_collections',
+  },
+  {
+    up: migration_20260707_152543_add_ai_settings_global.up,
+    down: migration_20260707_152543_add_ai_settings_global.down,
+    name: '20260707_152543_add_ai_settings_global',
+  },
+  {
+    up: migration_20260707_235442_add_gsc_inspection_fields.up,
+    down: migration_20260707_235442_add_gsc_inspection_fields.down,
+    name: '20260707_235442_add_gsc_inspection_fields'
   },
 ];
