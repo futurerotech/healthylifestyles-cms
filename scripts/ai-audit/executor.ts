@@ -1,10 +1,8 @@
 /**
- * AI SEO Autopilot — Executor (§5 Phase 2, DRY-RUN MODE).
+ * AI SEO Autopilot — Executor (§5 Phase 2 → Phase 3).
  *
- * Takes findings from the audit crawler/detectors and generates proposed
- * fixes using the provider-agnostic AI gateway. In DRY-RUN mode, proposed
- * fixes are written to the audit-log collection but NEVER applied to the
- * live content.
+ * DRY-RUN mode (default): proposes fixes, writes to audit-log, never touches content.
+ * EXECUTE mode (--execute flag): calls payload.update() to apply AI fixes live.
  */
 
 import { z } from 'zod'
@@ -23,7 +21,7 @@ export interface ProposedFix {
   proposedValue: string
   aiModel: string
   confidence: 'high' | 'medium' | 'low'
-  status: 'proposed'
+  status: 'proposed' | 'applied'
 }
 
 // Zod schema for the meta-description fix response
@@ -121,6 +119,52 @@ export async function executeDryRun(
   for (const finding of findings) {
     if (finding.issue.startsWith('Missing meta description') || finding.issue.includes('too long') || finding.issue.includes('too short')) {
       const fix = await proposeMetaDescriptionFix(finding)
+      fixes.push(fix)
+    }
+  }
+
+  return fixes
+}
+
+/**
+ * EXECUTE mode: apply AI-proposed fixes live to the database.
+ * Calls payload.update() on each item. Returns the fixes with
+ * status updated to 'applied'.
+ */
+export async function executeLive(
+  payload: any,
+  findings: Finding[],
+): Promise<ProposedFix[]> {
+  const fixes: ProposedFix[] = []
+
+  for (const finding of findings) {
+    if (finding.issue.startsWith('Missing meta description') || finding.issue.includes('too long') || finding.issue.includes('too short')) {
+      const fix = await proposeMetaDescriptionFix(finding)
+
+      // Only apply high or medium confidence fixes
+      if (fix.confidence === 'low' || fix.proposedValue.startsWith('[AI')) {
+        console.log(`  SKIP (low confidence): ${fix.slug}`)
+        fixes.push(fix)
+        continue
+      }
+
+      // Apply to live database
+      try {
+        await payload.update({
+          collection: finding.collection,
+          id: finding.pageId,
+          data: {
+            seo: {
+              metaDescription: fix.proposedValue,
+            },
+          } as any,
+        })
+        fix.status = 'applied'
+        console.log(`  APPLIED: ${fix.slug} → "${fix.proposedValue.slice(0, 60)}..."`)
+      } catch (err) {
+        console.log(`  ERROR applying ${fix.slug}: ${(err as Error).message.slice(0, 100)}`)
+      }
+
       fixes.push(fix)
     }
   }
