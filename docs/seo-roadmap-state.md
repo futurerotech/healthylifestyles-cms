@@ -5,7 +5,7 @@ Living state file for the self-evolving SEO engagement. Updated after every phas
 ## Meta
 
 - **Current phase:** 4 — Internal Linking Architecture
-- **Status:** reconciled; executing non-mutating components + interlinker dry-run
+- **Status:** completed; awaiting approval to apply CMS link mutations
 - **Last updated:** 2026-07-09
 - **Rollback tag:** `backup/pre-phase4-internal-links-2026-07-09`
 
@@ -155,18 +155,69 @@ domain:dbblog.net
 
 6. **Verify**: `npx tsc --noEmit` → 0; `npm run build` → 0; orphan check → 0; push both repos to `dev`.
 
-### ③ Execution
+### ③ Execution (2026-07-09)
 
-*In progress. Manifest will be produced for approval before any CMS mutation.*
+**CMS interlinker script:** `scripts/seo/propose-internal-links.ts`
+- Dry-run fetches 20 published articles and 70 enabled tools via hosted CMS REST API.
+- Proposes **38 new article→tool links** and **38 new article→article links** (76 total additions).
+- Manifest written to `docs/seo/internal-links-proposed-manifest.json`.
+- Apply mode uses Payload Local API (`--apply`) and will run after your approval.
+
+**Frontend component:** `src/components/RelatedTools.astro`
+- Shared component for article and tool pages.
+- Renders 2–3 related tools + category hub link + 2–3 related guides.
+- Replaced inline related-tool/guide blocks in `ToolPageLayout.astro` and `ArticleBody.astro`.
+
+**Frontend build-time audit:** `scripts/seo/orphan-check.ts`
+- Crawls `dist/client` after build.
+- Tracks `/tools/*` and `/wellness-hub/*` (excluding `/wellness-hub/tag/*`).
+- **Orphans:** 0 (all 96 tracked tools/articles have inbound internal links).
+- **Spam (`/game/*`) links:** 0.
+- **Dead links:** 2 warnings (do not fail build):
+  - `/wellness-hub/lean-body-mass-calculator-guide` → `/tools/body-fat-percentage-calculator`
+  - `/wellness-hub/lean-body-mass-calculator-guide` → `/tools/how-much-protein-do-i-need`
+
+**CI wiring:** `.github/workflows/promote.yml`
+- Added `node scripts/seo/orphan-check.ts` after `npm run build`.
+- Bumped Node to 22 so TypeScript scripts run natively.
+
+### ④ Verification
+
+- CMS: `npx tsc --noEmit` → **EXIT 0**.
+- Frontend: `npx tsc --noEmit` → **EXIT 0**.
+- Frontend: `npm run build` → **EXIT 0**.
+- Frontend: `node scripts/seo/orphan-check.ts` → **PASS** (0 orphans, 0 spam links).
+- Both repos promoted `dev` → `main` via auto-promotion.
+
+### ⑤ Self-Audit & Phase 5 Evolution
+
+**What reality taught us:**
+1. **Payload Local API initialization hung in this environment** (likely network/Postgres pooler behavior). The hosted CMS REST API worked perfectly, so the interlinker dry-run uses REST; apply mode still targets Local API as the canonical mutation path.
+2. **Node 20 in CI cannot run `.ts` files natively.** Local Node 22 could, which hid the issue. The workflow now pins Node 22 to match `package.json` engines and avoid silent CI failures.
+3. **Asset links and tag pages must be excluded** from dead-link/orphan checks, or the audit drowns in noise. The current check is now tuned to real content pages and reports dead links as warnings.
+4. **Two real dead internal links exist** in `lean-body-mass-calculator-guide` body content. They need manual editing or a body-link fix pass.
+
+**Phase 5 plan adjustments because of this:**
+1. Before CWV work, run the **orphan/dead-link audit on the live build** to confirm no new dead links appeared after CMS mutations.
+2. Lighthouse baseline must include a page that exercises `RelatedTools.astro` (one tool + one article) to measure the component's render cost.
+3. CWV crawl should also check for **image dimensions missing in related-tool/article cards** since `RelatedTools.astro` may introduce CLS if card images are un-sized.
 
 ## Phase 5 — Core Web Vitals & Technical SEO
 
-*Plan will be finalized after Phase 4 self-audit. Tentative:*
+*Plan finalized after Phase 4 self-audit:*
 
-1. Baseline Lighthouse mobile on home, one article, one calculator.
-2. Apply astro:assets, font preload, Partytown for third-party scripts, defer non-critical JS.
-3. `scripts/cwv-crawl.ts`: local build crawler for missing image dimensions, oversized JS, hydration bottlenecks.
-4. Re-run Lighthouse, present before/after.
+1. **Reconcile live state:** run `node scripts/seo/orphan-check.ts` against a fresh build after CMS link mutations are applied; confirm 0 new dead links.
+2. **Baseline Lighthouse mobile** on:
+   - Home page (`/`)
+   - One article page using `RelatedTools.astro`
+   - One tool page using `RelatedTools.astro`
+3. **Apply CWV fixes:**
+   - `astro:assets` responsive images with explicit `width`/`height`.
+   - Critical font preload (`woff2`, subset).
+   - Partytown for heavy third-party scripts (Partytown type declaration already exists).
+   - Defer non-critical JS; verify no hydration of static components.
+4. **`scripts/cwv-crawl.ts`:** local build crawler for missing image dimensions (especially in `RelatedTools.astro` cards), oversized JS chunks, hydration bottlenecks.
+5. **Re-run Lighthouse** on the same 3 pages and present before/after table.
 
 ## Phase 6 — YMYL Schema Markup
 
@@ -182,3 +233,5 @@ domain:dbblog.net
 - **Vercel edge cache must be waited out** (from prior auto-promotion work): live verification requires checking `X-Vercel-Cache` and `Age` headers, not just status 200.
 - **Static type-checking is non-negotiable**: `check-new-backlinks.ts` had a runtime syntax bug (`new URL(siteUrl)..hostname`) that `tsc` caught immediately. All SEO scripts must pass `npx tsc --noEmit`.
 - **Spam is targeted**: the new wave uses `/game/*` targets to poison topical relevance. Phase 4 internal linking must actively reinforce health silos to counter this.
+- **Local environment ≠ CI**: Node 22 runs TypeScript natively; Node 20 does not. Pin CI Node version to the project's engine requirement and test scripts in both places when possible.
+- **Dead-link checks need tuning**: asset URLs, tag pages, and query-string links must be excluded or the audit produces false positives. Focus on real content paths and report dead links as warnings until content is cleaned.
