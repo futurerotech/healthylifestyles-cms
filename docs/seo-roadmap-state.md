@@ -4,10 +4,10 @@ Living state file for the self-evolving SEO engagement. Updated after every phas
 
 ## Meta
 
-- **Current phase:** 9 — Boolean-Only Schema · Auto-Flagged Drafts · Graceful Rich-Results
-- **Status:** completed. Title heuristics REMOVED from the Astro frontend (CMS booleans are the single source of truth); AI generation flow auto-sets `isHowTo`/`isHealthTopic` at creation; non-blocking Rich Results check added to the frontend CI. Backfill re-run with the full heuristic (incl. semanticEntities) — caught 1 article the Phase 8 title-only pass missed.
+- **Current phase:** 10 — Editor Schema Hints · Drift Reconciliation · Validator Architecture
+- **Status:** completed. `SchemaEmissionHint` ui panel in the Articles sidebar (live form state); read-only `audit:schema-flags` drift report (never overwrites human overrides); Rich Results validator architecture documented with an honest 501 stub (CI unchanged, still non-blocking).
 - **Last updated:** 2026-07-09
-- **Rollback tag:** `backup/pre-phase9-boolean-schema-2026-07-09` (prev: `backup/pre-phase8-schema-flags-2026-07-09`)
+- **Rollback tag:** `backup/pre-phase10-editor-hints-2026-07-09` (prev: `backup/pre-phase9-boolean-schema-2026-07-09`)
 
 ## System Truth (non-negotiable)
 
@@ -512,6 +512,44 @@ domain:dbblog.net
 1. Wire `RICH_RESULTS_VALIDATOR_URL` to a real validator (self-hosted or proxied) so P3 does live eligibility checks.
 2. Author-facing CMS hint (admin UI) showing which advanced schema an article will emit.
 3. Periodic reconciliation job that re-derives flags as heuristics evolve and flags drift for human review.
+
+## Phase 10 — Editor Schema Hints · Drift Reconciliation · Validator Architecture
+
+### ② Micro-Plan (priority order set by owner)
+
+1. **P1** — admin UI hint showing which advanced schemas an article will emit from its current flags.
+2. **P2** — cron-ready, read-only reconciliation report of flag drift vs the latest heuristics; never auto-overwrites human overrides.
+3. **P3** — architecture + stub for the self-hosted Rich Results validator; CI stays green and non-blocking.
+
+### ③ Execution (2026-07-09)
+
+| Repo | Change |
+|---|---|
+| CMS | `src/components/admin/SchemaEmissionHint.tsx` — sidebar panel reading LIVE form state (`useFormFields`): shows MedicalWebPage+Article / BreadcrumbList (always), FAQPage (live FAQ count), HowTo / HealthTopicContent (flag-driven); updates instantly on tick, before saving. |
+| CMS | `Articles.ts` — `schemaEmissionHint` ui field in the sidebar directly under the two flags (presentational: no data, no migration). importMap regenerated. |
+| CMS | `custom.scss` — `.hls-schemahint*` styles on theme vars (dark-mode safe, matches existing admin patterns). |
+| CMS | `scripts/seo/reconcile-schema-flags.ts` + `npm run audit:schema-flags` — READ-ONLY drift report; labels drift direction (heuristic-ON/stored-OFF = missed flag or deliberate opt-OUT; stored-ON/heuristic-OFF = deliberate opt-IN or stale flag) with admin links; `JSON=1` machine output; `STRICT=1` optional exit-1 for future gating. |
+| Frontend | `docs/rich-results-validator.md` — validator contract (POST `{url, jsonld[]}` → `{errors, warnings}`), options analysis (schemarama self-hosted recommended; Google RRT scraping rejected/ToS), 5-step activation plan via `RICH_RESULTS_VALIDATOR_URL` repo variable. |
+| Frontend | `scripts/seo/validators/schemarama-proxy.mjs` — dependency-free HTTP stub: `/healthz` 200, `/validate` **501** until schemarama is wired, so a premature hookup reads as "skipped", never a false pass. |
+
+### ④ Verification
+
+- CMS: `tsc` → **0**; `SchemaEmissionHint` present in regenerated importMap.
+- P2 live test against prod (read-only): `npm run audit:schema-flags` works standalone (`payload run` auto-loads `.env` → genuinely cron-ready); scanned 20 published articles → **no drift** (expected after the Phase 9 backfill); `JSON=1` shape verified.
+- P3 stub test: healthz 200 · valid POST → 501 · malformed → 400; end-to-end `rich-results-check` pointed at the stub → "validator unavailable (HTTP 501)" → **SKIPPED, exit 0**.
+- Frontend: `tsc` → **0**. No CI behavior change (doc + stub only).
+
+### ⑤ Self-Audit & Phase 11 Evolution
+
+**What reality taught us:**
+1. **Previewing the admin against prod is not "safe read-only":** article edit views autosave every 800ms, mutating live draft versions — UI verification for admin components is tsc + importMap + code review, not a browser session against the production DB.
+2. **`payload run` auto-loads `.env`** — earlier manual env exports were belt-and-braces; npm scripts wrapping `payload run` are cron-ready as-is.
+3. **A stub that fails loudly (501) beats one that fake-passes:** the checker's "unavailable ≠ 0 errors" distinction (fixed in Phase 9) is what makes committing a stub safe at all.
+
+**Phase 11 candidates:**
+1. Implement the schemarama proxy for real and set `RICH_RESULTS_VALIDATOR_URL` (activation plan step 1–4).
+2. Schedule `audit:schema-flags` (weekly cron alongside `audit:backlinks`) and surface the report (email or dashboard panel).
+3. Fold the drift report into the existing admin dashboard as a panel with one-click "review" links.
 
 ## Lessons Log
 
