@@ -5,7 +5,7 @@ Living state file for the self-evolving SEO engagement. Updated after every phas
 ## Meta
 
 - **Current phase:** 4 — Internal Linking Architecture
-- **Status:** completed; awaiting approval to apply CMS link mutations
+- **Status:** completed; CMS mutations applied and verified
 - **Last updated:** 2026-07-09
 - **Rollback tag:** `backup/pre-phase4-internal-links-2026-07-09`
 
@@ -173,9 +173,12 @@ domain:dbblog.net
 - Tracks `/tools/*` and `/wellness-hub/*` (excluding `/wellness-hub/tag/*`).
 - **Orphans:** 0 (all 96 tracked tools/articles have inbound internal links).
 - **Spam (`/game/*`) links:** 0.
-- **Dead links:** 2 warnings (do not fail build):
-  - `/wellness-hub/lean-body-mass-calculator-guide` → `/tools/body-fat-percentage-calculator`
-  - `/wellness-hub/lean-body-mass-calculator-guide` → `/tools/how-much-protein-do-i-need`
+- **Dead links:** 0 after CMS fixes applied.
+
+**Dead-link fixes applied via REST API:**
+- `lean-body-mass-calculator-guide`: `body-fat-percentage-calculator` → `body-fat-calculator`; `how-much-protein-do-i-need` → `protein-intake-calculator`.
+- `calories-burned-calculator-guide`: `how-much-protein-do-i-need` → `protein-intake-calculator`.
+- `metabolic-age-calculator-guide`: `how-much-protein-do-i-need` → `protein-intake-calculator`.
 
 **CI wiring:** `.github/workflows/promote.yml`
 - Added `node scripts/seo/orphan-check.ts` after `npm run build`.
