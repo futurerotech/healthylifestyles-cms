@@ -4,10 +4,10 @@ Living state file for the self-evolving SEO engagement. Updated after every phas
 
 ## Meta
 
-- **Current phase:** 7 — Structured Data Validation & Advanced Schema
-- **Status:** completed; JSON-LD validator + HowTo/HealthTopicContent + static-page fixes applied
+- **Current phase:** 8 — CMS-Driven Advanced Schema Flags
+- **Status:** completed; `isHowTo`/`isHealthTopic` CMS booleans + additive migration + frontend consumption (boolean OR heuristic fallback). Backfill script committed; runs post-deploy once the migration creates the columns in prod.
 - **Last updated:** 2026-07-09
-- **Rollback tag:** `backup/pre-phase7-jsonld-2026-07-09`
+- **Rollback tag:** `backup/pre-phase8-schema-flags-2026-07-09` (prev: `backup/pre-phase7-jsonld-2026-07-09`)
 
 ## System Truth (non-negotiable)
 
@@ -429,6 +429,53 @@ domain:dbblog.net
 1. Add CMS boolean fields (`isHowTo`, `isHealthTopic`) so editors can explicitly control advanced schema emission.
 2. Implement a real schema.org / Rich Results Test API validator in CI (the current validator checks structure, not Google's Rich Results eligibility).
 3. Consider `VideoObject` and `Course` schema if video/educational content is added.
+
+## Phase 8 — CMS-Driven Advanced Schema Flags
+
+### ① Reconciliation (2026-07-09)
+
+- Verified Phase 7 foundation is real (didn't trust the hand-off): `scripts/seo/validate-jsonld.ts` exists (frontend), and the `HowTo`/`HealthTopicContent` heuristics live in `src/pages/wellness-hub/[...path].astro` (`isHowToArticle()` lines ~69, `isHealthTopicArticle()` ~108, gated at ~234–242).
+- Confirmed the frontend `Article` interface (`src/data/articles.ts:42`) and the CMS→Article mapping (`src/lib/cms.ts` `mapArticle()`).
+- Corrected a stale roadmap belief: the frontend repo now DOES have `dev`→`main` auto-promotion (`.github/workflows/promote.yml`: tsc → astro build → orphan-check → validate-jsonld → ff main).
+
+### ② Micro-Plan
+
+1. CMS `Articles`: add `isHowTo` + `isHealthTopic` sidebar checkboxes (defaultValue false, descriptions).
+2. Additive migration (`ADD COLUMN` on `articles` + `_articles_v`); `generate:types`.
+3. Backfill script seeds the booleans on existing published articles from the old heuristics (so the flags are authoritative, not inert). Runs post-deploy.
+4. Frontend: surface `isHowTo`/`isHealthTopic` on the `Article` type + `mapArticle()`; change the two schema triggers to `article.isHowTo || isHowToArticle(article)` (boolean is now the authoritative trigger; heuristic retained as fallback — prevents regression and decouples repo deploy timing since the build fetches the live CMS).
+
+### ③ Execution (2026-07-09)
+
+| Repo | Change |
+|---|---|
+| CMS | `Articles.ts`: `isHowTo` + `isHealthTopic` checkboxes (sidebar). |
+| CMS | Migration `20260709_171108_phase8_schema_flags.ts` — 4 `ADD COLUMN … boolean DEFAULT false` (additive; reversible `down()`). |
+| CMS | `payload-types.ts` regenerated (includes the new booleans). |
+| CMS | `scripts/seo/backfill-schema-flags.ts` — idempotent, DRY-capable, ports the heuristics as the one-time seed. |
+| Frontend | `src/data/articles.ts`: `isHowTo?` / `isHealthTopic?` on `Article`. |
+| Frontend | `src/lib/cms.ts`: `CmsArticle` + `mapArticle()` map both booleans. |
+| Frontend | `src/pages/wellness-hub/[...path].astro`: triggers now `article.isHowTo \|\| isHowToArticle(article)` and `article.isHealthTopic \|\| isHealthTopicArticle(article)`. |
+
+### ④ Verification
+
+- CMS: `npx tsc --noEmit` → **EXIT 0**; `npm run check:domain` → **PASS**; migration confirmed additive-only.
+- Frontend: `npx astro sync` + `npx tsc --noEmit` → **EXIT 0** (0 errors after type-gen).
+- Frontend: `npm run build` + `orphan-check` + `validate-jsonld` run locally (CI-equivalent) — see completion report.
+- Backfill DRY deferred until the migration is live in prod (columns must exist first).
+
+### ⑤ Self-Audit & Phase 9 Evolution
+
+**What reality taught us:**
+1. **Inherited "done/verified" claims must be re-checked.** `validate-jsonld.ts` was in the frontend, not `cms/scripts/seo/` as the hand-off implied; and the frontend CI existed despite an earlier main-branch check suggesting otherwise. Verify before building.
+2. **Astro `tsc` needs `astro sync` first.** Without generated `.astro` types, local `tsc` throws phantom errors; CI regenerates them. Always `astro sync` before trusting a local frontend `tsc`.
+3. **Cross-repo deploy timing matters.** The frontend build fetches the live CMS; the `|| heuristic` fallback keeps schema correct while the CMS migration/backfill propagate, so neither repo must deploy first.
+4. **Booleans are inert without a backfill.** Adding the fields alone changes nothing until existing content is seeded; the backfill (post-deploy) is what actually moves generation onto the CMS flags.
+
+**Phase 9 candidates:**
+1. Run the backfill once the migration is live; then optionally drop the heuristic fallback to a pure boolean-only render path.
+2. Implement a real schema.org / Rich Results Test API validator (current validator is structural only).
+3. Set `isHowTo`/`isHealthTopic` in the AI article-generation flow so new drafts arrive pre-flagged.
 
 ## Lessons Log
 

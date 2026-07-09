@@ -161,6 +161,18 @@ export const Articles: CollectionConfig = {
     { name: 'publishDate', type: 'date', admin: { position: 'sidebar', description: 'Used for ordering and scheduling.' } },
     { name: 'updatedDate', type: 'date', admin: { position: 'sidebar', description: 'Last substantive update for YMYL freshness signals.' } },
     { name: 'featured', type: 'checkbox', defaultValue: false, admin: { position: 'sidebar', description: 'Show as the featured/hero article on the Wellness Hub.' } },
+    {
+      name: 'isHowTo',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { position: 'sidebar', description: 'Emit HowTo (step-by-step) structured data. Explicit replacement for title heuristics — tick for how-to guides.' },
+    },
+    {
+      name: 'isHealthTopic',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { position: 'sidebar', description: 'Emit HealthTopicContent (MedicalCondition) structured data. Explicit replacement for title heuristics — tick for "what is / signs / symptoms" explainers.' },
+    },
     { name: 'primaryTool', type: 'relationship', relationTo: 'tools', admin: { position: 'sidebar', description: 'The primary tool to embed inline within the article.' } },
     { name: 'relatedArticles', type: 'relationship', relationTo: 'articles', hasMany: true, admin: { position: 'sidebar', description: 'Explicitly link related articles (auto-fallback to same-category when empty).' } },
     { name: 'requestIndexing', type: 'ui', admin: { position: 'sidebar', components: { Field: '@/components/admin/RequestIndexing#RequestIndexing' } } },

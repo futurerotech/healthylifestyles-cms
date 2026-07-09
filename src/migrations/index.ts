@@ -10,6 +10,7 @@ import * as migration_20260705_165510_add_tools_semantic_entities from './202607
 import * as migration_20260707_113916_add_audit_collections from './20260707_113916_add_audit_collections';
 import * as migration_20260707_152543_add_ai_settings_global from './20260707_152543_add_ai_settings_global';
 import * as migration_20260707_235442_add_gsc_inspection_fields from './20260707_235442_add_gsc_inspection_fields';
+import * as migration_20260709_171108_phase8_schema_flags from './20260709_171108_phase8_schema_flags';
 
 export const migrations = [
   {
@@ -70,6 +71,11 @@ export const migrations = [
   {
     up: migration_20260707_235442_add_gsc_inspection_fields.up,
     down: migration_20260707_235442_add_gsc_inspection_fields.down,
-    name: '20260707_235442_add_gsc_inspection_fields'
+    name: '20260707_235442_add_gsc_inspection_fields',
+  },
+  {
+    up: migration_20260709_171108_phase8_schema_flags.up,
+    down: migration_20260709_171108_phase8_schema_flags.down,
+    name: '20260709_171108_phase8_schema_flags'
   },
 ];

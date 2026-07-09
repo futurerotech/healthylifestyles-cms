@@ -1060,6 +1060,14 @@ export interface Article {
    */
   featured?: boolean | null;
   /**
+   * Emit HowTo (step-by-step) structured data. Explicit replacement for title heuristics — tick for how-to guides.
+   */
+  isHowTo?: boolean | null;
+  /**
+   * Emit HealthTopicContent (MedicalCondition) structured data. Explicit replacement for title heuristics — tick for "what is / signs / symptoms" explainers.
+   */
+  isHealthTopic?: boolean | null;
+  /**
    * The primary tool to embed inline within the article.
    */
   primaryTool?: (number | null) | Tool;
@@ -2762,6 +2770,8 @@ export interface ArticlesSelect<T extends boolean = true> {
   publishDate?: T;
   updatedDate?: T;
   featured?: T;
+  isHowTo?: T;
+  isHealthTopic?: T;
   primaryTool?: T;
   relatedArticles?: T;
   updatedAt?: T;
