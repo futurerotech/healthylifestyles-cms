@@ -4,10 +4,10 @@ Living state file for the self-evolving SEO engagement. Updated after every phas
 
 ## Meta
 
-- **Current phase:** 8 — CMS-Driven Advanced Schema Flags
-- **Status:** completed; `isHowTo`/`isHealthTopic` CMS booleans + additive migration + frontend consumption (boolean OR heuristic fallback). Backfill script committed; runs post-deploy once the migration creates the columns in prod.
+- **Current phase:** 9 — Boolean-Only Schema · Auto-Flagged Drafts · Graceful Rich-Results
+- **Status:** completed. Title heuristics REMOVED from the Astro frontend (CMS booleans are the single source of truth); AI generation flow auto-sets `isHowTo`/`isHealthTopic` at creation; non-blocking Rich Results check added to the frontend CI. Backfill re-run with the full heuristic (incl. semanticEntities) — caught 1 article the Phase 8 title-only pass missed.
 - **Last updated:** 2026-07-09
-- **Rollback tag:** `backup/pre-phase8-schema-flags-2026-07-09` (prev: `backup/pre-phase7-jsonld-2026-07-09`)
+- **Rollback tag:** `backup/pre-phase9-boolean-schema-2026-07-09` (prev: `backup/pre-phase8-schema-flags-2026-07-09`)
 
 ## System Truth (non-negotiable)
 
@@ -476,6 +476,42 @@ domain:dbblog.net
 1. Run the backfill once the migration is live; then optionally drop the heuristic fallback to a pure boolean-only render path.
 2. Implement a real schema.org / Rich Results Test API validator (current validator is structural only).
 3. Set `isHowTo`/`isHealthTopic` in the AI article-generation flow so new drafts arrive pre-flagged.
+
+## Phase 9 — Boolean-Only Schema · Auto-Flagged Drafts · Graceful Rich-Results
+
+### ② Micro-Plan (priority order set by owner)
+
+1. **P1** — remove the title heuristics from the frontend; render HowTo/HealthTopicContent purely from the CMS booleans.
+2. **P2** — auto-set `isHowTo`/`isHealthTopic` in the AI generation flow at document creation.
+3. **P3** — external Rich Results validation in CI, engineered to degrade gracefully (non-blocking).
+
+### ③ Execution (2026-07-09)
+
+| Repo | Change |
+|---|---|
+| CMS | `src/lib/schemaFlags.ts` — shared `computeIsHowTo`/`computeIsHealthTopic` (single source of the heuristic; incl. semanticEntities for health-topic). |
+| CMS | `generateArticle.ts` — sets `isHowTo`/`isHealthTopic` on the generated draft (tied to body (re)generation) so new AI drafts are flagged at creation. |
+| CMS | `backfill-schema-flags.ts` — refactored to the shared helper; re-run with the fuller heuristic. |
+| Frontend | `[...path].astro` — deleted `isHowToArticle`/`isHealthTopicArticle`; triggers are now `if (article.isHowTo)` / `if (article.isHealthTopic)`. Builders (`buildHowTo`/`buildHealthTopicContent`) retained. |
+| Frontend | `src/data/articles.ts` — set `isHowTo: true` on the 4 HowTo articles present in the LOCAL fallback (keeps boolean-only correct when a build can't reach the CMS). |
+| Frontend | `scripts/seo/rich-results-check.ts` + `seo:richresults` script + `.github/workflows/promote.yml` step (`continue-on-error: true`). |
+
+### ④ Verification
+
+- CMS: `tsc --noEmit` → **0**. Backfill re-run: **1 change** (`how-to-keep-a-food-and-symptom-diary` → `isHealthTopic=true`, missed by the title-only Phase 8 pass — the exact regression the fuller heuristic prevents); re-DRY → **0 (idempotent)**; verified live.
+- Frontend: `astro sync` + `tsc` → **0**; `npm run build` → **exit 0**; `orphan-check` → **PASS**; `validate-jsonld` → **PASS** (712 blocks, 0 issues); `rich-results-check` → **exit 0**, gracefully reported the default validator as unavailable (non-blocking).
+
+### ⑤ Self-Audit & Phase 10 Evolution
+
+**What reality taught us:**
+1. **Dropping a fallback demands the primary source be complete first.** The Phase 8 backfill was title-only; the frontend fallback silently covered semanticEntities-flagged articles. Re-running the fuller heuristic before removing the fallback caught the one article that would otherwise have lost its schema.
+2. **"Real" Rich Results validation has no stable free public API.** The check is a graceful, endpoint-configurable scaffold (`RICH_RESULTS_VALIDATOR_URL`) that never blocks; the default schema.org endpoint isn't a machine API, so it degrades to "skipped." Point it at a real validator (or a proxy of Google's Rich Results Test) to activate.
+3. **Auto-flagging keeps the pipeline hands-off** but is only as good as the heuristic; new drafts get flagged at creation, and editors can still override the booleans in the CMS.
+
+**Phase 10 candidates:**
+1. Wire `RICH_RESULTS_VALIDATOR_URL` to a real validator (self-hosted or proxied) so P3 does live eligibility checks.
+2. Author-facing CMS hint (admin UI) showing which advanced schema an article will emit.
+3. Periodic reconciliation job that re-derives flags as heuristics evolve and flags drift for human review.
 
 ## Lessons Log
 

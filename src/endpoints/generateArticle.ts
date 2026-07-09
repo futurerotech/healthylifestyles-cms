@@ -3,6 +3,7 @@ import { generateArticle, regenerateSection, suggestTitles, extractClaims, coerc
 import { REGEN_SECTIONS, type RegenSection, type GeneratedArticle } from '../services/articleSchema';
 import { generateHeroImage, isImageConfigured } from '../services/image';
 import { searchReputable, isSearchConfigured, type SearchResult } from '../services/search';
+import { computeIsHowTo, computeIsHealthTopic } from '../lib/schemaFlags';
 
 /**
  * POST /api/generate-article  and  POST /api/regenerate-section
@@ -351,7 +352,16 @@ export const generateArticleEndpoint: Endpoint = {
 
       if (keepIfFilling('slug', article.slug)) data.slug = article.slug;
       if (keepIfFilling('excerpt', article.snippetAnswer)) data.excerpt = article.snippetAnswer;
-      if (keepIfFilling('layout', layout)) data.layout = layout;
+      if (keepIfFilling('layout', layout)) {
+        data.layout = layout;
+        // Advanced-schema flags follow the (re)generated body so new AI drafts are
+        // flagged at creation. The Astro frontend reads these booleans directly
+        // (Phase 9 — no render-time heuristics), so setting them here keeps the
+        // content pipeline fully hands-off.
+        const flagTitle = str((mode === 'replace' ? article.h1 : current?.title) || article.h1);
+        data.isHowTo = computeIsHowTo(flagTitle, layout);
+        data.isHealthTopic = computeIsHealthTopic(flagTitle, article.semanticEntities);
+      }
       if (keepIfFilling('faq', article.faq)) data.faq = article.faq;
       if (keepIfFilling('sources', article.sources)) data.sources = article.sources;
       if (keepIfFilling('semanticEntities', article.semanticEntities)) data.semanticEntities = article.semanticEntities;
