@@ -5,7 +5,7 @@ Living state file for the self-evolving SEO engagement. Updated after every phas
 ## Meta
 
 - **Current phase:** 3 — Toxic Backlinks & Disavow
-- **Status:** executed; proposed disavow awaiting human approval
+- **Status:** completed; disavow.txt finalized and awaiting CI promotion
 - **Last updated:** 2026-07-09
 - **Rollback tag:** `backup/pre-phase3-backlinks-2026-07-09`
 
@@ -48,8 +48,8 @@ domain:dbblog.net
 2. ✅ Write `scripts/seo/build-disavow.ts` with vendor-agnostic CSV parsing, rule engine, merge logic, and manifest output.
 3. ✅ Fix syntax bug in `scripts/seo/check-new-backlinks.ts`.
 4. ✅ Add `build*.log` to CMS `.gitignore`.
-5. ⏳ Finalize `docs/disavow.txt` after manifest approval.
-6. ⏳ Self-audit → update Phase 4 plan.
+5. ✅ Finalized `docs/disavow.txt` after manifest approval (13 domains).
+6. ✅ Self-audit complete → Phase 4 plan evolved (see below).
 
 ### ③ Execution (2026-07-09)
 
