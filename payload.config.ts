@@ -56,32 +56,16 @@ import { trackEmbed } from './src/endpoints/trackEmbed';
 import { checkBacklinks } from './src/endpoints/checkBacklinks';
 import { runAudit } from './src/endpoints/runAudit';
 import { analyzeRecipe } from './src/endpoints/analyzeRecipe';
+import { schemaFlagsCron } from './src/endpoints/schemaFlagsCron';
+import { ALLOWED_ORIGINS, CMS_ORIGIN } from './src/lib/allowedOrigins';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
 const IS_PROD = process.env.NODE_ENV === 'production';
-/** This CMS's own origin (admin panel + API). The double "ss" is correct. */
-const CMS_ORIGIN = 'https://cms.healthylifesstyles.com';
-/** The Astro frontend that consumes this CMS at build/runtime. */
-const FRONTEND_ORIGIN = 'https://www.healthylifesstyles.com';
-/**
- * Public site origin — NEXT_PUBLIC_SITE_URL remains the FRONTEND origin (the
- * GSC/pSEO/site-audit tooling all read it as such); it is included below only
- * so a per-environment override keeps working. Origins are normalized (no
- * trailing slash) and deduped; localhost dev servers are allowed OUTSIDE
- * production only. Both canonical domains are pinned so a missing or
- * slash-suffixed env var can never lock the admin (or the frontend) out.
- */
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:4321';
-const ALLOWED_ORIGINS = [
-  CMS_ORIGIN,
-  FRONTEND_ORIGIN,
-  SITE_URL,
-  ...(IS_PROD ? [] : ['http://localhost:4321', 'http://localhost:3000']),
-]
-  .map((v) => v.replace(/\/+$/, ''))
-  .filter((v, i, arr) => v && arr.indexOf(v) === i);
+// Browser-origin whitelist + canonical domains live in ONE place —
+// src/lib/allowedOrigins.ts — shared with the deploy and report routes.
+// (NEXT_PUBLIC_SITE_URL stays the FRONTEND origin; see the util's docs.)
 
 // Fail fast: signing sessions/JWTs with an empty secret is a silent security hole.
 if (!process.env.PAYLOAD_SECRET) {
@@ -217,7 +201,7 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   sharp,
-  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks, runAudit, analyzeRecipe],
+  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks, runAudit, analyzeRecipe, schemaFlagsCron],
   // Seed the four default outreach templates once (idempotent: only when the
   // collection is empty). Runs at server boot, never during `payload migrate`.
   onInit: async (payload) => {
