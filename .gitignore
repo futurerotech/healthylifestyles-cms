@@ -19,3 +19,6 @@ payload.db
 
 # TypeScript incremental build info
 tsconfig.tsbuildinfo
+
+# Local build/debug logs
+build*.log

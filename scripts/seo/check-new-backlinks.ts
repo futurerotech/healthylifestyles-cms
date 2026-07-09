@@ -26,7 +26,7 @@ async function main() {
 
   // Get the site domain from site-config
   const siteUrl = process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'
-  const domain = new URL(siteUrl)..hostname
+  const domain = new URL(siteUrl).hostname
 
   console.log(`Checking backlinks for: ${domain}`)
   console.log(`Spam threshold: ${SPAM_THRESHOLD}%\n`)

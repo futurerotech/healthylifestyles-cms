@@ -1,0 +1,177 @@
+{
+  "generatedAt": "2026-07-09T01:52:07.569Z",
+  "inputCsv": "F:\\cloud\\cms\\docs\\seo\\backlinks-2026-07-09.csv",
+  "existingDomains": [
+    "rankinghighseo.shop",
+    "blog5.net",
+    "qowap.com",
+    "blog2learn.com",
+    "onesmablog.com",
+    "jaiblogs.com",
+    "getblogs.net",
+    "dbblog.net"
+  ],
+  "proposedDomains": [
+    "backlinkorbit.shop",
+    "blog2learn.com",
+    "blog5.net",
+    "buyseobacklinks.shop",
+    "dbblog.net",
+    "getblogs.net",
+    "jaiblogs.com",
+    "linkbarn.shop",
+    "onesmablog.com",
+    "qowap.com",
+    "rankinghighseo.shop",
+    "rankseohub.shop",
+    "seolinkpro.shop"
+  ],
+  "newDomains": [
+    "backlinkorbit.shop",
+    "buyseobacklinks.shop",
+    "linkbarn.shop",
+    "rankseohub.shop",
+    "seolinkpro.shop"
+  ],
+  "entries": [
+    {
+      "domain": "rankinghighseo.shop",
+      "action": "disavow",
+      "reasons": [
+        "existing entry from prior disavow file"
+      ],
+      "evidence": {}
+    },
+    {
+      "domain": "blog5.net",
+      "action": "disavow",
+      "reasons": [
+        "existing entry from prior disavow file"
+      ],
+      "evidence": {}
+    },
+    {
+      "domain": "qowap.com",
+      "action": "disavow",
+      "reasons": [
+        "existing entry from prior disavow file"
+      ],
+      "evidence": {}
+    },
+    {
+      "domain": "blog2learn.com",
+      "action": "disavow",
+      "reasons": [
+        "existing entry from prior disavow file"
+      ],
+      "evidence": {}
+    },
+    {
+      "domain": "onesmablog.com",
+      "action": "disavow",
+      "reasons": [
+        "existing entry from prior disavow file"
+      ],
+      "evidence": {}
+    },
+    {
+      "domain": "jaiblogs.com",
+      "action": "disavow",
+      "reasons": [
+        "existing entry from prior disavow file"
+      ],
+      "evidence": {}
+    },
+    {
+      "domain": "getblogs.net",
+      "action": "disavow",
+      "reasons": [
+        "existing entry from prior disavow file"
+      ],
+      "evidence": {}
+    },
+    {
+      "domain": "dbblog.net",
+      "action": "disavow",
+      "reasons": [
+        "existing entry from prior disavow file"
+      ],
+      "evidence": {}
+    },
+    {
+      "domain": "buyseobacklinks.shop",
+      "action": "disavow",
+      "reasons": [
+        "spam score 95% > 30%",
+        "cross-contamination: targets non-existent /game/ path (https://www.healthylifesstyles.com/game/car-park-in-city)",
+        "PBN / link-seller footprint in domain name"
+      ],
+      "evidence": {
+        "targetUrl": "https://www.healthylifesstyles.com/game/car-park-in-city",
+        "dr": 54,
+        "spamScore": 95,
+        "firstSeen": "7 Jul 2026"
+      }
+    },
+    {
+      "domain": "seolinkpro.shop",
+      "action": "disavow",
+      "reasons": [
+        "spam score 95% > 30%",
+        "cross-contamination: targets non-existent /game/ path (https://www.healthylifesstyles.com/game/rope-slash-bow)",
+        "PBN / link-seller footprint in domain name"
+      ],
+      "evidence": {
+        "targetUrl": "https://www.healthylifesstyles.com/game/rope-slash-bow",
+        "dr": 53,
+        "spamScore": 95,
+        "firstSeen": "7 Jul 2026"
+      }
+    },
+    {
+      "domain": "backlinkorbit.shop",
+      "action": "disavow",
+      "reasons": [
+        "spam score 98% > 30%",
+        "cross-contamination: targets non-existent /game/ path (https://www.healthylifesstyles.com/game/mario-039-s-friends)",
+        "PBN / link-seller footprint in domain name"
+      ],
+      "evidence": {
+        "targetUrl": "https://www.healthylifesstyles.com/game/mario-039-s-friends",
+        "dr": 2.1,
+        "spamScore": 98,
+        "firstSeen": "8 Jul 2026"
+      }
+    },
+    {
+      "domain": "linkbarn.shop",
+      "action": "disavow",
+      "reasons": [
+        "spam score 99% > 30%",
+        "cross-contamination: targets non-existent /game/ path (https://www.healthylifesstyles.com/game/car-chase)",
+        "PBN / link-seller footprint in domain name"
+      ],
+      "evidence": {
+        "targetUrl": "https://www.healthylifesstyles.com/game/car-chase",
+        "dr": 2,
+        "spamScore": 99,
+        "firstSeen": "8 Jul 2026"
+      }
+    },
+    {
+      "domain": "rankseohub.shop",
+      "action": "disavow",
+      "reasons": [
+        "spam score 99% > 30%",
+        "cross-contamination: targets non-existent /game/ path (https://www.healthylifesstyles.com/game/they-are-coming)",
+        "PBN / link-seller footprint in domain name"
+      ],
+      "evidence": {
+        "targetUrl": "https://www.healthylifesstyles.com/game/they-are-coming",
+        "dr": 2,
+        "spamScore": 99,
+        "firstSeen": "7 Jul 2026"
+      }
+    }
+  ]
+}
