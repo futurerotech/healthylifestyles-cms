@@ -20,61 +20,23 @@
  */
 import { getPayload } from 'payload';
 import config from '@payload-config';
-import { computeIsHowTo, computeIsHealthTopic } from '../../src/lib/schemaFlags';
+// Phase 11: the drift computation moved to the shared lib (single source of
+// truth, also used by the dashboard panel's API route and the weekly cron
+// endpoint) so the surfaces can never disagree.
+import { computeSchemaFlagDrift } from '../../src/lib/schemaFlagDrift';
 
 const JSON_OUT = process.env.JSON === '1' || process.env.JSON === 'true';
 const STRICT = process.env.STRICT === '1' || process.env.STRICT === 'true';
 
-interface DriftRow {
-  slug: string;
-  id: number | string;
-  field: 'isHowTo' | 'isHealthTopic';
-  stored: boolean;
-  heuristic: boolean;
-  reading: string;
-}
-
 const payload = await getPayload({ config });
-
-const { docs } = await payload.find({
-  collection: 'articles' as never,
-  where: { _status: { equals: 'published' } } as never,
-  limit: 1000,
-  depth: 0,
-});
-
-const drift: DriftRow[] = [];
-for (const doc of docs as Array<Record<string, unknown>>) {
-  const a = doc as {
-    id: number | string; slug?: string; title?: string;
-    layout?: unknown[]; semanticEntities?: unknown[];
-    isHowTo?: boolean; isHealthTopic?: boolean;
-  };
-  const checks: Array<[DriftRow['field'], boolean, boolean]> = [
-    ['isHowTo', Boolean(a.isHowTo), computeIsHowTo(a.title, a.layout)],
-    ['isHealthTopic', Boolean(a.isHealthTopic), computeIsHealthTopic(a.title, a.semanticEntities)],
-  ];
-  for (const [field, stored, heuristic] of checks) {
-    if (stored === heuristic) continue;
-    drift.push({
-      slug: String(a.slug ?? a.id),
-      id: a.id,
-      field,
-      stored,
-      heuristic,
-      reading: heuristic
-        ? 'heuristic suggests ON — missed flag, or a deliberate editor opt-OUT'
-        : 'stored ON without heuristic support — deliberate editor opt-IN, or a stale flag',
-    });
-  }
-}
+const { scanned, drift } = await computeSchemaFlagDrift(payload);
 
 if (JSON_OUT) {
-  console.log(JSON.stringify({ scanned: docs.length, driftCount: drift.length, drift }, null, 2));
+  console.log(JSON.stringify({ scanned, driftCount: drift.length, drift }, null, 2));
 } else {
   console.log('Schema-flag reconciliation (read-only — never writes)');
   console.log('====================================================');
-  console.log(`Published articles scanned: ${docs.length}`);
+  console.log(`Published articles scanned: ${scanned}`);
   if (drift.length === 0) {
     console.log('No drift: stored flags match the current heuristics everywhere.');
   } else {

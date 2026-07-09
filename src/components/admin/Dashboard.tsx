@@ -14,6 +14,7 @@ import { computeToolAnalytics, type UsageRecord } from '../../lib/analytics';
 import { SeoIndexingEngine } from '../dashboard/SeoIndexingEngine';
 import { LinkBuildingPanel } from './dashboard/LinkBuildingPanel';
 import { SiteAuditPanel } from './dashboard/SiteAuditPanel';
+import { SchemaDriftPanel } from './dashboard/SchemaDriftPanel';
 
 type AdminUser = { name?: string | null; email?: string | null } | null | undefined;
 type Props = { user?: AdminUser };
@@ -278,6 +279,9 @@ export async function Dashboard({ user }: Props) {
 
       {/* ---- Site Audit ---- */}
       <SiteAuditPanel />
+
+      {/* ---- Schema-flag drift (read-only reconciliation report) ---- */}
+      <SchemaDriftPanel />
 
       {/* ---- Link Building & Outreach ---- */}
       <LinkBuildingPanel />
