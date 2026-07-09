@@ -4,10 +4,10 @@ Living state file for the self-evolving SEO engagement. Updated after every phas
 
 ## Meta
 
-- **Current phase:** 3 — Toxic Backlinks & Disavow
-- **Status:** completed; disavow.txt finalized and awaiting CI promotion
+- **Current phase:** 4 — Internal Linking Architecture
+- **Status:** reconciled; executing non-mutating components + interlinker dry-run
 - **Last updated:** 2026-07-09
-- **Rollback tag:** `backup/pre-phase3-backlinks-2026-07-09`
+- **Rollback tag:** `backup/pre-phase4-internal-links-2026-07-09`
 
 ## System Truth (non-negotiable)
 
@@ -87,13 +87,77 @@ domain:dbblog.net
 
 ## Phase 4 — Internal Linking Architecture (topic silos)
 
-*Plan finalized after Phase 3 self-audit:*
+### ① Reconciliation (2026-07-09)
 
-1. Reconcile existing linking: `primaryTool`, `relatedTools`, `relatedArticles`, tag pages, category hubs.
-2. Payload Local API script: propose article ↔ calculator matches (slug/keyword/category), output manifest for approval, then apply.
-3. `RelatedTools.astro` component: 2–3 related tools + category hub, data-driven from CMS.
-4. Build-time orphan check: fail CI if any published tool/article has zero inbound internal links (exclude `/game/*` spam targets).
-5. Build-time dead-path check: surface any internal link whose target returns 404 or matches known spam patterns.
+**CMS collections:**
+
+| Field | Collection | Status | Notes |
+|---|---|---|---|
+| `category` | Articles | exists | Relationship to `categories`. |
+| `tags` | Articles | exists | Relationship to `tags`, hasMany. |
+| `primaryTool` | Articles | exists | Relationship to `tools` — the inline embed. |
+| `relatedTools` | Articles | exists | Relationship to `tools`, hasMany — 2–3 tools to cross-link. |
+| `relatedArticles` | Articles | exists | Relationship to `articles`, hasMany — explicit related articles. |
+| `category` | Tools | exists | Required relationship to `categories`. |
+| `related` | Tools | exists only in frontend local fallback (`src/data/tools.ts`) | CMS `tools` has no `related` field; `getRelatedTools()` in `src/lib/cms.ts` falls back to local data. |
+
+**Frontend helpers:**
+
+| Helper | File | Behavior |
+|---|---|---|
+| `getRelatedTools(slug, limit)` | `src/lib/cms.ts` | Uses `tool.related` (local fallback) → same category → any live tools. |
+| `getArticlesForTool(toolSlug, limit)` | `src/lib/cms.ts` | Articles where `primaryTool == toolSlug` or `relatedTools` includes `toolSlug`. |
+| `getRelatedArticles(slug, limit)` | `src/lib/cms.ts` | Uses `article.relatedArticles` → same category → newest. |
+
+**Existing components:**
+
+| Component | Current linking |
+|---|---|
+| `ToolPageLayout.astro` | Renders `getRelatedTools(tool.slug, 4)` + `getArticlesForTool(tool.slug, 3)` as "From the Wellness Hub". |
+| `ArticleBody.astro` | Renders `article.relatedTools` as sidebar tools + `getRelatedArticles(article.slug, 3)` as related reading. |
+| `ArticleCard.astro` / `ToolCard.astro` | Presentational only. |
+
+**Gaps:**
+- No CMS-driven `related` field on Tools; `ToolPageLayout` cannot show CMS-curated related tools.
+- No shared `RelatedTools.astro` component; logic is split between layouts.
+- No build-time orphan or dead-path check in CI.
+- Many articles may have empty `relatedTools` / `relatedArticles`, falling back to same-category which is fine but not optimized.
+
+### ② Phase 4 Micro-Plan
+
+1. **CMS interlinker script** (`scripts/seo/propose-internal-links.ts`):
+   - Fetch all published articles and enabled tools via Payload Local API.
+   - Score article↔tool and article↔article matches by category (+3), shared tags (+2), keyword overlap (+1), semantic entity overlap (+2), and existing primaryTool relation (+5).
+   - Propose `relatedTools` and `relatedArticles` for each article.
+   - Propose `relatedArticles` (and back-fill opportunities) for each tool.
+   - Output `docs/seo/internal-links-proposed-manifest.json` for human approval.
+   - Apply mode (`--apply`) mutates CMS docs only after approval.
+
+2. **Frontend `RelatedTools.astro` component** (`src/components/RelatedTools.astro`):
+   - Accepts `article?: Article | null` and `tool?: Tool | null`.
+   - Renders 2–3 related tools + category hub link.
+   - Renders 2–3 related articles when on a tool page.
+   - Data-driven from CMS-normalized types, fallback-safe.
+   - Replace inline logic in `ToolPageLayout.astro` and `ArticleBody.astro`.
+
+3. **Frontend build-time orphan check** (`scripts/seo/orphan-check.ts`):
+   - Crawls `dist/client` HTML after `npm run build`.
+   - Builds inbound-link graph for `/tools/*` and `/wellness-hub/*` paths.
+   - Fails with exit 1 if any published tool/article has zero internal inbound links.
+   - Excludes `/game/*`, `/og/*`, `/embed/*`, `/api/*`, `/404`.
+
+4. **Frontend build-time dead-path / spam-link check** (`scripts/seo/orphan-check.ts`):
+   - Reports internal links whose target does not exist in the build output.
+   - Flags any internal link matching `/game/*` or other known spam patterns.
+
+5. **Wire checks into CI** (`.github/workflows/promote.yml`):
+   - Add `node scripts/seo/orphan-check.ts` after `npm run build` in the verify job.
+
+6. **Verify**: `npx tsc --noEmit` → 0; `npm run build` → 0; orphan check → 0; push both repos to `dev`.
+
+### ③ Execution
+
+*In progress. Manifest will be produced for approval before any CMS mutation.*
 
 ## Phase 5 — Core Web Vitals & Technical SEO
 

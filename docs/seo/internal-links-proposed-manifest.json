@@ -1,0 +1,2371 @@
+{
+  "generatedAt": "2026-07-09T02:34:16.170Z",
+  "articleCount": 20,
+  "toolCount": 70,
+  "articles": [
+    {
+      "slug": "how-to-keep-a-food-and-symptom-diary",
+      "title": "How to Keep a Food and Symptom Diary That Finds Your Triggers",
+      "current": {
+        "primaryTool": "food-symptom-diary",
+        "relatedTools": [
+          "food-symptom-diary",
+          "gut-health-score",
+          "recipe-nutrition-analyzer"
+        ],
+        "relatedArticles": [
+          "how-do-you-know-if-your-gut-is-healthy",
+          "what-is-an-anti-inflammatory-diet",
+          "sleep-chronotypes-explained"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "recipe-nutrition-analyzer",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "anti-inflammatory-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "gut-health-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-do-you-know-if-your-gut-is-healthy",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition, healthy-habits",
+              "topic overlap: how, your, and, here, what"
+            ]
+          },
+          {
+            "slug": "how-to-calculate-your-macros",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition",
+              "topic overlap: how, your, for, what, that"
+            ]
+          },
+          {
+            "slug": "how-many-carbs-on-keto",
+            "score": 11,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition",
+              "topic overlap: how, here, what, that, and"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "how-do-you-know-if-your-gut-is-healthy",
+      "title": "How Do You Know If Your Gut Is Healthy?",
+      "current": {
+        "primaryTool": "gut-health-score",
+        "relatedTools": [
+          "gut-health-score",
+          "food-symptom-diary",
+          "anti-inflammatory-score"
+        ],
+        "relatedArticles": [
+          "what-is-an-anti-inflammatory-diet",
+          "how-to-keep-a-food-and-symptom-diary",
+          "how-much-water-should-you-drink-a-day"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "recipe-nutrition-analyzer",
+            "score": 5,
+            "reasons": [
+              "same category",
+              "shared entities: dietary fiber"
+            ]
+          },
+          {
+            "slug": "food-symptom-diary",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "anti-inflammatory-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-many-carbs-on-keto",
+            "score": 13,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition, evidence-based",
+              "topic overlap: how, you, here, what, and"
+            ]
+          },
+          {
+            "slug": "how-to-keep-a-food-and-symptom-diary",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: healthy-habits, daily-nutrition",
+              "topic overlap: how, and, your, here, what"
+            ]
+          },
+          {
+            "slug": "what-is-an-anti-inflammatory-diet",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition, healthy-habits, evidence-based",
+              "topic overlap: what, and, you"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "what-is-an-anti-inflammatory-diet",
+      "title": "What Is an Anti-Inflammatory Diet? Foods to Eat and Limit",
+      "current": {
+        "primaryTool": "anti-inflammatory-score",
+        "relatedTools": [
+          "anti-inflammatory-score",
+          "gut-health-score",
+          "healthspan-score"
+        ],
+        "relatedArticles": [
+          "how-do-you-know-if-your-gut-is-healthy",
+          "how-to-keep-a-food-and-symptom-diary",
+          "how-many-carbs-on-keto"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "recipe-nutrition-analyzer",
+            "score": 5,
+            "reasons": [
+              "same category",
+              "shared entities: dietary fiber"
+            ]
+          },
+          {
+            "slug": "food-symptom-diary",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "gut-health-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-do-you-know-if-your-gut-is-healthy",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition, healthy-habits, evidence-based",
+              "topic overlap: you, and, what"
+            ]
+          },
+          {
+            "slug": "how-many-carbs-on-keto",
+            "score": 11,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition, evidence-based",
+              "topic overlap: you, eat, what, and"
+            ]
+          },
+          {
+            "slug": "how-to-keep-a-food-and-symptom-diary",
+            "score": 10,
+            "reasons": [
+              "same category",
+              "shared tags: healthy-habits, daily-nutrition",
+              "topic overlap: food, and, what"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "how-many-carbs-on-keto",
+      "title": "How Many Carbs Can You Eat on Keto?",
+      "current": {
+        "primaryTool": "keto-calculator",
+        "relatedTools": [
+          "keto-calculator",
+          "recipe-nutrition-analyzer",
+          "weight-loss-percentage-calculator"
+        ],
+        "relatedArticles": [
+          "how-to-calculate-your-macros",
+          "intermittent-fasting-for-beginners",
+          "what-is-an-anti-inflammatory-diet"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "recipe-nutrition-analyzer",
+            "score": 7,
+            "reasons": [
+              "same category",
+              "shared entities: macronutrients, sodium"
+            ]
+          },
+          {
+            "slug": "food-symptom-diary",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "anti-inflammatory-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-to-calculate-your-macros",
+            "score": 16,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition",
+              "topic overlap: how, your, what, that, fat"
+            ]
+          },
+          {
+            "slug": "how-do-you-know-if-your-gut-is-healthy",
+            "score": 13,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition, evidence-based",
+              "topic overlap: how, you, your, and, here"
+            ]
+          },
+          {
+            "slug": "how-much-water-should-you-drink-a-day",
+            "score": 13,
+            "reasons": [
+              "same category",
+              "shared tags: evidence-based",
+              "topic overlap: how, you, day, your, and"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "how-to-calculate-calories-in-a-recipe",
+      "title": "How Do You Calculate the Calories in a Homemade Recipe?",
+      "current": {
+        "primaryTool": "recipe-nutrition-analyzer",
+        "relatedTools": [
+          "recipe-nutrition-analyzer",
+          "keto-calculator",
+          "food-symptom-diary"
+        ],
+        "relatedArticles": [
+          "how-many-calories-to-lose-weight",
+          "how-to-calculate-your-macros",
+          "how-to-build-a-meal-plan"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "food-symptom-diary",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "anti-inflammatory-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "gut-health-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-to-calculate-your-macros",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition, calories-and-energy",
+              "topic overlap: how, calculate, for, calories, you"
+            ]
+          },
+          {
+            "slug": "how-to-build-a-meal-plan",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: recipe-and-meal-planning, daily-nutrition",
+              "topic overlap: how, you, calories, the, free"
+            ]
+          },
+          {
+            "slug": "how-to-keep-a-food-and-symptom-diary",
+            "score": 9,
+            "reasons": [
+              "same category",
+              "shared tags: recipe-and-meal-planning, daily-nutrition",
+              "topic overlap: how, for"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "lean-body-mass-calculator-guide",
+      "title": "What Is Lean Body Mass and Why Does It Matter More Than Weight?",
+      "current": {
+        "primaryTool": "lean-body-mass-calculator",
+        "relatedTools": [
+          "body-fat-percentage-calculator",
+          "metabolic-age-calculator",
+          "how-much-protein-do-i-need"
+        ],
+        "relatedArticles": [
+          "how-to-keep-muscle-while-losing-weight",
+          "how-to-calculate-your-macros",
+          "how-long-does-it-take-to-lose-weight"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "how-much-protein-do-i-need",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "body-fat-percentage-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "calories-burned-calculator-guide",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: evidence-based, body-composition",
+              "topic overlap: how, your, body, the, and"
+            ]
+          },
+          {
+            "slug": "how-to-keep-muscle-while-losing-weight",
+            "score": 12,
+            "reasons": [
+              "shared tags: muscle-building, body-composition, evidence-based",
+              "topic overlap: how, muscle, weight, the, and"
+            ]
+          },
+          {
+            "slug": "metabolic-age-calculator-guide",
+            "score": 11,
+            "reasons": [
+              "same category",
+              "shared tags: evidence-based",
+              "topic overlap: what, and, does, your, learn"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "calories-burned-calculator-guide",
+      "title": "How Are Calories Burned Calculated? A Guide to Energy Expenditure",
+      "current": {
+        "primaryTool": "calories-burned-calculator",
+        "relatedTools": [
+          "metabolic-age-calculator",
+          "steps-to-calories-calculator",
+          "walk-it-off-calculator"
+        ],
+        "relatedArticles": [
+          "how-many-calories-to-lose-weight",
+          "how-to-keep-muscle-while-losing-weight",
+          "how-long-does-it-take-to-lose-weight"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "how-much-protein-do-i-need",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "body-fat-percentage-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "lean-body-mass-calculator-guide",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: body-composition, evidence-based",
+              "topic overlap: body, and, how, your, the"
+            ]
+          },
+          {
+            "slug": "how-do-you-know-if-your-gut-is-healthy",
+            "score": 8,
+            "reasons": [
+              "shared tags: evidence-based",
+              "topic overlap: how, your, and, energy, are"
+            ]
+          },
+          {
+            "slug": "metabolic-age-calculator-guide",
+            "score": 8,
+            "reasons": [
+              "same category",
+              "shared tags: evidence-based",
+              "topic overlap: and, your, how"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "metabolic-age-calculator-guide",
+      "title": "What Is Metabolic Age and What Does It Say About Your Health?",
+      "current": {
+        "primaryTool": "metabolic-age-calculator",
+        "relatedTools": [
+          "calories-burned-calculator",
+          "lean-body-mass-calculator",
+          "vo2-max-calculator"
+        ],
+        "relatedArticles": [
+          "how-to-keep-muscle-while-losing-weight",
+          "how-many-calories-to-lose-weight",
+          "how-much-protein-do-i-need"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "how-much-protein-do-i-need",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "body-fat-percentage-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "lean-body-mass-calculator-guide",
+            "score": 11,
+            "reasons": [
+              "same category",
+              "shared tags: evidence-based",
+              "topic overlap: what, and, does, learn, how"
+            ]
+          },
+          {
+            "slug": "calories-burned-calculator-guide",
+            "score": 8,
+            "reasons": [
+              "same category",
+              "shared tags: evidence-based",
+              "topic overlap: how, your, and"
+            ]
+          },
+          {
+            "slug": "how-do-you-know-if-your-gut-is-healthy",
+            "score": 6,
+            "reasons": [
+              "shared tags: evidence-based",
+              "topic overlap: how, your, and, what"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "how-much-water-should-you-drink-a-day",
+      "title": "How Much Water Should You Drink a Day?",
+      "current": {
+        "primaryTool": "water-intake-calculator",
+        "relatedTools": [
+          "water-intake-calculator",
+          "caffeine-intake-calculator",
+          "calorie-calculator"
+        ],
+        "relatedArticles": [
+          "best-time-to-stop-drinking-coffee-for-sleep",
+          "intermittent-fasting-for-beginners",
+          "how-to-keep-muscle-while-losing-weight"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "recipe-nutrition-analyzer",
+            "score": 5,
+            "reasons": [
+              "same category",
+              "shared entities: sodium"
+            ]
+          },
+          {
+            "slug": "food-symptom-diary",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "anti-inflammatory-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-many-carbs-on-keto",
+            "score": 13,
+            "reasons": [
+              "same category",
+              "shared tags: evidence-based",
+              "topic overlap: how, you, day, here, that"
+            ]
+          },
+          {
+            "slug": "how-much-protein-do-i-need",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: evidence-based",
+              "topic overlap: how, much, really, need, the"
+            ]
+          },
+          {
+            "slug": "how-do-you-know-if-your-gut-is-healthy",
+            "score": 11,
+            "reasons": [
+              "same category",
+              "shared tags: evidence-based",
+              "topic overlap: how, you, your, and, the"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "how-to-calculate-your-macros",
+      "title": "How to Calculate Your Macros for Your Goal",
+      "current": {
+        "primaryTool": "macro-calculator",
+        "relatedTools": [
+          "macro-calculator",
+          "calorie-calculator",
+          "protein-intake-calculator",
+          "meal-plan-generator"
+        ],
+        "relatedArticles": [
+          "how-much-protein-do-i-need",
+          "how-many-calories-to-lose-weight",
+          "how-to-build-a-meal-plan"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "recipe-nutrition-analyzer",
+            "score": 5,
+            "reasons": [
+              "same category",
+              "shared entities: macronutrients"
+            ]
+          },
+          {
+            "slug": "food-symptom-diary",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "anti-inflammatory-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-many-carbs-on-keto",
+            "score": 16,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition",
+              "topic overlap: how, carbs, you, here, what"
+            ]
+          },
+          {
+            "slug": "how-to-build-a-meal-plan",
+            "score": 13,
+            "reasons": [
+              "same category",
+              "shared tags: protein, daily-nutrition",
+              "topic overlap: how, protein, you, calories, and"
+            ]
+          },
+          {
+            "slug": "how-much-protein-do-i-need",
+            "score": 13,
+            "reasons": [
+              "same category",
+              "shared tags: protein",
+              "topic overlap: how, protein, goal, here, for"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "how-long-does-it-take-to-lose-weight",
+      "title": "How Long Does It Take to Lose Weight? A Realistic Timeline",
+      "current": {
+        "primaryTool": "weight-loss-timeline-calculator",
+        "relatedTools": [
+          "weight-loss-timeline-calculator",
+          "calorie-deficit-calculator",
+          "calorie-calculator"
+        ],
+        "relatedArticles": [
+          "how-many-calories-to-lose-weight",
+          "how-to-keep-muscle-while-losing-weight"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [],
+        "relatedArticles": [
+          {
+            "slug": "how-many-calories-to-lose-weight",
+            "score": 13,
+            "reasons": [
+              "same category",
+              "shared tags: weight-loss",
+              "topic overlap: how, lose, weight, loss, the"
+            ]
+          },
+          {
+            "slug": "how-to-keep-muscle-while-losing-weight",
+            "score": 10,
+            "reasons": [
+              "shared tags: weight-loss, evidence-based",
+              "topic overlap: how, weight, lose, the, and"
+            ]
+          },
+          {
+            "slug": "lean-body-mass-calculator-guide",
+            "score": 9,
+            "reasons": [
+              "shared tags: evidence-based",
+              "topic overlap: and, why, does, than, weight"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "how-to-build-a-meal-plan",
+      "title": "How to Build a High-Protein Meal Plan You’ll Actually Follow",
+      "current": {
+        "primaryTool": "meal-plan-generator",
+        "relatedTools": [
+          "meal-plan-generator",
+          "macro-calculator",
+          "protein-intake-calculator"
+        ],
+        "relatedArticles": [
+          "how-much-protein-do-i-need",
+          "how-many-calories-to-lose-weight",
+          "how-to-calculate-calories-in-a-recipe"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "recipe-nutrition-analyzer",
+            "score": 5,
+            "reasons": [
+              "same category",
+              "shared entities: macronutrients"
+            ]
+          },
+          {
+            "slug": "food-symptom-diary",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "anti-inflammatory-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-to-calculate-your-macros",
+            "score": 13,
+            "reasons": [
+              "same category",
+              "shared tags: daily-nutrition, protein",
+              "topic overlap: how, calories, here, protein, and"
+            ]
+          },
+          {
+            "slug": "how-to-calculate-calories-in-a-recipe",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: recipe-and-meal-planning, daily-nutrition",
+              "topic overlap: how, you, the, calories, free"
+            ]
+          },
+          {
+            "slug": "how-much-protein-do-i-need",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: protein, muscle-building",
+              "topic overlap: how, protein, the, here, and"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "sleep-chronotypes-explained",
+      "title": "Sleep Chronotypes: Are You a Lion, Bear, Wolf, or Dolphin?",
+      "current": {
+        "primaryTool": "sleep-chronotype-quiz",
+        "relatedTools": [
+          "sleep-chronotype-quiz",
+          "sleep-calculator",
+          "caffeine-curfew-calculator"
+        ],
+        "relatedArticles": [
+          "best-time-to-stop-drinking-coffee-for-sleep",
+          "intermittent-fasting-for-beginners",
+          "how-to-keep-a-food-and-symptom-diary"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "blue-light-exposure-estimator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "sleep-debt-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "nap-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "best-time-to-stop-drinking-coffee-for-sleep",
+            "score": 8,
+            "reasons": [
+              "same category",
+              "shared tags: sleep-optimization, healthy-habits",
+              "topic overlap: sleep"
+            ]
+          },
+          {
+            "slug": "how-do-you-know-if-your-gut-is-healthy",
+            "score": 6,
+            "reasons": [
+              "shared tags: healthy-habits",
+              "topic overlap: you, your, and, are"
+            ]
+          },
+          {
+            "slug": "how-many-carbs-on-keto",
+            "score": 5,
+            "reasons": [
+              "topic overlap: you, day, and, your, body"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "intermittent-fasting-for-beginners",
+      "title": "Intermittent Fasting for Beginners: How to Pick a Schedule",
+      "current": {
+        "primaryTool": "intermittent-fasting-calculator",
+        "relatedTools": [
+          "intermittent-fasting-calculator",
+          "calorie-calculator",
+          "meal-plan-generator"
+        ],
+        "relatedArticles": [
+          "how-many-calories-to-lose-weight",
+          "how-to-keep-muscle-while-losing-weight",
+          "how-long-does-it-take-to-lose-weight",
+          "metabolic-age-calculator-guide"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "recipe-nutrition-analyzer",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "food-symptom-diary",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "anti-inflammatory-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-many-carbs-on-keto",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: fasting-and-timing",
+              "topic overlap: how, can, you, eat, here"
+            ]
+          },
+          {
+            "slug": "how-much-water-should-you-drink-a-day",
+            "score": 9,
+            "reasons": [
+              "same category",
+              "shared tags: beginner-friendly",
+              "topic overlap: how, you, and, here"
+            ]
+          },
+          {
+            "slug": "how-many-calories-to-lose-weight",
+            "score": 9,
+            "reasons": [
+              "shared tags: weight-loss, beginner-friendly",
+              "topic overlap: how, eat, calorie, here, and"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "due-date-by-conception-date",
+      "title": "Due Date by Conception Date: How It Works",
+      "current": {
+        "primaryTool": "due-date-calculator",
+        "relatedTools": [
+          "due-date-calculator",
+          "ovulation-calculator",
+          "pregnancy-week-calculator"
+        ],
+        "relatedArticles": [
+          "how-much-water-should-you-drink-a-day",
+          "best-time-to-stop-drinking-coffee-for-sleep",
+          "how-do-you-know-if-your-gut-is-healthy"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "pregnancy-weight-gain-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "period-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "ovulation-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-much-water-should-you-drink-a-day",
+            "score": 6,
+            "reasons": [
+              "shared tags: beginner-friendly",
+              "topic overlap: how, your, and, here"
+            ]
+          },
+          {
+            "slug": "healthy-bmi-by-age",
+            "score": 6,
+            "reasons": [
+              "shared tags: beginner-friendly",
+              "topic overlap: not, and, here, how"
+            ]
+          },
+          {
+            "slug": "how-many-calories-to-lose-weight",
+            "score": 6,
+            "reasons": [
+              "shared tags: beginner-friendly",
+              "topic overlap: how, here, works, and"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "how-to-keep-muscle-while-losing-weight",
+      "title": "How to Keep Muscle While Losing Weight",
+      "current": {
+        "primaryTool": "muscle-preservation-calculator",
+        "relatedTools": [
+          "muscle-preservation-calculator",
+          "protein-intake-calculator",
+          "calorie-deficit-calculator",
+          "one-rep-max-calculator"
+        ],
+        "relatedArticles": [
+          "how-many-calories-to-lose-weight",
+          "how-much-protein-do-i-need",
+          "how-to-build-a-meal-plan",
+          "how-to-calculate-your-macros"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "flexibility-mobility-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "push-up-test-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "recovery-time-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "lean-body-mass-calculator-guide",
+            "score": 12,
+            "reasons": [
+              "shared tags: body-composition, muscle-building, evidence-based",
+              "topic overlap: and, weight, how, your, the"
+            ]
+          },
+          {
+            "slug": "how-long-does-it-take-to-lose-weight",
+            "score": 10,
+            "reasons": [
+              "shared tags: weight-loss, evidence-based",
+              "topic overlap: how, lose, weight, and, the"
+            ]
+          },
+          {
+            "slug": "how-much-protein-do-i-need",
+            "score": 9,
+            "reasons": [
+              "shared tags: muscle-building, evidence-based",
+              "topic overlap: how, the, evidence, muscle, and"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "best-time-to-stop-drinking-coffee-for-sleep",
+      "title": "The Best Time to Stop Drinking Coffee for Better Sleep",
+      "current": {
+        "primaryTool": "caffeine-curfew-calculator",
+        "relatedTools": [
+          "caffeine-curfew-calculator",
+          "sleep-calculator",
+          "sleep-debt-calculator"
+        ],
+        "relatedArticles": [
+          "sleep-chronotypes-explained",
+          "calories-burned-calculator-guide"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "blue-light-exposure-estimator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "sleep-debt-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "nap-calculator",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "sleep-chronotypes-explained",
+            "score": 8,
+            "reasons": [
+              "same category",
+              "shared tags: sleep-optimization, healthy-habits",
+              "topic overlap: sleep"
+            ]
+          },
+          {
+            "slug": "how-to-keep-a-food-and-symptom-diary",
+            "score": 5,
+            "reasons": [
+              "shared tags: healthy-habits",
+              "topic overlap: how, here, for"
+            ]
+          },
+          {
+            "slug": "how-do-you-know-if-your-gut-is-healthy",
+            "score": 5,
+            "reasons": [
+              "shared tags: healthy-habits",
+              "topic overlap: how, the, here"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "healthy-bmi-by-age",
+      "title": "What's a Healthy BMI by Age?",
+      "current": {
+        "primaryTool": "bmi-calculator",
+        "relatedTools": [
+          "bmi-calculator",
+          "waist-to-height-ratio-calculator",
+          "body-fat-calculator",
+          "ideal-weight-calculator"
+        ],
+        "relatedArticles": [
+          "how-many-calories-to-lose-weight",
+          "calories-burned-calculator-guide",
+          "how-to-calculate-your-macros",
+          "how-to-calculate-calories-in-a-recipe"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [],
+        "relatedArticles": [
+          {
+            "slug": "how-many-calories-to-lose-weight",
+            "score": 11,
+            "reasons": [
+              "same category",
+              "shared tags: beginner-friendly",
+              "topic overlap: how, but, the, number, here"
+            ]
+          },
+          {
+            "slug": "lean-body-mass-calculator-guide",
+            "score": 8,
+            "reasons": [
+              "shared tags: body-composition",
+              "topic overlap: what, and, does, how, the"
+            ]
+          },
+          {
+            "slug": "how-long-does-it-take-to-lose-weight",
+            "score": 8,
+            "reasons": [
+              "same category",
+              "topic overlap: how, does, here, and, the"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "how-much-protein-do-i-need",
+      "title": "How Much Protein Do I Really Need?",
+      "current": {
+        "primaryTool": "protein-intake-calculator",
+        "relatedTools": [
+          "protein-intake-calculator",
+          "macro-calculator",
+          "calorie-calculator"
+        ],
+        "relatedArticles": [
+          "how-many-calories-to-lose-weight",
+          "how-to-keep-muscle-while-losing-weight"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "recipe-nutrition-analyzer",
+            "score": 5,
+            "reasons": [
+              "same category",
+              "shared entities: macronutrients"
+            ]
+          },
+          {
+            "slug": "food-symptom-diary",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          },
+          {
+            "slug": "anti-inflammatory-score",
+            "score": 3,
+            "reasons": [
+              "same category"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-to-calculate-your-macros",
+            "score": 13,
+            "reasons": [
+              "same category",
+              "shared tags: protein",
+              "topic overlap: how, for, goal, fat, muscle"
+            ]
+          },
+          {
+            "slug": "how-much-water-should-you-drink-a-day",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: evidence-based",
+              "topic overlap: how, much, the, really, need"
+            ]
+          },
+          {
+            "slug": "how-to-build-a-meal-plan",
+            "score": 12,
+            "reasons": [
+              "same category",
+              "shared tags: protein, muscle-building",
+              "topic overlap: how, protein, and, here, the"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "slug": "how-many-calories-to-lose-weight",
+      "title": "How Many Calories Should I Eat to Lose Weight?",
+      "current": {
+        "primaryTool": "calorie-calculator",
+        "relatedTools": [
+          "calorie-calculator",
+          "calorie-deficit-calculator",
+          "macro-calculator",
+          "bmr-calculator"
+        ],
+        "relatedArticles": [
+          "how-much-protein-do-i-need",
+          "how-to-keep-muscle-while-losing-weight"
+        ]
+      },
+      "proposed": {
+        "relatedTools": [
+          {
+            "slug": "recipe-nutrition-analyzer",
+            "score": 2,
+            "reasons": [
+              "shared entities: macronutrients"
+            ]
+          }
+        ],
+        "relatedArticles": [
+          {
+            "slug": "how-long-does-it-take-to-lose-weight",
+            "score": 13,
+            "reasons": [
+              "same category",
+              "shared tags: weight-loss",
+              "topic overlap: how, lose, weight, safe, loss"
+            ]
+          },
+          {
+            "slug": "healthy-bmi-by-age",
+            "score": 11,
+            "reasons": [
+              "same category",
+              "shared tags: beginner-friendly",
+              "topic overlap: number, but, the, and, here"
+            ]
+          },
+          {
+            "slug": "how-much-water-should-you-drink-a-day",
+            "score": 10,
+            "reasons": [
+              "shared tags: beginner-friendly",
+              "topic overlap: how, should, the, and, here"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "tools": [
+    {
+      "slug": "recipe-nutrition-analyzer",
+      "title": "Recipe Nutrition Analyzer",
+      "alreadyLinkedFrom": [
+        "how-to-keep-a-food-and-symptom-diary",
+        "how-many-carbs-on-keto",
+        "how-to-calculate-calories-in-a-recipe"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 5,
+          "reasons": [
+            "same category",
+            "shared entities: dietary fiber"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 5,
+          "reasons": [
+            "same category",
+            "shared entities: dietary fiber"
+          ]
+        },
+        {
+          "slug": "how-much-water-should-you-drink-a-day",
+          "score": 5,
+          "reasons": [
+            "same category",
+            "shared entities: sodium"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "who-5-wellbeing-screener",
+      "title": "WHO-5 Well-Being Index",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "gad-7-anxiety-screener",
+      "title": "GAD-7 Anxiety Screener",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "phq-9-depression-screener",
+      "title": "PHQ-9 Depression Screener",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "blue-light-exposure-estimator",
+      "title": "Blue Light Exposure Estimator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "sleep-chronotypes-explained",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "best-time-to-stop-drinking-coffee-for-sleep",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "hrv-explainer-log",
+      "title": "HRV Explainer & Log",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "food-symptom-diary",
+      "title": "Food & Symptom Diary",
+      "alreadyLinkedFrom": [
+        "how-to-keep-a-food-and-symptom-diary",
+        "how-do-you-know-if-your-gut-is-healthy",
+        "how-to-calculate-calories-in-a-recipe"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-many-carbs-on-keto",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-much-water-should-you-drink-a-day",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "anti-inflammatory-score",
+      "title": "Anti-Inflammatory Diet Score",
+      "alreadyLinkedFrom": [
+        "how-do-you-know-if-your-gut-is-healthy",
+        "what-is-an-anti-inflammatory-diet"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-many-carbs-on-keto",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-to-calculate-calories-in-a-recipe",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gut-health-score",
+      "title": "Gut Health Score",
+      "alreadyLinkedFrom": [
+        "how-to-keep-a-food-and-symptom-diary",
+        "how-do-you-know-if-your-gut-is-healthy",
+        "what-is-an-anti-inflammatory-diet"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-many-carbs-on-keto",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-to-calculate-calories-in-a-recipe",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-much-water-should-you-drink-a-day",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "vitamin-d-sun-calculator",
+      "title": "Vitamin D & Sun Exposure Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "flexibility-mobility-score",
+      "title": "Flexibility & Mobility Score",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "push-up-test-calculator",
+      "title": "Push-Up Test Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "recovery-time-calculator",
+      "title": "Recovery Time Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ffmi-calculator",
+      "title": "FFMI Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "healthspan-score",
+      "title": "Healthspan Score",
+      "alreadyLinkedFrom": [
+        "what-is-an-anti-inflammatory-diet"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "how-much-protein-do-i-need",
+      "title": "How Much Protein Do I Need",
+      "alreadyLinkedFrom": [
+        "lean-body-mass-calculator-guide"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "calories-burned-calculator-guide",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "metabolic-age-calculator-guide",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "body-fat-percentage-calculator",
+      "title": "Body Fat Percentage Calculator",
+      "alreadyLinkedFrom": [
+        "lean-body-mass-calculator-guide"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "calories-burned-calculator-guide",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "metabolic-age-calculator-guide",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "box-breathing-timer",
+      "title": "Box Breathing Timer",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "burnout-self-check",
+      "title": "Burnout Self-Check",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "stress-level-check",
+      "title": "Stress Level Self-Check",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "sleep-quality-check",
+      "title": "Sleep Quality Self-Check",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "alcohol-units-calculator",
+      "title": "Alcohol Units Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "smoking-cost-calculator",
+      "title": "Smoking Cost Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "diabetes-risk-calculator",
+      "title": "Type 2 Diabetes Risk (Educational)",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "heart-disease-risk-calculator",
+      "title": "Heart Disease Risk (Educational)",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "waist-health-risk-calculator",
+      "title": "Waist-Based Health Risk",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "lifestyle-age-test",
+      "title": "Lifestyle Age Test",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "sleep-debt-calculator",
+      "title": "Sleep Debt Calculator",
+      "alreadyLinkedFrom": [
+        "best-time-to-stop-drinking-coffee-for-sleep"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "sleep-chronotypes-explained",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "nap-calculator",
+      "title": "Nap Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "sleep-chronotypes-explained",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "best-time-to-stop-drinking-coffee-for-sleep",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "sleep-calculator",
+      "title": "Sleep Calculator",
+      "alreadyLinkedFrom": [
+        "sleep-chronotypes-explained",
+        "best-time-to-stop-drinking-coffee-for-sleep"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "caffeine-curfew-calculator",
+      "title": "Caffeine Curfew Calculator",
+      "alreadyLinkedFrom": [
+        "sleep-chronotypes-explained",
+        "best-time-to-stop-drinking-coffee-for-sleep"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "caffeine-intake-calculator",
+      "title": "Caffeine Intake Calculator",
+      "alreadyLinkedFrom": [
+        "how-much-water-should-you-drink-a-day"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "sleep-chronotypes-explained",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "best-time-to-stop-drinking-coffee-for-sleep",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "sleep-chronotype-quiz",
+      "title": "Sleep Chronotype Quiz",
+      "alreadyLinkedFrom": [
+        "sleep-chronotypes-explained"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "best-time-to-stop-drinking-coffee-for-sleep",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "pregnancy-weight-gain-calculator",
+      "title": "Pregnancy Weight Gain Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "due-date-by-conception-date",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "period-calculator",
+      "title": "Period Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "due-date-by-conception-date",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ovulation-calculator",
+      "title": "Ovulation Calculator",
+      "alreadyLinkedFrom": [
+        "due-date-by-conception-date"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "pregnancy-week-calculator",
+      "title": "Pregnancy Week-by-Week",
+      "alreadyLinkedFrom": [
+        "due-date-by-conception-date"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "due-date-calculator",
+      "title": "Pregnancy Due Date Calculator",
+      "alreadyLinkedFrom": [
+        "due-date-by-conception-date"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "alcohol-calorie-calculator",
+      "title": "Alcohol Calorie Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "metabolic-age-calculator",
+      "title": "Metabolic Age Calculator",
+      "alreadyLinkedFrom": [
+        "lean-body-mass-calculator-guide",
+        "calories-burned-calculator-guide",
+        "metabolic-age-calculator-guide"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "resting-heart-rate-checker",
+      "title": "Resting Heart Rate Checker",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "blood-pressure-checker",
+      "title": "Blood Pressure Checker",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "max-heart-rate-calculator",
+      "title": "Max Heart Rate Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "target-heart-rate-calculator",
+      "title": "Target Heart Rate Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "steps-to-calories-calculator",
+      "title": "Steps to Calories Calculator",
+      "alreadyLinkedFrom": [
+        "calories-burned-calculator-guide"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "vo2-max-calculator",
+      "title": "VO₂ Max Calculator",
+      "alreadyLinkedFrom": [
+        "metabolic-age-calculator-guide"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "calories-burned-calculator",
+      "title": "Calories Burned Calculator",
+      "alreadyLinkedFrom": [
+        "calories-burned-calculator-guide",
+        "metabolic-age-calculator-guide"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "running-pace-calculator",
+      "title": "Running Pace Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "one-rep-max-calculator",
+      "title": "One-Rep Max Calculator",
+      "alreadyLinkedFrom": [
+        "how-to-keep-muscle-while-losing-weight"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "sitting-disease-reversal-calculator",
+      "title": "Sitting Disease Reversal Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "strength-program-builder",
+      "title": "Strength Program Builder",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "walk-it-off-calculator",
+      "title": "Walk It Off Calculator",
+      "alreadyLinkedFrom": [
+        "calories-burned-calculator-guide"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-muscle-while-losing-weight",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "weight-loss-percentage-calculator",
+      "title": "Weight Loss Percentage Calculator",
+      "alreadyLinkedFrom": [
+        "how-many-carbs-on-keto"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "waist-to-hip-ratio-calculator",
+      "title": "Waist-to-Hip Ratio Calculator",
+      "alreadyLinkedFrom": [],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "waist-to-height-ratio-calculator",
+      "title": "Waist-to-Height Ratio Calculator",
+      "alreadyLinkedFrom": [
+        "healthy-bmi-by-age"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "lean-body-mass-calculator",
+      "title": "Lean Body Mass Calculator",
+      "alreadyLinkedFrom": [
+        "lean-body-mass-calculator-guide",
+        "metabolic-age-calculator-guide"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "ideal-weight-calculator",
+      "title": "Ideal Weight Calculator",
+      "alreadyLinkedFrom": [
+        "healthy-bmi-by-age"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "body-fat-calculator",
+      "title": "Body Fat Calculator",
+      "alreadyLinkedFrom": [
+        "healthy-bmi-by-age"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "bmi-calculator",
+      "title": "BMI Calculator",
+      "alreadyLinkedFrom": [
+        "healthy-bmi-by-age"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "weight-loss-timeline-calculator",
+      "title": "Weight Loss Timeline Calculator",
+      "alreadyLinkedFrom": [
+        "how-long-does-it-take-to-lose-weight"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "bmr-calculator",
+      "title": "BMR Calculator",
+      "alreadyLinkedFrom": [
+        "how-many-calories-to-lose-weight"
+      ],
+      "proposedNewLinks": []
+    },
+    {
+      "slug": "keto-calculator",
+      "title": "Keto Calculator",
+      "alreadyLinkedFrom": [
+        "how-many-carbs-on-keto",
+        "how-to-calculate-calories-in-a-recipe"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "calorie-deficit-calculator",
+      "title": "Calorie Deficit Calculator",
+      "alreadyLinkedFrom": [
+        "how-long-does-it-take-to-lose-weight",
+        "how-to-keep-muscle-while-losing-weight",
+        "how-many-calories-to-lose-weight"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "water-intake-calculator",
+      "title": "Water Intake Calculator",
+      "alreadyLinkedFrom": [
+        "how-much-water-should-you-drink-a-day"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "protein-intake-calculator",
+      "title": "Protein Intake Calculator",
+      "alreadyLinkedFrom": [
+        "how-to-calculate-your-macros",
+        "how-to-build-a-meal-plan",
+        "how-to-keep-muscle-while-losing-weight",
+        "how-much-protein-do-i-need"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "macro-calculator",
+      "title": "Macro Calculator",
+      "alreadyLinkedFrom": [
+        "how-to-calculate-your-macros",
+        "how-to-build-a-meal-plan",
+        "how-much-protein-do-i-need",
+        "how-many-calories-to-lose-weight"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "calorie-calculator",
+      "title": "Calorie Calculator",
+      "alreadyLinkedFrom": [
+        "how-much-water-should-you-drink-a-day",
+        "how-to-calculate-your-macros",
+        "how-long-does-it-take-to-lose-weight",
+        "intermittent-fasting-for-beginners",
+        "how-much-protein-do-i-need",
+        "how-many-calories-to-lose-weight"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "muscle-preservation-calculator",
+      "title": "Muscle Preservation Calculator",
+      "alreadyLinkedFrom": [
+        "how-to-keep-muscle-while-losing-weight"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "meal-plan-generator",
+      "title": "7-Day Meal Plan Generator",
+      "alreadyLinkedFrom": [
+        "how-to-calculate-your-macros",
+        "how-to-build-a-meal-plan",
+        "intermittent-fasting-for-beginners"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "intermittent-fasting-calculator",
+      "title": "Intermittent Fasting Calculator & Timer",
+      "alreadyLinkedFrom": [
+        "intermittent-fasting-for-beginners"
+      ],
+      "proposedNewLinks": [
+        {
+          "slug": "how-to-keep-a-food-and-symptom-diary",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "how-do-you-know-if-your-gut-is-healthy",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        },
+        {
+          "slug": "what-is-an-anti-inflammatory-diet",
+          "score": 3,
+          "reasons": [
+            "same category"
+          ]
+        }
+      ]
+    }
+  ]
+}
