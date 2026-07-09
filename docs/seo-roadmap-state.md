@@ -4,10 +4,10 @@ Living state file for the self-evolving SEO engagement. Updated after every phas
 
 ## Meta
 
-- **Current phase:** 10 — Editor Schema Hints · Drift Reconciliation · Validator Architecture
-- **Status:** completed. `SchemaEmissionHint` ui panel in the Articles sidebar (live form state); read-only `audit:schema-flags` drift report (never overwrites human overrides); Rich Results validator architecture documented with an honest 501 stub (CI unchanged, still non-blocking).
-- **Last updated:** 2026-07-09
-- **Rollback tag:** `backup/pre-phase10-editor-hints-2026-07-09` (prev: `backup/pre-phase9-boolean-schema-2026-07-09`)
+- **Current phase:** 11 — Drift Panel · Scheduled Reconciliation · Schemarama Decision
+- **Status:** P1 + P2 completed (dashboard drift panel + weekly cron/email endpoint). P3 **STOPPED on audit evidence**: schemarama@0.0.4 is unmaintained (2020/2022), ships axios@0.20.0 (critical CVE) + the squatted `child_process` npm package, and does NOT bundle Google's Rich Results shapes — installing it into the deploy-gating production CMS was rejected; the honest 501 stub remains, CI stays non-blocking.
+- **Last updated:** 2026-07-10
+- **Rollback tag:** `backup/pre-phase11-drift-panel-2026-07-10` (prev: `backup/pre-phase10-editor-hints-2026-07-09`)
 
 ## System Truth (non-negotiable)
 
@@ -550,6 +550,36 @@ domain:dbblog.net
 1. Implement the schemarama proxy for real and set `RICH_RESULTS_VALIDATOR_URL` (activation plan step 1–4).
 2. Schedule `audit:schema-flags` (weekly cron alongside `audit:backlinks`) and surface the report (email or dashboard panel).
 3. Fold the drift report into the existing admin dashboard as a panel with one-click "review" links.
+
+## Phase 11 — Drift Panel · Scheduled Reconciliation · Schemarama Decision
+
+### ① Reconciliation / Audit (2026-07-10)
+
+- Dashboard pattern: `Dashboard.tsx` (server) composes client panels that fetch API routes with `credentials: 'include'` — `SiteAuditPanel` is the precedent followed (not the Nav split the spec suggested).
+- **Spec divergence 1:** no shared `allowedOrigins` util existed — the CORS-fix logic was duplicated inline in `payload.config.ts` and `deploy/route.ts`. Extracted to `src/lib/allowedOrigins.ts` (both refactored to consume it).
+- **Spec divergence 2:** no email transport exists anywhere (no mailer dep, no adapter — Payload logs "Email will be written to console"). Resolution: `payload.sendEmail` (platform surface, console-degrading today; real delivery starts the moment an adapter is configured — zero code change).
+- Drift report data is not persisted — computed on demand; extracted to `src/lib/schemaFlagDrift.ts` so script/panel/cron can never disagree.
+
+### ③ Execution (2026-07-10)
+
+| Piece | Change |
+|---|---|
+| P1 | `src/lib/allowedOrigins.ts` (shared whitelist util) · `src/lib/schemaFlagDrift.ts` (shared READ-ONLY drift lib, + title) · `GET /api/audit/schema-flags/report` (admin-only, origin-checked — missing Origin allowed on this read-only GET since same-origin GETs omit it) · `SchemaDriftPanel` client panel on the dashboard (loading/error/zero-drift/drift states, Review→ links, hidden for editors) · reconcile script refactored onto the lib. |
+| P2 | `GET /api/audit/schema-flags/cron` Payload endpoint (staff or `INTERNAL_API_KEY`, mirroring `/backlinks/check`): computes drift read-only, emails via `payload.sendEmail` **only when drift > 0** (`DRIFT_ALLCLEAR_DIGEST=true` opt-in digest, default off), recipient `DRIFT_REPORT_EMAIL_TO`, dry-run via `DRIFT_REPORT_DRY=1` or `?dry=1` (returns the exact email payload, sends nothing), in-flight latch makes overlapping runs no-op, every run logged via `payload.logger`. **No DB writes anywhere.** Schedule = external cron (repo pattern): `0 6 * * 1` hitting the endpoint with the key. |
+| P3 | **STOPPED — evidence:** `schemarama@0.0.4` (npm) is Google's package but unmaintained (published 2020, last touch 2022), depends on `axios@0.20.0` (deprecated, critical CVE, used in `util.js`) and the squatted `child_process` npm placeholder, and bundles **no Google Rich Results shapes** (only a test fixture) — the real ShEx/SHACL profiles must be vendored from the GitHub repo. Installing a stale, known-vulnerable dependency into the CMS that gates production deploys was rejected. The honest 501 stub + non-blocking CI remain. Recommended path: vendor the shapes + pin `axios` via npm `overrides` in a sandboxed micro-service (NOT the CMS process), or adopt a maintained SHACL validator — a deliberate future decision. |
+
+### ④ Verification
+
+- `tsc --noEmit` → **0** (final tree) · `check:domain` → PASS · `build:ci` → exit 0.
+- Refactored `npm run audit:schema-flags` live against prod (read-only): 20 scanned, 0 drift — shared lib proven.
+- Post-deploy probes: endpoint auth states verified live (see completion report).
+
+### ⑤ Human steps (P2 activation)
+
+1. Hostinger env: set `DRIFT_REPORT_EMAIL_TO=<your inbox>` (and ensure `INTERNAL_API_KEY` is set).
+2. hPanel → Advanced → Cron Jobs, weekly `0 6 * * 1` (UTC):
+   `curl -s "https://cms.healthylifesstyles.com/api/audit/schema-flags/cron?key=$INTERNAL_API_KEY" >/dev/null 2>&1`
+3. For real email delivery (optional, later): configure a Payload email adapter in `payload.config.ts` — the cron code needs no change.
 
 ## Lessons Log
 
