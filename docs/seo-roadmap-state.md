@@ -4,7 +4,9 @@ Living state file for the self-evolving SEO engagement. Updated after every phas
 
 ## Meta
 
-- **Current phase:** 11 — Drift Panel · Scheduled Reconciliation · Schemarama Decision
+- **Current phase:** 12 — Sandboxed SHACL Validation (frontend repo)
+- **Phase 12 summary (2026-07-10):** replaced the Phase-10 honest 501 stub with a REAL, fully offline validator in the FRONTEND repo: `rdf-validate-shacl@0.6.5` (audit-verified 0 vulns, 34-pkg tree — chosen over shacl-engine's 123-pkg Comunica tree) + `jsonld@9.0.0` + `n3@2.1.1`, exact-pinned. `scripts/seo/validate-shacl.ts` CLI validates JSON-LD against vendored schemarama schema.org SHACL shapes (SHA-256 pinned in `shapes.lock.json`, fail-closed on tamper, `--update-shapes` maintenance mode; NOTE: Google-specific Rich Results SHACL profiles don't exist upstream — Google profiles are ShEx-only; divergence documented). `rich-results-check.ts` now SPAWNS the validator (30s timeout, 256MB heap, never in-process) and degrades gracefully on crash/timeout/tamper/missing-file — 5/5 chaos tests green (`scripts/seo/__tests__/degradation.test.ts`). First real run found 11 informational findings (BreadcrumbList `item` as URL-string vs entity — Google-valid, shape-strict). CI stays non-blocking. Frontend baseline npm audit (22 vulns / 4 high, pre-existing) documented — gate amended to "no NEW vulns" (new subtree adds 0).
+- **Previous phase:** 11 — Drift Panel · Scheduled Reconciliation · Schemarama Decision
 - **Status:** P1 + P2 completed (dashboard drift panel + weekly cron/email endpoint). P3 **STOPPED on audit evidence**: schemarama@0.0.4 is unmaintained (2020/2022), ships axios@0.20.0 (critical CVE) + the squatted `child_process` npm package, and does NOT bundle Google's Rich Results shapes — installing it into the deploy-gating production CMS was rejected; the honest 501 stub remains, CI stays non-blocking.
 - **Last updated:** 2026-07-10
 - **Rollback tag:** `backup/pre-phase11-drift-panel-2026-07-10` (prev: `backup/pre-phase10-editor-hints-2026-07-09`)
