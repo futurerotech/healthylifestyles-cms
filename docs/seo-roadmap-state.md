@@ -4,10 +4,10 @@ Living state file for the self-evolving SEO engagement. Updated after every phas
 
 ## Meta
 
-- **Current phase:** 6 — YMYL Schema Markup
-- **Status:** completed; schema upgrades applied, build/orphan/cwv audits pass
+- **Current phase:** 7 — Structured Data Validation & Advanced Schema
+- **Status:** completed; JSON-LD validator + HowTo/HealthTopicContent + static-page fixes applied
 - **Last updated:** 2026-07-09
-- **Rollback tag:** `backup/pre-phase6-schema-2026-07-09`
+- **Rollback tag:** `backup/pre-phase7-jsonld-2026-07-09`
 
 ## System Truth (non-negotiable)
 
@@ -350,6 +350,86 @@ domain:dbblog.net
 2. Clean up CMS `reviewer` assignments so the defensive fallback is rarely triggered.
 3. Consider `HealthTopicContent` for condition-specific articles once topical clusters mature.
 
+## Phase 7 — Structured Data Validation & Advanced Schema
+
+### ① Reconciliation (2026-07-09)
+
+- Created `scripts/seo/jsonld-reconcile.ts` to crawl `dist/client` and audit all JSON-LD blocks.
+- **Pages scanned:** 213; **pages with JSON-LD:** 143; **unique JSON-LD blocks:** 721.
+- **Schema types found:** Organization (143), WebSite (143), BreadcrumbList (128), MedicalWebPage (92), FAQPage (80), WebApplication (70), CollectionPage (39), Article (20), AboutPage (2), ProfilePage (2), Person (1), WebPage (1).
+- **Issues found:** 2 static `MedicalWebPage` pages missing `author`:
+  - `/medical-disclaimer`
+  - `/methodology`
+- **Opportunities identified:**
+  - 5 articles with clear step-by-step structure suitable for `HowTo` schema.
+  - 6+ condition/topic explainers suitable for `HealthTopicContent`.
+  - No `VideoObject` candidates detected.
+
+### ② Phase 7 Micro-Plan
+
+1. Add `scripts/seo/validate-jsonld.ts`: strict build-time JSON-LD validator that fails on invalid JSON, missing `@context`/`@type`, and missing YMYL fields (`author`, `reviewedBy`, `lastReviewed`).
+2. Wire `npm run seo:jsonld` into CI after `orphan-check.ts`.
+3. Fix `/medical-disclaimer` and `/methodology` to include real `author` and `reviewedBy` entities.
+4. Add `HowTo` schema for step-by-step articles (detected from title + h2/h3 step headings).
+5. Add `HealthTopicContent` schema for condition/topic explainers (detected from title heuristics + semantic entities).
+6. Build, run all audits, and validate schema output.
+
+### ③ Execution (2026-07-09)
+
+**New build-time validator:**
+
+| File | Purpose |
+|---|---|
+| `scripts/seo/validate-jsonld.ts` | Crawls `dist/client`, validates every JSON-LD block, and exits 1 on YMYL schema errors. |
+| `package.json` | Added `"seo:jsonld": "node scripts/seo/validate-jsonld.ts"`. |
+| `.github/workflows/promote.yml` | Added `node scripts/seo/validate-jsonld.ts` after the orphan check. |
+| `scripts/seo/jsonld-reconcile.ts` | Reconnaissance crawler used for the Phase 7 audit; kept for future diagnostics. |
+
+**Static page fixes:**
+
+| File | Change |
+|---|---|
+| `src/pages/medical-disclaimer.astro` | `MedicalWebPage` now has real `author`, `reviewedBy`, `@id`, and `publisher` reference. |
+| `src/pages/methodology.astro` | `MedicalWebPage` now has real `author`, `reviewedBy`, `@id`, and `publisher` reference. |
+
+**Advanced article schemas:**
+
+| File | Change | Rationale |
+|---|---|---|
+| `src/pages/wellness-hub/[...path].astro` | Added `isHowToArticle()` + `buildHowTo()` to emit `HowTo` schema for step-by-step guides. | Rich Results eligibility for how-to content. |
+| `src/pages/wellness-hub/[...path].astro` | Added `isHealthTopicArticle()` + `buildHealthTopicContent()` to emit `HealthTopicContent` for condition/topic explainers. | Stronger topical authority signal for health topics. |
+| `src/pages/wellness-hub/[...path].astro` | `HealthTopicContent` includes `author`, `reviewedBy`, and `lastReviewed`. | Keeps YMYL review metadata consistent across schema types. |
+
+### ④ Verification
+
+- `npx tsc --noEmit` → **EXIT 0**.
+- `npm run build` → **EXIT 0**.
+- `node scripts/seo/orphan-check.ts` → **PASS** (0 orphans, 0 dead links, 0 spam links).
+- `node scripts/seo/cwv-crawl.ts` → **PASS** (213 files scanned, 0 issues).
+- `node scripts/seo/validate-jsonld.ts` → **PASS** (712 JSON-LD blocks inspected, 0 YMYL issues).
+- Generated HTML schema sample (`/wellness-hub/how-to-calculate-your-macros`):
+  - `BreadcrumbList`
+  - `MedicalWebPage` / `Article`
+  - `HowTo` with `HowToStep` array
+  - `FAQPage`
+- Generated HTML schema sample (`/wellness-hub/what-is-an-anti-inflammatory-diet`):
+  - `BreadcrumbList`
+  - `MedicalWebPage` / `Article`
+  - `HealthTopicContent`
+
+### ⑤ Self-Audit & Phase 8 Evolution
+
+**What reality taught us:**
+1. **A build-time validator catches schema regressions immediately.** Without it, future template changes could silently break YMYL fields.
+2. **`HealthTopicContent` needs the same YMYL fields as `MedicalWebPage`.** Even though the type doesn't strictly require them, Google expects author/reviewer signals on health content.
+3. **Heuristic schema generation is a practical starting point.** Long-term, a CMS toggle (`isHowTo`, `isHealthTopic`) would be cleaner than title/body heuristics.
+4. **Static legal/methodology pages were the only YMYL gaps.** Once they were wired to real author/reviewer entities, the validator passed across all 213 pages.
+
+**Phase 8 plan adjustments because of this:**
+1. Add CMS boolean fields (`isHowTo`, `isHealthTopic`) so editors can explicitly control advanced schema emission.
+2. Implement a real schema.org / Rich Results Test API validator in CI (the current validator checks structure, not Google's Rich Results eligibility).
+3. Consider `VideoObject` and `Course` schema if video/educational content is added.
+
 ## Lessons Log
 
 - **Vercel edge cache must be waited out** (from prior auto-promotion work): live verification requires checking `X-Vercel-Cache` and `Age` headers, not just status 200.
@@ -360,3 +440,4 @@ domain:dbblog.net
 - **CWV measurement is environment-sensitive**: local static-server Lighthouse is useful for catching missing dimensions and render-blocking, but absolute scores vary with third-party latency (AdSense, R2). Treat local Lighthouse as a guardrail, not the final scorecard.
 - **Vercel adapter lacks `astro preview`**: use `npx serve dist/client` for local static verification; document this in runbooks.
 - **Preload and fetchpriority are cheap wins**: adding a `<slot name="head" />` and hero-image preloads required only layout changes and no page-level prop drilling.
+- **JSON-LD validators belong in CI**: a simple structural validator catches missing `author`/`reviewedBy`/`lastReviewed` before they reach production. It also surfaces CMS data drift (e.g., reviewer pointing to the wrong entity).
