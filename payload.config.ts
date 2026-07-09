@@ -60,15 +60,28 @@ import { analyzeRecipe } from './src/endpoints/analyzeRecipe';
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 
+const IS_PROD = process.env.NODE_ENV === 'production';
+/** This CMS's own origin (admin panel + API). The double "ss" is correct. */
+const CMS_ORIGIN = 'https://cms.healthylifesstyles.com';
+/** The Astro frontend that consumes this CMS at build/runtime. */
+const FRONTEND_ORIGIN = 'https://www.healthylifesstyles.com';
 /**
- * Public site origin — the Astro frontend that consumes this CMS at build/runtime.
- * Used to scope CORS/CSRF for the public-facing REST + custom endpoints.
- * Defaults to the Astro dev server; override via NEXT_PUBLIC_SITE_URL in prod.
+ * Public site origin — NEXT_PUBLIC_SITE_URL remains the FRONTEND origin (the
+ * GSC/pSEO/site-audit tooling all read it as such); it is included below only
+ * so a per-environment override keeps working. Origins are normalized (no
+ * trailing slash) and deduped; localhost dev servers are allowed OUTSIDE
+ * production only. Both canonical domains are pinned so a missing or
+ * slash-suffixed env var can never lock the admin (or the frontend) out.
  */
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:4321';
-const ALLOWED_ORIGINS = [SITE_URL, 'http://localhost:4321', 'http://localhost:3000'].filter(
-  (v, i, arr) => v && arr.indexOf(v) === i,
-);
+const ALLOWED_ORIGINS = [
+  CMS_ORIGIN,
+  FRONTEND_ORIGIN,
+  SITE_URL,
+  ...(IS_PROD ? [] : ['http://localhost:4321', 'http://localhost:3000']),
+]
+  .map((v) => v.replace(/\/+$/, ''))
+  .filter((v, i, arr) => v && arr.indexOf(v) === i);
 
 // Fail fast: signing sessions/JWTs with an empty secret is a silent security hole.
 if (!process.env.PAYLOAD_SECRET) {
@@ -195,7 +208,9 @@ export default buildConfig({
     push: process.env.ALLOW_DB_PUSH === 'true',
   }),
   secret: process.env.PAYLOAD_SECRET,
-  serverURL: process.env.SERVER_URL || SITE_URL,
+  // The CMS's own public URL (cookie/CSRF anchor + absolute admin URLs) — NOT
+  // the frontend. Env override first; in production default to the CMS domain.
+  serverURL: process.env.SERVER_URL || (IS_PROD ? CMS_ORIGIN : 'http://localhost:3000'),
   cors: ALLOWED_ORIGINS,
   csrf: ALLOWED_ORIGINS,
   typescript: {

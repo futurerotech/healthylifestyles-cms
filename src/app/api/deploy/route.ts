@@ -15,11 +15,25 @@ export const dynamic = 'force-dynamic';
  * - Logs every trigger to deploy-log and clears the pending-deploys queue.
  */
 export async function POST(req: Request): Promise<NextResponse> {
-  // الحماية ضد هجمات CSRF (التحقق من مصدر الطلب)
-  const origin = req.headers.get('origin');
-  const allowedOrigin = process.env.NEXT_PUBLIC_SITE_URL;
-  
-  if (origin && origin !== allowedOrigin) {
+  // CSRF guard — this endpoint triggers production deploys, so the browser's
+  // Origin must be one of OUR origins. Whitelist (not a single env value): the
+  // admin lives on the CMS domain while NEXT_PUBLIC_SITE_URL is the frontend,
+  // so a single-value comparison 403s the very button that calls this route.
+  // Normalized (trailing slashes stripped) on both sides; a MISSING Origin is
+  // rejected too (same-origin POSTs always send it — curl/server-to-server is
+  // not a supported path here). payload.auth below stays the primary gate.
+  const ALLOWED_ORIGINS = new Set(
+    [
+      'https://cms.healthylifesstyles.com',
+      'https://www.healthylifesstyles.com',
+      process.env.NEXT_PUBLIC_SITE_URL,
+      ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000'] : []),
+    ]
+      .filter((v): v is string => Boolean(v))
+      .map((v) => v.replace(/\/+$/, '')),
+  );
+  const origin = (req.headers.get('origin') || '').replace(/\/+$/, '');
+  if (!origin || !ALLOWED_ORIGINS.has(origin)) {
     return NextResponse.json({ error: 'Forbidden: Invalid Origin' }, { status: 403 });
   }
 
