@@ -34,6 +34,7 @@ import { ToolAnalytics as ToolAnalytics_2ae62daa347a4bfd750cbac0b6206abd } from 
 import { AiDraftBanner as AiDraftBanner_a0f201cde11054913a8b99628eb2cde1 } from '@/components/admin/AiDraftBanner'
 import { AiWritingAssistant as AiWritingAssistant_c165315c516d66152e5724e9400f7797 } from '@/components/admin/AiWritingAssistant'
 import { AutoGenerateButton as AutoGenerateButton_13faa3f644b200515a206d8bf869096b } from '@/components/admin/AutoGenerateButton'
+import { SchemaEmissionHint as SchemaEmissionHint_7a873af398c26c4f6a42a7c83615f811 } from '@/components/admin/SchemaEmissionHint'
 import { RequestIndexing as RequestIndexing_b0b9d2ee6c2480c76b145ce374759272 } from '@/components/admin/RequestIndexing'
 import { SendPushButton as SendPushButton_9c358e38283330420a145f491e607807 } from '@/components/admin/SendPushButton'
 import { PseoPreview as PseoPreview_df1e029c23b5302932b057731a635d41 } from '@/components/admin/PseoPreview'
@@ -88,6 +89,7 @@ export const importMap = {
   "@/components/admin/AiDraftBanner#AiDraftBanner": AiDraftBanner_a0f201cde11054913a8b99628eb2cde1,
   "@/components/admin/AiWritingAssistant#AiWritingAssistant": AiWritingAssistant_c165315c516d66152e5724e9400f7797,
   "@/components/admin/AutoGenerateButton#AutoGenerateButton": AutoGenerateButton_13faa3f644b200515a206d8bf869096b,
+  "@/components/admin/SchemaEmissionHint#SchemaEmissionHint": SchemaEmissionHint_7a873af398c26c4f6a42a7c83615f811,
   "@/components/admin/RequestIndexing#RequestIndexing": RequestIndexing_b0b9d2ee6c2480c76b145ce374759272,
   "@/components/admin/SendPushButton#SendPushButton": SendPushButton_9c358e38283330420a145f491e607807,
   "@/components/admin/PseoPreview#PseoPreview": PseoPreview_df1e029c23b5302932b057731a635d41,

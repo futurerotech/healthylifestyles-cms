@@ -173,6 +173,12 @@ export const Articles: CollectionConfig = {
       defaultValue: false,
       admin: { position: 'sidebar', description: 'Emit HealthTopicContent (MedicalCondition) structured data. Explicit replacement for title heuristics — tick for "what is / signs / symptoms" explainers.' },
     },
+    {
+      // Phase 10 — live "what will this article emit" panel under the two flags.
+      name: 'schemaEmissionHint',
+      type: 'ui',
+      admin: { position: 'sidebar', components: { Field: '@/components/admin/SchemaEmissionHint#SchemaEmissionHint' } },
+    },
     { name: 'primaryTool', type: 'relationship', relationTo: 'tools', admin: { position: 'sidebar', description: 'The primary tool to embed inline within the article.' } },
     { name: 'relatedArticles', type: 'relationship', relationTo: 'articles', hasMany: true, admin: { position: 'sidebar', description: 'Explicitly link related articles (auto-fallback to same-category when empty).' } },
     { name: 'requestIndexing', type: 'ui', admin: { position: 'sidebar', components: { Field: '@/components/admin/RequestIndexing#RequestIndexing' } } },
