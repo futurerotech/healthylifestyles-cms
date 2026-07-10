@@ -10,6 +10,30 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+
+    # ══ D4 / SD2 — CI BUILD SAFETY (DO NOT "FIX" THIS BACK) ══════════════════
+    # The build below runs against a DISPOSABLE, EMPTY postgres service with
+    # publicly-visible mock credentials — BY DESIGN. Production credentials
+    # must NEVER enter CI: `build:ci` deliberately skips `payload migrate`, and
+    # this job exists only to prove the code compiles and the Next bundle
+    # builds. The mock DB satisfies payload.config's DATABASE_URI requirement
+    # and absorbs any lazy connection during `next build` without any real
+    # data being reachable. The "Secret-pattern guard" steps enforce this.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mock
+          POSTGRES_PASSWORD: mock
+          POSTGRES_DB: mock
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mock"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,6 +44,18 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      # D4/SD2 guard #1: no real-credential fingerprints may live in workflows.
+      # (postgres URLs other than the documented mock, API-key prefixes, PEM keys)
+      - name: Secret-pattern guard (workflows)
+        run: |
+          set -e
+          PATTERNS='postgres(ql)?://(?!mock:mock@localhost)[^ "]+|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY'
+          if grep -rPn "$PATTERNS" .github/workflows/; then
+            echo '::error::Real-credential fingerprint found in workflow files (SD2).'
+            exit 1
+          fi
+          echo 'Workflows clean: only the documented mock connection string is present.'
+
       - run: npm ci
 
       - name: Domain check
@@ -27,6 +63,27 @@ jobs:
 
       - name: Type check
         run: npx tsc --noEmit
+
+      # D4: the real build gate — migration-free build:ci against the mock DB.
+      # PAYLOAD_SECRET is a mock too: it only signs cookies of a server that
+      # never serves traffic. INDEXNOW_DISABLE per SD5 (no pings from CI).
+      - name: Build (build:ci, mock DB — SD2)
+        env:
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          INDEXNOW_DISABLE: 'true'
+        run: npm run build:ci
+
+      # D4/SD2 guard #2: the produced bundle must not embed real-looking secrets.
+      - name: Secret-pattern guard (build artifacts)
+        run: |
+          set -e
+          PATTERNS='postgres(ql)?://(?!mock:mock@localhost)[a-zA-Z0-9_.:-]+@|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY'
+          if grep -rPnI --include='*.js' --include='*.json' -m1 "$PATTERNS" .next/ 2>/dev/null | head -5 | grep .; then
+            echo '::error::Real-credential fingerprint found in build output (SD2).'
+            exit 1
+          fi
+          echo 'Build artifacts clean.'
 
   promote:
     needs: ci
