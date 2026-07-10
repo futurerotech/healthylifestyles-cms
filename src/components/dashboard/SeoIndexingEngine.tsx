@@ -30,6 +30,10 @@ interface Row {
   lastCrawled: string | null;
   coverageState: string;
   error: string | null;
+  /** Hotfix-2 taxonomy: where a failure came from (null = success/unscanned). */
+  source: 'LOCAL_VALIDATION' | 'GOOGLE_API' | null;
+  /** Freshness stamp from the scan that produced this row's status. */
+  checkedAt: string | null;
   submitting: boolean;
   submitMessage: string | null;
 }
@@ -53,7 +57,7 @@ type Action =
   | { type: 'LOAD_DONE'; rows: Row[] }
   | { type: 'LOAD_ERROR'; error: string }
   | { type: 'SCAN_START' }
-  | { type: 'CHECK_RESULT'; results: { url: string; isIndexed: boolean; lastCrawled: string | null; coverageState: string; error: string | null }[] }
+  | { type: 'CHECK_RESULT'; results: { url: string; isIndexed: boolean; lastCrawled: string | null; coverageState: string; error: string | null; source?: 'LOCAL_VALIDATION' | 'GOOGLE_API' | null; checkedAt?: string }[] }
   | { type: 'SCAN_DONE' }
   | { type: 'SCAN_ERROR'; error: string }
   | { type: 'QUOTA'; quota: Partial<Quota> }
@@ -98,6 +102,8 @@ function reducer(state: State, action: Action): State {
             lastCrawled: r.lastCrawled,
             coverageState: r.coverageState,
             error: r.error,
+            source: r.source ?? null,
+            checkedAt: r.checkedAt ?? null,
           };
         }),
       };
@@ -175,6 +181,8 @@ export const SeoIndexingEngine: React.FC = () => {
             lastCrawled: null,
             coverageState: '',
             error: null,
+            source: null,
+            checkedAt: null,
             submitting: false,
             submitMessage: null,
           }));
@@ -381,7 +389,16 @@ export const SeoIndexingEngine: React.FC = () => {
                     <div className="seo-row__meta">
                       <span>Last crawled: {fmtDate(row.lastCrawled)}</span>
                       {row.coverageState && row.state !== 'unknown' && <span> · {row.coverageState}</span>}
-                      {row.error && <span className="seo-row__err"> · {row.error}</span>}
+                      {/* Hotfix-2 taxonomy: locally-skipped URLs are a neutral notice
+                          (this server refused them before any Google call), while only
+                          genuine Google responses render in the error style. */}
+                      {row.error && row.source === 'LOCAL_VALIDATION' && (
+                        <span className="seo-badge seo-badge--unknown"> {row.error}</span>
+                      )}
+                      {row.error && row.source !== 'LOCAL_VALIDATION' && (
+                        <span className="seo-row__err"> · {row.error}</span>
+                      )}
+                      {row.checkedAt && <span> · checked {fmtDate(row.checkedAt)}</span>}
                       {row.submitMessage && <span className="seo-row__msg"> · {row.submitMessage}</span>}
                     </div>
                   </li>

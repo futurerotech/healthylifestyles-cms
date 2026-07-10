@@ -6,6 +6,7 @@ import { pageBlocks } from '../blocks';
 import { afterChangeIndexingHook } from '../lib/indexing';
 import { afterPublishPushHook } from '../lib/push';
 import { trackPendingChange } from '../hooks/trackPendingChange';
+import { notifyIndexNow } from '../hooks/notifyIndexNow';
 
 /** Which AI model generates this article (read per-request by the generator). */
 const aiProviderField: SelectField = {
@@ -185,6 +186,6 @@ export const Articles: CollectionConfig = {
     { name: 'sendPushButton', type: 'ui', admin: { position: 'sidebar', components: { Field: '@/components/admin/SendPushButton#SendPushButton' } } },
   ],
   hooks: {
-    afterChange: [afterChangeIndexingHook, afterPublishPushHook, trackPendingChange],
+    afterChange: [afterChangeIndexingHook, afterPublishPushHook, trackPendingChange, notifyIndexNow],
   },
 };
