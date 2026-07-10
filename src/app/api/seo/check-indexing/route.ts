@@ -7,6 +7,7 @@ import { consumeQuota, getQuota } from '../../../../lib/indexing-quota';
 // property ("sc-domain:example.com"). The previous inline `process.env` read
 // bypassed this validation — the root of the Permission-denied hotfix.
 import { GSC_SITE_URL } from '../../../../lib/site-config';
+import { toAbsoluteInspectionUrl, LocalValidationError } from '../../../../lib/inspection-url';
 
 /** Is this inspection URL inside the configured property? (both property forms) */
 function urlUnderProperty(url: string, property: string): boolean {
@@ -36,6 +37,10 @@ interface InspectResult {
   lastCrawled: string | null;
   coverageState: string;
   error: string | null;
+  /** Error taxonomy (H2-TASK 2): where a failure came from. Null on success. */
+  source: 'LOCAL_VALIDATION' | 'GOOGLE_API' | null;
+  /** Freshness marker — every scan result is stamped, never merged with old state. */
+  checkedAt: string;
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
@@ -76,18 +81,34 @@ export async function POST(req: Request): Promise<NextResponse> {
   // SEQUENTIAL, never a parallel burst: the inspect quota (2000/day/property)
   // is shared, and 429s under a burst poison the whole batch. Per-URL failures
   // never sink the batch; a 429 gets bounded backoff retries (2s, then 5s).
+  const now = () => new Date().toISOString();
   const inspectOnce = async (url: string) => {
     const res = await searchconsole.urlInspection.index.inspect({ requestBody: { inspectionUrl: url, siteUrl } });
     const idx = res.data.inspectionResult?.indexStatusResult;
     const coverageState = idx?.coverageState || 'Unknown';
     const isIndexed = idx?.verdict === 'PASS' || /indexed/i.test(coverageState);
-    return { url, isIndexed, lastCrawled: idx?.lastCrawlTime || null, coverageState, error: null } as InspectResult;
+    return { url, isIndexed, lastCrawled: idx?.lastCrawlTime || null, coverageState, error: null, source: null, checkedAt: now() } as InspectResult;
   };
 
+  // Every result is FRESH (stamped checkedAt, full overwrite of any prior row)
+  // and taxonomy-labeled: "Skipped locally:" = this server refused the URL
+  // before any Google call (LOCAL_VALIDATION); "Google API:" = Google itself
+  // answered with an error on THIS scan (GOOGLE_API). "Permission denied" can
+  // therefore only ever surface inside a fresh Google API message.
   const results: InspectResult[] = [];
-  for (const url of urls) {
+  for (const raw of urls) {
+    let url: string;
+    try {
+      url = toAbsoluteInspectionUrl(raw);
+    } catch (e) {
+      const msg = e instanceof LocalValidationError ? e.message : 'invalid URL';
+      console.error('[check-indexing] LOCAL_VALIDATION reject', { message: msg, url: raw, siteUrl });
+      results.push({ url: raw, isIndexed: false, lastCrawled: null, coverageState: 'Skipped', error: `Skipped locally: ${msg}`, source: 'LOCAL_VALIDATION', checkedAt: now() });
+      continue;
+    }
     if (!urlUnderProperty(url, siteUrl)) {
-      results.push({ url, isIndexed: false, lastCrawled: null, coverageState: 'Error', error: `URL is not under the configured GSC property (${siteUrl}).` });
+      console.error('[check-indexing] LOCAL_VALIDATION reject', { message: 'outside configured property', url, siteUrl });
+      results.push({ url, isIndexed: false, lastCrawled: null, coverageState: 'Skipped', error: `Skipped locally: URL is not under the configured GSC property (${siteUrl}).`, source: 'LOCAL_VALIDATION', checkedAt: now() });
       continue;
     }
     let lastErr: unknown = null;
@@ -111,7 +132,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       }
     }
     if (!done) {
-      results.push({ url, isIndexed: false, lastCrawled: null, coverageState: 'Error', error: lastErr instanceof Error ? lastErr.message : 'Inspection failed.' });
+      results.push({ url, isIndexed: false, lastCrawled: null, coverageState: 'Error', error: `Google API: ${lastErr instanceof Error ? lastErr.message : 'Inspection failed.'}`, source: 'GOOGLE_API', checkedAt: now() });
     }
   }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { authorizeSeoRequest } from '../../../../lib/seo-guard';
+import { SITE_BASE_URL } from '../../../../lib/site-config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,11 @@ export async function GET(req: Request): Promise<NextResponse> {
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
   const payload = auth.payload;
 
-  const site = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com').replace(/\/$/, '');
+  // HOTFIX 2: the CANONICAL origin from validated site-config — never
+  // NEXT_PUBLIC_SITE_URL, which on prod is the apex domain (no www.) and put
+  // all 90 scan URLs on the wrong origin (the real Permission-denied source).
+  // site-config guarantees no trailing slash.
+  const site = SITE_BASE_URL;
 
   const safeDocs = async (fn: () => Promise<{ docs: unknown[] }>): Promise<Record<string, unknown>[]> => {
     try {
