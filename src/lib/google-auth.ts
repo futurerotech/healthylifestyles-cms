@@ -34,50 +34,81 @@ export interface GoogleServiceAccount {
   project_id: string;
 }
 
+/** The service account expected on the GSC property (drift detection only). */
+const EXPECTED_CLIENT_EMAIL = 'healthylifestyles@healthylifestyles-index.iam.gserviceaccount.com';
+
+const parseJson = (s: string): GoogleServiceAccount | null => {
+  try {
+    const v = JSON.parse(s) as GoogleServiceAccount;
+    return v && typeof v === 'object' ? v : null;
+  } catch {
+    return null;
+  }
+};
+
+const parseB64Json = (s: string): GoogleServiceAccount | null => {
+  try {
+    const decoded = Buffer.from(s.trim(), 'base64').toString('utf8');
+    return decoded.trim().startsWith('{') ? parseJson(decoded) : null;
+  } catch {
+    return null;
+  }
+};
+
 /**
- * Load + validate the service-account JSON from GOOGLE_INDEXING_CREDENTIALS_B64.
+ * Load + validate the service-account credentials (Phase 14 hotfix contract).
  *
- * Health check: every failure logs WHICH stage failed — missing / decode /
- * parse / fields — so nobody has to guess again. Key material is never logged.
+ * Resolution order (first that parses wins):
+ *   1. GOOGLE_INDEXING_CREDENTIALS      as raw JSON
+ *   2. GOOGLE_INDEXING_CREDENTIALS      as base64 → JSON   (the "b64 pasted
+ *      into the plain var" trap — previously an unexplained hard failure)
+ *   3. GOOGLE_INDEXING_CREDENTIALS_B64  as base64 → JSON   (canonical)
+ *
+ * FAIL LOUD: if nothing resolves, throws ConfigError with remediation — there
+ * is deliberately NO fallback to an unauthenticated client, ever. Health log
+ * names the winning source (or every failed stage); key material, raw env
+ * values, and decoded JSON are never logged. Drift detection: warns when
+ * client_email differs from the expected service account.
  */
 export function loadGoogleCredentials(): GoogleServiceAccount {
+  const plain = process.env.GOOGLE_INDEXING_CREDENTIALS;
   const b64 = process.env.GOOGLE_INDEXING_CREDENTIALS_B64;
 
-  if (!b64) {
-    // Migration hint if the old (retired) variable is still around.
-    if (process.env.GOOGLE_INDEXING_CREDENTIALS) {
-      console.error('[google-auth] HEALTH: GOOGLE_INDEXING_CREDENTIALS_B64 missing, but legacy GOOGLE_INDEXING_CREDENTIALS is set — base64-encode the (rotated) key file and set the _B64 variable; the legacy raw-JSON variable is no longer read.');
-      throw new ConfigError('GOOGLE_INDEXING_CREDENTIALS_B64 is not set (legacy GOOGLE_INDEXING_CREDENTIALS is ignored — migrate to the base64 variable).');
+  let creds: GoogleServiceAccount | null = null;
+  let source = '';
+  if (plain) {
+    creds = parseJson(plain);
+    source = 'GOOGLE_INDEXING_CREDENTIALS (raw JSON)';
+    if (!creds) {
+      creds = parseB64Json(plain);
+      source = 'GOOGLE_INDEXING_CREDENTIALS (base64)';
     }
-    console.error('[google-auth] HEALTH: FAILED at env stage — GOOGLE_INDEXING_CREDENTIALS_B64 is not set.');
-    throw new ConfigError('GOOGLE_INDEXING_CREDENTIALS_B64 is not set.');
+  }
+  if (!creds && b64) {
+    creds = parseB64Json(b64);
+    source = 'GOOGLE_INDEXING_CREDENTIALS_B64 (base64)';
   }
 
-  // Stage 1: base64 decode.
-  let json: string;
-  try {
-    json = Buffer.from(b64.trim(), 'base64').toString('utf8');
-    if (!json.trim().startsWith('{')) throw new Error('decoded value is not JSON-shaped');
-  } catch (e) {
-    console.error('[google-auth] HEALTH: FAILED at DECODE stage — GOOGLE_INDEXING_CREDENTIALS_B64 is not valid base64 (re-encode the key file in one line, no quotes).');
-    throw new ConfigError('GOOGLE_INDEXING_CREDENTIALS_B64 failed base64 decoding.', e);
+  if (!creds) {
+    console.error(
+      `[google-auth] HEALTH: FAILED to resolve credentials — tried GOOGLE_INDEXING_CREDENTIALS as JSON${plain ? ' (set, unparseable)' : ' (unset)'}, as base64, and GOOGLE_INDEXING_CREDENTIALS_B64${b64 ? ' (set, unparseable)' : ' (unset)'}. Re-encode the (rotated) key file: base64 -w0 service-account.json → set GOOGLE_INDEXING_CREDENTIALS_B64.`,
+    );
+    throw new ConfigError(
+      'Google service-account credentials could not be resolved from GOOGLE_INDEXING_CREDENTIALS (JSON or base64) or GOOGLE_INDEXING_CREDENTIALS_B64 (base64). Encode the key file to one base64 line and set GOOGLE_INDEXING_CREDENTIALS_B64.',
+    );
   }
 
-  // Stage 2: JSON parse.
-  let creds: GoogleServiceAccount;
-  try {
-    creds = JSON.parse(json) as GoogleServiceAccount;
-  } catch (e) {
-    console.error('[google-auth] HEALTH: FAILED at PARSE stage — decoded value is not valid JSON (was the correct file encoded?).');
-    throw new ConfigError('GOOGLE_INDEXING_CREDENTIALS_B64 decoded but is not valid JSON.', e);
-  }
-
-  // Stage 3: required fields.
-  if (!creds || !creds.client_email || !creds.private_key || !creds.project_id) {
-    console.error('[google-auth] HEALTH: FAILED at FIELDS stage — JSON parsed but is missing client_email / private_key / project_id (is this the service-account key file?).');
+  if (!creds.client_email || !creds.private_key || !creds.project_id) {
+    console.error(`[google-auth] HEALTH: FAILED at FIELDS stage — ${source} parsed but is missing client_email / private_key / project_id (is this the service-account key file?).`);
     throw new ConfigError('Service-account JSON is missing required fields (client_email, private_key, project_id).');
   }
 
+  // Wrong-key drift detection (client_email + project_id are safe to log).
+  if (creds.client_email !== EXPECTED_CLIENT_EMAIL) {
+    console.error(`[google-auth] WARNING: client_email drift — credentials are for "${creds.client_email}" but the GSC property owner is expected to be "${EXPECTED_CLIENT_EMAIL}". If inspections fail with "Permission denied", this is why.`);
+  }
+
+  console.log(`[google-auth] credentials resolved from ${source} — client_email=${creds.client_email} project_id=${creds.project_id}`);
   return creds;
 }
 
