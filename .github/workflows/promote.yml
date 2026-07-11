@@ -64,6 +64,16 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      # D6: apply the FULL committed migration chain to the disposable mock DB
+      # before building — proves every migration runs from zero AND gives the
+      # build real tables to query. This step failing = the job fails (a broken
+      # migration chain must never reach the production deploy pipeline).
+      - name: Apply migration chain (disposable mock DB — D6)
+        env:
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+        run: npx payload migrate --force-accept-warning
+
       # D4: the real build gate — migration-free build:ci against the mock DB.
       # PAYLOAD_SECRET is a mock too: it only signs cookies of a server that
       # never serves traffic. INDEXNOW_DISABLE per SD5 (no pings from CI).

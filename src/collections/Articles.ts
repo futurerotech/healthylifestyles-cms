@@ -55,22 +55,35 @@ export const Articles: CollectionConfig = {
               type: 'ui',
               admin: { components: { Field: '@/components/admin/AiDraftBanner#AiDraftBanner' } },
             },
-            { name: 'title', type: 'text', required: true },
-            { name: 'excerpt', type: 'textarea', admin: { description: 'Short summary for cards and the article lead.' } },
+            { name: 'title', type: 'text', required: true, localized: true },
+            { name: 'excerpt', type: 'textarea', localized: true, admin: { description: 'Short summary for cards and the article lead.' } },
             { name: 'heroImage', type: 'upload', relationTo: 'media', admin: { description: 'Featured image.' } },
             {
               name: 'layout',
               type: 'blocks',
               blocks: pageBlocks,
+              localized: true,
               admin: { description: 'Build the page with modular blocks.' },
             },
             {
-              name: 'faq', type: 'array', labels: { singular: 'FAQ', plural: 'FAQs' },
-              admin: { description: 'People-also-ask questions. Emits FAQPage structured data.' },
+              name: 'faq', type: 'array', labels: { singular: 'FAQ', plural: 'FAQs' }, localized: true,
+              admin: { description: 'Legacy FAQ field. The PUBLISHED FAQ (and its FAQPage schema) comes from the "People also ask" content block, not this field.' },
               fields: [
                 { name: 'question', type: 'text', required: true },
                 { name: 'answer', type: 'textarea', required: true },
               ],
+            },
+            {
+              // P15-P7c — the exact shape AI Overviews/Perplexity quote and cite.
+              name: 'takeaways', type: 'array', labels: { singular: 'Key takeaway', plural: 'Key takeaways' }, localized: true,
+              admin: { description: 'EXACTLY 3 editorial takeaways (≈40–60 words total). Server-rendered as the "Key takeaways" box near the top and referenced by speakable schema. Leave empty to omit the box.' },
+              validate: (value: unknown) => {
+                if (Array.isArray(value) && value.length > 0 && value.length !== 3) {
+                  return 'Key takeaways must be exactly 3 items (or none to omit the box).';
+                }
+                return true;
+              },
+              fields: [{ name: 'text', type: 'text', required: true }],
             },
             {
               name: 'sources', type: 'array', labels: { singular: 'Source', plural: 'Sources' },
@@ -173,6 +186,24 @@ export const Articles: CollectionConfig = {
       type: 'checkbox',
       defaultValue: false,
       admin: { position: 'sidebar', description: 'Emit HealthTopicContent (MedicalCondition) structured data. Explicit replacement for title heuristics — tick for "what is / signs / symptoms" explainers.' },
+    },
+    {
+      // P15-P7a — the ONLY switch for FAQPage emission (SD4: boolean-flag-driven
+      // schema, never title/content heuristics). Validated against the VISIBLE
+      // source: FAQPage JSON-LD is built from the "People also ask" block, so
+      // this flag may only be enabled when such a block actually has Q&A items.
+      name: 'hasFAQ',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: { position: 'sidebar', description: 'Emit FAQPage schema from the article\'s "People also ask" block. The frontend never infers FAQs — this flag is the single source of truth.' },
+      validate: (value: unknown, { data }: { data?: { layout?: { blockType?: string; items?: unknown[] }[] } }) => {
+        if (!value) return true;
+        const paa = (data?.layout || []).find((b) => b?.blockType === 'peopleAlsoAsk');
+        const hasItems = !!paa && Array.isArray(paa.items) && paa.items.length > 0;
+        return hasItems
+          ? true
+          : 'Enable FAQ only when the article has a "People also ask" block with at least one question — that block is the visible content the FAQPage schema is built from.';
+      },
     },
     {
       // Phase 10 — live "what will this article emit" panel under the two flags.

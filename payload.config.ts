@@ -168,6 +168,19 @@ export default buildConfig({
       defaultLayout: [],
     },
   },
+  // P15-P6 — i18n rails. Content localization source of truth (SD4). en is
+  // canonical; es/ar are enabled but EMPTY until human-reviewed translations
+  // exist (fallback:true keeps the admin usable; the frontend requests
+  // fallback-locale=none and skips untranslated docs — no empty shells, ever).
+  localization: {
+    locales: [
+      { label: 'English', code: 'en' },
+      { label: 'Español', code: 'es' },
+      { label: 'العربية (Arabic)', code: 'ar', rtl: true },
+    ],
+    defaultLocale: 'en',
+    fallback: true,
+  },
   collections: [Users, Media, Categories, Tags, Authors, Tools, Articles, Pages, Redirects, ToolUsage, Personas, Profiles, IndexingStatus, PseoTemplates, PseoDatasets, PseoPages, Leads, Subscribers, PushSubscriptions, PushHistory, LinkProspects, OutreachTemplates, Backlinks, EmbedLogs, SiteAudits, AuditLog, PromptRegistry, PendingDeploys, DeployLog],
   globals: [Settings, Indexing, SocialMedia, AdManagement, LeadGen, Audience, AiSettings],
   editor: lexicalEditor(),
