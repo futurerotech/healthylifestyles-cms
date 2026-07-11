@@ -11,7 +11,13 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 
-const FILE = path.resolve(process.cwd(), 'cms/scripts/recovery/artifact/recovered-articles.json');
+// Resolve from the actual cwd — works whether run from the cms root (where the
+// scraper writes) or a monorepo parent. Never assume the working directory.
+const CANDIDATES = [
+  path.resolve(process.cwd(), 'scripts/recovery/artifact/recovered-articles.json'),
+  path.resolve(process.cwd(), 'cms/scripts/recovery/artifact/recovered-articles.json'),
+];
+const FILE = CANDIDATES.find((p) => fs.existsSync(p)) ?? CANDIDATES[0];
 const MAX_TITLE = 300;
 const MAX_EXCERPT = 2000;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -46,6 +52,10 @@ for (const [i, r] of art.records.entries()) {
     if (r.title.length > MAX_TITLE) errors.push(`${at}: title exceeds ${MAX_TITLE} chars`);
     if (htmlish.test(r.title)) errors.push(`${at}: title still contains HTML/entities (normalize)`);
     if (r.title !== r.title.trim()) errors.push(`${at}: title not trimmed`);
+    // Defense-in-depth: category ARCHIVE pages ("… Guides") are not articles and
+    // must never enter an article restore (the scraper now excludes them via
+    // JSON-LD @type; this is the offline backstop).
+    if (/\bGuides$/.test(r.title)) errors.push(`${at}: looks like a category ARCHIVE page ("${r.title}"), not an article — re-scrape with the JSON-LD @type filter`);
   }
   if (r?.excerpt !== null && typeof r?.excerpt !== 'string') errors.push(`${at}: excerpt must be string or null`);
   if (typeof r?.excerpt === 'string') {
