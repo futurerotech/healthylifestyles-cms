@@ -1,5 +1,28 @@
 import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
+/**
+ * P15 localization migration — HARDENED for existing data.
+ *
+ * Two safety changes vs the generated version (both required to run against a
+ * populated database without data loss):
+ *
+ * 1. NOT-NULL `_locale` on ALREADY-POPULATED child tables is added in two steps
+ *    — `ADD COLUMN … DEFAULT 'en' NOT NULL` (backfills existing rows to the
+ *    default locale) then `ALTER COLUMN … DROP DEFAULT` (so Payload must supply
+ *    the locale on future writes). The column type is the enum `"_locales"`
+ *    (NOT varchar) to match Payload's generated Drizzle schema. New/empty tables
+ *    (articles_takeaways, …_locales, …_version_takeaways) keep a plain NOT NULL.
+ *
+ * 2. `title`/`excerpt` (and their version-table counterparts) are COPIED into
+ *    the new `_locales` tables under 'en' BEFORE the base columns are dropped.
+ *    The generated migration dropped them with no backfill; because the whole
+ *    up() is one transaction and it had been failing at step (1), those drops
+ *    never ran and the values are still present on the base tables — this
+ *    backfill preserves them. Idempotent via the (_locale,_parent_id) unique
+ *    indexes created below.
+ *
+ * MUST be dry-run on a restored production-shaped snapshot before deploy.
+ */
 export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
    CREATE TYPE "public"."_locales" AS ENUM('en', 'es', 'ar');
@@ -13,7 +36,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"id" varchar PRIMARY KEY NOT NULL,
   	"text" varchar
   );
-  
+
   CREATE TABLE "articles_locales" (
   	"title" varchar,
   	"excerpt" varchar,
@@ -21,7 +44,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_locale" "_locales" NOT NULL,
   	"_parent_id" integer NOT NULL
   );
-  
+
   CREATE TABLE "_articles_v_version_takeaways" (
   	"_order" integer NOT NULL,
   	"_parent_id" integer NOT NULL,
@@ -30,7 +53,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"text" varchar,
   	"_uuid" varchar
   );
-  
+
   CREATE TABLE "_articles_v_locales" (
   	"version_title" varchar,
   	"version_excerpt" varchar,
@@ -38,39 +61,67 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"_locale" "_locales" NOT NULL,
   	"_parent_id" integer NOT NULL
   );
-  
+
   ALTER TABLE "_tools_v" ADD COLUMN "snapshot" boolean;
   ALTER TABLE "_tools_v" ADD COLUMN "published_locale" "enum__tools_v_published_locale";
-  ALTER TABLE "articles_blocks_hero" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_calculator_embed" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_two_column" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_viral_hook_banner" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_tool_embed" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_people_also_ask_items" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_people_also_ask" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_text" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_list_items" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_list" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_callout" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_table_rows" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_blocks_table" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "articles_faq" ADD COLUMN "_locale" "_locales" NOT NULL;
+  ALTER TABLE "articles_blocks_hero" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_hero" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_calculator_embed" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_calculator_embed" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_two_column" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_two_column" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_viral_hook_banner" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_viral_hook_banner" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_tool_embed" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_tool_embed" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_people_also_ask_items" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_people_also_ask_items" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_people_also_ask" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_people_also_ask" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_text" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_text" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_list_items" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_list_items" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_list" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_list" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_callout" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_callout" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_table_rows" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_table_rows" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_blocks_table" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_blocks_table" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "articles_faq" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "articles_faq" ALTER COLUMN "_locale" DROP DEFAULT;
   ALTER TABLE "articles" ADD COLUMN "has_f_a_q" boolean DEFAULT false;
   ALTER TABLE "articles_texts" ADD COLUMN "locale" "_locales";
-  ALTER TABLE "_articles_v_blocks_hero" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_calculator_embed" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_two_column" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_viral_hook_banner" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_tool_embed" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_people_also_ask_items" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_people_also_ask" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_text" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_list_items" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_list" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_callout" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_table_rows" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_blocks_table" ADD COLUMN "_locale" "_locales" NOT NULL;
-  ALTER TABLE "_articles_v_version_faq" ADD COLUMN "_locale" "_locales" NOT NULL;
+  ALTER TABLE "_articles_v_blocks_hero" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_hero" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_calculator_embed" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_calculator_embed" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_two_column" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_two_column" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_viral_hook_banner" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_viral_hook_banner" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_tool_embed" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_tool_embed" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_people_also_ask_items" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_people_also_ask_items" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_people_also_ask" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_people_also_ask" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_text" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_text" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_list_items" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_list_items" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_list" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_list" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_callout" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_callout" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_table_rows" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_table_rows" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_blocks_table" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_blocks_table" ALTER COLUMN "_locale" DROP DEFAULT;
+  ALTER TABLE "_articles_v_version_faq" ADD COLUMN "_locale" "_locales" DEFAULT 'en' NOT NULL;
+  ALTER TABLE "_articles_v_version_faq" ALTER COLUMN "_locale" DROP DEFAULT;
   ALTER TABLE "_articles_v" ADD COLUMN "version_has_f_a_q" boolean DEFAULT false;
   ALTER TABLE "_articles_v" ADD COLUMN "snapshot" boolean;
   ALTER TABLE "_articles_v" ADD COLUMN "published_locale" "enum__articles_v_published_locale";
@@ -125,6 +176,14 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX "_articles_v_texts_locale_parent" ON "_articles_v_texts" USING btree ("locale","parent_id");
   CREATE INDEX "_pages_v_snapshot_idx" ON "_pages_v" USING btree ("snapshot");
   CREATE INDEX "_pages_v_published_locale_idx" ON "_pages_v" USING btree ("published_locale");
+  INSERT INTO "articles_locales" ("_locale","_parent_id","title","excerpt")
+    SELECT 'en', "id", "title", "excerpt" FROM "articles"
+    ON CONFLICT ("_locale","_parent_id") DO NOTHING;
+  INSERT INTO "_articles_v_locales" ("_locale","_parent_id","version_title","version_excerpt")
+    SELECT 'en', "id", "version_title", "version_excerpt" FROM "_articles_v"
+    ON CONFLICT ("_locale","_parent_id") DO NOTHING;
+  UPDATE "articles_texts" SET "locale" = 'en' WHERE "locale" IS NULL;
+  UPDATE "_articles_v_texts" SET "locale" = 'en' WHERE "locale" IS NULL;
   ALTER TABLE "articles" DROP COLUMN "title";
   ALTER TABLE "articles" DROP COLUMN "excerpt";
   ALTER TABLE "_articles_v" DROP COLUMN "version_title";
@@ -133,7 +192,15 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
 
 export async function down({ db, payload, req }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
-   ALTER TABLE "articles_takeaways" DISABLE ROW LEVEL SECURITY;
+   ALTER TABLE "articles" ADD COLUMN "title" varchar;
+  ALTER TABLE "articles" ADD COLUMN "excerpt" varchar;
+  ALTER TABLE "_articles_v" ADD COLUMN "version_title" varchar;
+  ALTER TABLE "_articles_v" ADD COLUMN "version_excerpt" varchar;
+  UPDATE "articles" a SET "title" = l."title", "excerpt" = l."excerpt"
+    FROM "articles_locales" l WHERE l."_parent_id" = a."id" AND l."_locale" = 'en';
+  UPDATE "_articles_v" v SET "version_title" = l."version_title", "version_excerpt" = l."version_excerpt"
+    FROM "_articles_v_locales" l WHERE l."_parent_id" = v."id" AND l."_locale" = 'en';
+  ALTER TABLE "articles_takeaways" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "articles_locales" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "_articles_v_version_takeaways" DISABLE ROW LEVEL SECURITY;
   ALTER TABLE "_articles_v_locales" DISABLE ROW LEVEL SECURITY;
@@ -177,10 +244,6 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP INDEX "_articles_v_texts_locale_parent";
   DROP INDEX "_pages_v_snapshot_idx";
   DROP INDEX "_pages_v_published_locale_idx";
-  ALTER TABLE "articles" ADD COLUMN "title" varchar;
-  ALTER TABLE "articles" ADD COLUMN "excerpt" varchar;
-  ALTER TABLE "_articles_v" ADD COLUMN "version_title" varchar;
-  ALTER TABLE "_articles_v" ADD COLUMN "version_excerpt" varchar;
   ALTER TABLE "_tools_v" DROP COLUMN "snapshot";
   ALTER TABLE "_tools_v" DROP COLUMN "published_locale";
   ALTER TABLE "articles_blocks_hero" DROP COLUMN "_locale";
