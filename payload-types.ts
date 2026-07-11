@@ -142,7 +142,7 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
-  fallbackLocale: null;
+  fallbackLocale: ('false' | 'none' | 'null') | false | null | ('en' | 'es' | 'ar') | ('en' | 'es' | 'ar')[];
   globals: {
     settings: Setting;
     indexing: Indexing;
@@ -161,7 +161,7 @@ export interface Config {
     audience: AudienceSelect<false> | AudienceSelect<true>;
     'ai-settings': AiSettingsSelect<false> | AiSettingsSelect<true>;
   };
-  locale: null;
+  locale: 'en' | 'es' | 'ar';
   widgets: {
     collections: CollectionsWidget;
   };
@@ -919,12 +919,21 @@ export interface Article {
       )[]
     | null;
   /**
-   * People-also-ask questions. Emits FAQPage structured data.
+   * Legacy FAQ field. The PUBLISHED FAQ (and its FAQPage schema) comes from the "People also ask" content block, not this field.
    */
   faq?:
     | {
         question: string;
         answer: string;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * EXACTLY 3 editorial takeaways (≈40–60 words total). Server-rendered as the "Key takeaways" box near the top and referenced by speakable schema. Leave empty to omit the box.
+   */
+  takeaways?:
+    | {
+        text: string;
         id?: string | null;
       }[]
     | null;
@@ -1067,6 +1076,10 @@ export interface Article {
    * Emit HealthTopicContent (MedicalCondition) structured data. Explicit replacement for title heuristics — tick for "what is / signs / symptoms" explainers.
    */
   isHealthTopic?: boolean | null;
+  /**
+   * Emit FAQPage schema from the article's "People also ask" block. The frontend never infers FAQs — this flag is the single source of truth.
+   */
+  hasFAQ?: boolean | null;
   /**
    * The primary tool to embed inline within the article.
    */
@@ -2728,6 +2741,12 @@ export interface ArticlesSelect<T extends boolean = true> {
         answer?: T;
         id?: T;
       };
+  takeaways?:
+    | T
+    | {
+        text?: T;
+        id?: T;
+      };
   sources?:
     | T
     | {
@@ -2772,6 +2791,7 @@ export interface ArticlesSelect<T extends boolean = true> {
   featured?: T;
   isHowTo?: T;
   isHealthTopic?: T;
+  hasFAQ?: T;
   primaryTool?: T;
   relatedArticles?: T;
   updatedAt?: T;
