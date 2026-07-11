@@ -3,6 +3,10 @@ name: Promote dev → main
 on:
   push:
     branches: [dev]
+  # P15 close — run the full ci gate (migrate→build:ci on the mock DB, secret
+  # guards) on PRs to dev too. The promote job stays push-only.
+  pull_request:
+    branches: [dev]
 
 permissions:
   contents: write
@@ -97,6 +101,8 @@ jobs:
 
   promote:
     needs: ci
+    # Push-to-dev only: PRs run ci but never auto-promote.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
