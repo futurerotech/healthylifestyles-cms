@@ -1,0 +1,126 @@
+{
+  "schema": "hls.recovery.v1",
+  "source": "immutable-vercel-deployment-html",
+  "baseHost": "healthy-lifestyles-j51m7gg7g-healthy-lifestyles.vercel.app",
+  "sitemapSource": "https://www.healthylifesstyles.com",
+  "articleCount": 19,
+  "failedCount": 0,
+  "conflicts": [],
+  "contentHash": "6cf59d52900b528cd323a63d10c28b10ebdfe498091f86df1aee22e794e6eba6",
+  "records": [
+    {
+      "slug": "best-time-to-stop-drinking-coffee-for-sleep",
+      "title": "The Best Time to Stop Drinking Coffee for Better Sleep",
+      "excerpt": "Caffeine lingers for hours. Research shows even an afternoon coffee can steal sleep. Here is how to set a sensible caffeine curfew.",
+      "sourceUrl": "/wellness-hub/best-time-to-stop-drinking-coffee-for-sleep"
+    },
+    {
+      "slug": "due-date-by-conception-date",
+      "title": "Due Date by Conception Date: How It Works",
+      "excerpt": "Pregnancy is dated in a few different ways, and they do not always agree. Here is how a due date is estimated from conception, your last period, or IVF.",
+      "sourceUrl": "/wellness-hub/due-date-by-conception-date"
+    },
+    {
+      "slug": "fitness",
+      "title": "Fitness Training Guides",
+      "excerpt": "Training, strength, cardio, and recovery — practical fitness tips and free calculators for every level.",
+      "sourceUrl": "/wellness-hub/fitness"
+    },
+    {
+      "slug": "fitness-and-metabolism",
+      "title": "Fitness & Metabolism Guides",
+      "excerpt": "How exercise shapes your metabolism — calorie burn, metabolic age, energy expenditure, and metabolism-boosting workouts.",
+      "sourceUrl": "/wellness-hub/fitness-and-metabolism"
+    },
+    {
+      "slug": "healthy-bmi-by-age",
+      "title": "What's a Healthy BMI by Age?",
+      "excerpt": "BMI is a useful screening number, but it does not mean the same thing at 25, 55, and 75. Here is how to read it by age — and what it misses.",
+      "sourceUrl": "/wellness-hub/healthy-bmi-by-age"
+    },
+    {
+      "slug": "heart-health",
+      "title": "Heart Health Guides",
+      "excerpt": "Heart rate, blood pressure, and cardiovascular basics.",
+      "sourceUrl": "/wellness-hub/heart-health"
+    },
+    {
+      "slug": "how-long-does-it-take-to-lose-weight",
+      "title": "How Long Does It Take to Lose Weight? A Realistic Timeline",
+      "excerpt": "Safe weight loss takes longer than reality TV suggests. Here’s a realistic timeline by goal — and why the scale stalls partway through.",
+      "sourceUrl": "/wellness-hub/how-long-does-it-take-to-lose-weight"
+    },
+    {
+      "slug": "how-many-calories-to-lose-weight",
+      "title": "How Many Calories Should I Eat to Lose Weight?",
+      "excerpt": "Weight loss comes down to a calorie deficit — but the right number is personal. Here is how to find a target that actually works, and stays safe.",
+      "sourceUrl": "/wellness-hub/how-many-calories-to-lose-weight"
+    },
+    {
+      "slug": "how-much-protein-do-i-need",
+      "title": "How Much Protein Do I Really Need?",
+      "excerpt": "The RDA is a floor, not a goal. Here is how much protein the evidence supports for muscle, fat loss, and healthy aging — and how to hit it.",
+      "sourceUrl": "/wellness-hub/how-much-protein-do-i-need"
+    },
+    {
+      "slug": "how-to-build-a-meal-plan",
+      "title": "How to Build a High-Protein Meal Plan You’ll Actually Follow",
+      "excerpt": "A good meal plan starts with calories, locks in protein, and stays flexible enough to actually follow. Here’s the framework — plus a free generator.",
+      "sourceUrl": "/wellness-hub/how-to-build-a-meal-plan"
+    },
+    {
+      "slug": "how-to-calculate-your-macros",
+      "title": "How to Calculate Your Macros for Your Goal",
+      "excerpt": "Calories decide whether your weight changes; macros decide what that weight is — fat or muscle. Here’s how to set your protein, carbs, and fat for your goal, and adjust them as you go.",
+      "sourceUrl": "/wellness-hub/how-to-calculate-your-macros"
+    },
+    {
+      "slug": "how-to-keep-muscle-while-losing-weight",
+      "title": "How to Keep Muscle While Losing Weight",
+      "excerpt": "Lose weight the wrong way and up to a quarter of it can be muscle. Three evidence-based levers keep the scale moving while protecting your strength.",
+      "sourceUrl": "/wellness-hub/how-to-keep-muscle-while-losing-weight"
+    },
+    {
+      "slug": "intermittent-fasting-for-beginners",
+      "title": "Intermittent Fasting for Beginners: How to Pick a Schedule",
+      "excerpt": "Cycling between eating and fasting windows — like 16:8 — can help you eat less without counting every calorie. Here’s how to pick a schedule you’ll keep.",
+      "sourceUrl": "/wellness-hub/intermittent-fasting-for-beginners"
+    },
+    {
+      "slug": "mental-wellness",
+      "title": "Mental Wellness Guides",
+      "excerpt": "Stress, burnout, and everyday calm.",
+      "sourceUrl": "/wellness-hub/mental-wellness"
+    },
+    {
+      "slug": "nutrition",
+      "title": "Nutrition Guides",
+      "excerpt": "Calories, protein, and eating well without the guesswork.",
+      "sourceUrl": "/wellness-hub/nutrition"
+    },
+    {
+      "slug": "sleep",
+      "title": "Sleep Guides",
+      "excerpt": "Better rest, cycles, and recovery, backed by research.",
+      "sourceUrl": "/wellness-hub/sleep"
+    },
+    {
+      "slug": "sleep-chronotypes-explained",
+      "title": "Sleep Chronotypes: Are You a Lion, Bear, Wolf, or Dolphin?",
+      "excerpt": "Lion, Bear, Wolf, or Dolphin? Your chronotype is your body’s natural timing — and matching your day to it makes sleep and focus easier.",
+      "sourceUrl": "/wellness-hub/sleep-chronotypes-explained"
+    },
+    {
+      "slug": "weight-loss",
+      "title": "Weight Loss Guides",
+      "excerpt": "Evidence-based, sustainable fat loss — no crash diets.",
+      "sourceUrl": "/wellness-hub/weight-loss"
+    },
+    {
+      "slug": "womens-health",
+      "title": "Women's Health Guides",
+      "excerpt": "Cycle, fertility, and pregnancy, explained clearly.",
+      "sourceUrl": "/wellness-hub/womens-health"
+    }
+  ]
+}

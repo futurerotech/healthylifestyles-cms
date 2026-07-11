@@ -68,6 +68,12 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      # Regression guard (static, no DB): block any NEW localization migration
+      # that drops a base column without backfilling its _locales table — the
+      # exact footgun behind the Phase-15 title/excerpt loss (20260711_184910).
+      - name: Migration safety lint
+        run: node scripts/ci/migration-safety-lint.ts
+
       # D6: apply the FULL committed migration chain to the disposable mock DB
       # before building — proves every migration runs from zero AND gives the
       # build real tables to query. This step failing = the job fails (a broken

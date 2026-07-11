@@ -11,6 +11,7 @@ import * as migration_20260707_113916_add_audit_collections from './20260707_113
 import * as migration_20260707_152543_add_ai_settings_global from './20260707_152543_add_ai_settings_global';
 import * as migration_20260707_235442_add_gsc_inspection_fields from './20260707_235442_add_gsc_inspection_fields';
 import * as migration_20260709_171108_phase8_schema_flags from './20260709_171108_phase8_schema_flags';
+import * as migration_20260711_184910 from './20260711_184910';
 
 export const migrations = [
   {
@@ -76,6 +77,11 @@ export const migrations = [
   {
     up: migration_20260709_171108_phase8_schema_flags.up,
     down: migration_20260709_171108_phase8_schema_flags.down,
-    name: '20260709_171108_phase8_schema_flags'
+    name: '20260709_171108_phase8_schema_flags',
+  },
+  {
+    up: migration_20260711_184910.up,
+    down: migration_20260711_184910.down,
+    name: '20260711_184910'
   },
 ];
