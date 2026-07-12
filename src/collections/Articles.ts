@@ -57,7 +57,27 @@ export const Articles: CollectionConfig = {
             },
             { name: 'title', type: 'text', required: true, localized: true },
             { name: 'excerpt', type: 'textarea', localized: true, admin: { description: 'Short summary for cards and the article lead.' } },
-            { name: 'heroImage', type: 'upload', relationTo: 'media', admin: { description: 'Featured image.' } },
+            {
+              name: 'heroImage', type: 'upload', relationTo: 'media',
+              admin: { description: 'Featured image. Must be ≥1200px wide (Google Discover large-image requirement).' },
+              // P16-H — Discover eligibility gate at the source: block heroes
+              // provably narrower than 1200px. Unverifiable dimensions (missing
+              // width, transient lookup failure) never block a save (SD5).
+              validate: async (value: unknown, { req }: { req: { payload?: { findByID: (a: { collection: 'media'; id: number | string; depth?: number }) => Promise<{ width?: number | null }> } } }) => {
+                if (value == null) return true;
+                const id = typeof value === 'object' && value !== null ? (value as { id?: number | string }).id : (value as number | string);
+                if (id == null || !req?.payload) return true;
+                try {
+                  const media = await req.payload.findByID({ collection: 'media', id, depth: 0 });
+                  if (typeof media?.width === 'number' && media.width < 1200) {
+                    return `Hero image is ${media.width}px wide — Google Discover needs ≥1200px. Upload a larger image.`;
+                  }
+                } catch {
+                  /* lookup failure must never block editorial saves */
+                }
+                return true;
+              },
+            },
             {
               name: 'layout',
               type: 'blocks',
