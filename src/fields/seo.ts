@@ -12,9 +12,16 @@ export const seoField: Field = {
         {
           name: 'metaTitle',
           type: 'text',
+          // P16-C: advisory guidance only (length is a display concern, not a
+          // ranking rule). Blank-ish values are rejected; real values are never
+          // truncated or rewritten.
+          validate: (value: unknown) =>
+            typeof value === 'string' && value.length > 0 && value.trim().length === 0
+              ? 'Meta title is whitespace-only — clear it or write a real title.'
+              : true,
           admin: {
             width: '50%',
-            description: 'Title tag — ≤ 60 chars. Front-load your target keyword.',
+            description: 'Title tag. Advisory ~30–60 chars (guidance, not a ranking rule). Front-load the topic.',
             components: {
               Field: '@/components/admin/AiSeoField#AiTitleField',
             },
@@ -33,8 +40,12 @@ export const seoField: Field = {
     {
       name: 'metaDescription',
       type: 'textarea',
+      validate: (value: unknown) =>
+        typeof value === 'string' && value.length > 0 && value.trim().length === 0
+          ? 'Meta description is whitespace-only — clear it or write a real description.'
+          : true,
       admin: {
-        description: 'Meta description — 150–155 chars. Include keyword + value proposition + CTA.',
+        description: 'Meta description. Advisory ~120–160 chars (guidance, not a ranking rule). Lead with the value proposition.',
         components: {
           Field: '@/components/admin/AiSeoField#AiDescriptionField',
         },

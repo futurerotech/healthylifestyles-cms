@@ -187,6 +187,25 @@ interface TextFieldClientProps {
   [key: string]: unknown;
 }
 
+/**
+ * P16-C — ADVISORY ranges only. Length is display guidance (SERP truncation
+ * behavior), NOT a Google ranking rule; values outside the range are flagged
+ * amber but never blocked and never truncated. Adjust here if editorial
+ * standards change.
+ */
+const TITLE_ADVISORY: [number, number] = [30, 60];
+const DESC_ADVISORY: [number, number] = [120, 160];
+
+const AdvisoryCount: React.FC<{ value: unknown; range: [number, number] }> = ({ value, range }) => {
+  const len = typeof value === 'string' ? value.length : 0;
+  const outside = len > 0 && (len < range[0] || len > range[1]);
+  return (
+    <div style={{ fontSize: 12, marginTop: 4, color: outside ? '#b45309' : '#6b7280' }}>
+      {len} chars{outside ? ` — advisory range is ${range[0]}–${range[1]} (guidance only, not a ranking rule)` : ` · advisory ${range[0]}–${range[1]}`}
+    </div>
+  );
+};
+
 export const AiTitleField: React.FC<TextFieldClientProps> = (props) => {
   const { value, setValue, label, required, readOnly, placeholder, path } = props;
 
@@ -201,12 +220,13 @@ export const AiTitleField: React.FC<TextFieldClientProps> = (props) => {
           type="text"
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => setValue?.(e.target.value)}
-          placeholder={placeholder || 'Meta title — ≤ 60 chars'}
+          placeholder={placeholder || 'Meta title (advisory ~30–60 chars)'}
           readOnly={readOnly}
           className="hls-seo-ai__input"
         />
         <AiSeoButton path="seo.metaTitle" task="title" label="Meta Title" />
       </div>
+      <AdvisoryCount value={value} range={TITLE_ADVISORY} />
     </div>
   );
 };
@@ -224,13 +244,14 @@ export const AiDescriptionField: React.FC<TextFieldClientProps> = (props) => {
         <textarea
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => setValue?.(e.target.value)}
-          placeholder={placeholder || 'Meta description — 150–155 chars'}
+          placeholder={placeholder || 'Meta description (advisory ~120–160 chars)'}
           readOnly={readOnly}
           className="hls-seo-ai__textarea"
           rows={3}
         />
         <AiSeoButton path="seo.metaDescription" task="description" label="Meta Description" />
       </div>
+      <AdvisoryCount value={value} range={DESC_ADVISORY} />
     </div>
   );
 };
