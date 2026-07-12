@@ -19,7 +19,8 @@
     "test": "vitest run",
     "test:engine": "node scripts/test-engine.mjs",
     "audit:backlinks": "npx tsx --env-file=.env scripts/seo/check-new-backlinks.ts",
-    "audit:schema-flags": "payload run scripts/seo/reconcile-schema-flags.ts"
+    "audit:schema-flags": "payload run scripts/seo/reconcile-schema-flags.ts",
+    "seo:audit-fix": "payload run src/migrations/seo-audit-fix.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
