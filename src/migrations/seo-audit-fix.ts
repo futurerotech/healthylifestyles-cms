@@ -524,5 +524,10 @@ const isDirect =
   process.argv.some((a) => a.replace(/\\/g, '/').includes('seo-audit-fix')) ||
   process.env.RUN_SEO_AUDIT_FIX === 'true';
 if (isDirect) {
-  void main();
+  // TOP-LEVEL await, not fire-and-forget: `payload run` imports this module and
+  // exits the process as soon as evaluation finishes — a void'd main() gets
+  // killed at its first await (observed: two [INFO] lines, then silence).
+  // Awaiting ties module evaluation to main()'s completion. The migration
+  // runner never satisfies isDirect, so no await runs there (stays inert).
+  await main();
 }
