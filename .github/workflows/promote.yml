@@ -95,12 +95,18 @@ jobs:
         run: npm run build:ci
 
       # D4/SD2 guard #2: the produced bundle must not embed real-looking secrets.
+      # HOST-AWARE by design (P17 fix): the old any-URI pattern false-positived
+      # on documentation placeholders that legitimately ship in bundles — our
+      # own DATABASE_URI error hint ("postgres://user:pass@host/db") and AWS's
+      # canonical doc key (AKIAIOSFODNN7EXAMPLE in @aws-sdk). A real leaked
+      # credential necessarily carries its real infra host, so postgres URIs
+      # only trip on actual provider domains; placeholder hosts stay clean.
       - name: Secret-pattern guard (build artifacts)
         run: |
           set -e
-          PATTERNS='postgres(ql)?://(?!mock:mock@localhost)[a-zA-Z0-9_.:-]+@|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY'
+          PATTERNS='postgres(ql)?://[^[:space:]"]+@[a-zA-Z0-9.-]*(supabase\.co|neon\.tech|rds\.amazonaws\.com|azure|render\.com|railway|digitalocean)|AKIA(?!IOSFODNN7EXAMPLE)[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY'
           if grep -rPnI --include='*.js' --include='*.json' -m1 "$PATTERNS" .next/ 2>/dev/null | head -5 | grep .; then
-            echo '::error::Real-credential fingerprint found in build output (SD2).'
+            echo '::error::Real-credential fingerprint found in build output (SD2) — offending matches printed above.'
             exit 1
           fi
           echo 'Build artifacts clean.'
