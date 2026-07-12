@@ -49,16 +49,21 @@ jobs:
           cache: 'npm'
 
       # D4/SD2 guard #1: no real-credential fingerprints may live in workflows.
-      # (postgres URLs other than the documented mock, API-key prefixes, PEM keys)
+      # HOST-AWARE (P17): a real leaked credential necessarily carries its real
+      # provider host, so postgres URIs trip only on actual infra domains —
+      # placeholder/mock hosts and documentation text stay clean. The AWS key
+      # check excludes only Amazon's canonical sixteen-character doc example.
+      # Comments in these files must DESCRIBE credential shapes, never quote a
+      # full matching literal (that is what tripped run #34).
       - name: Secret-pattern guard (workflows)
         run: |
           set -e
-          PATTERNS='postgres(ql)?://(?!mock:mock@localhost)[^ "]+|sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY'
+          PATTERNS='postgres(ql)?://[^[:space:]"]+@[a-zA-Z0-9.-]*(supabase\.co|neon\.tech|rds\.amazonaws\.com|azure|render\.com|railway|digitalocean)|sk-[A-Za-z0-9]{20,}|AKIA(?!IOSFODNN7EXAMPLE)[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY'
           if grep -rPn "$PATTERNS" .github/workflows/; then
             echo '::error::Real-credential fingerprint found in workflow files (SD2).'
             exit 1
           fi
-          echo 'Workflows clean: only the documented mock connection string is present.'
+          echo 'Workflows clean: no real-provider credentials present.'
 
       - run: npm ci
 
@@ -97,10 +102,12 @@ jobs:
       # D4/SD2 guard #2: the produced bundle must not embed real-looking secrets.
       # HOST-AWARE by design (P17 fix): the old any-URI pattern false-positived
       # on documentation placeholders that legitimately ship in bundles — our
-      # own DATABASE_URI error hint ("postgres://user:pass@host/db") and AWS's
-      # canonical doc key (AKIAIOSFODNN7EXAMPLE in @aws-sdk). A real leaked
+      # own DATABASE_URI error hint (a user:pass placeholder URI) and the
+      # canonical sixteen-character AWS doc key inside @aws-sdk. A real leaked
       # credential necessarily carries its real infra host, so postgres URIs
       # only trip on actual provider domains; placeholder hosts stay clean.
+      # (Never quote a full matching literal in these comments — guard #1
+      # scans this very file.)
       - name: Secret-pattern guard (build artifacts)
         run: |
           set -e
