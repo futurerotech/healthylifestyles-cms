@@ -84,6 +84,22 @@ if (!process.env.DATABASE_URI) {
 }
 
 /**
+ * P17B — SSL by host. Remote Postgres (Supabase/Neon) requires TLS with a cert
+ * outside Node's default trust store; a LOCAL dev/staging Postgres (restored
+ * snapshot on localhost) speaks plain TCP and rejects the SSL handshake.
+ * Decide from the connection host so one config serves both. Any parse failure
+ * falls back to SSL — production stays the safe default.
+ */
+const DB_IS_LOCAL = (() => {
+  try {
+    const host = new URL(process.env.DATABASE_URI).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+  } catch {
+    return false;
+  }
+})();
+
+/**
  * Persistent media storage. Hostinger wipes the app folder on every redeploy, so
  * locally-stored uploads vanish. When the S3/R2 env vars are present, uploads go
  * to the bucket instead and survive deploys. When S3_PUBLIC_URL is also set, media
@@ -188,10 +204,11 @@ export default buildConfig({
   db: postgresAdapter({
     pool: {
       connectionString: process.env.DATABASE_URI,
-      // Supabase presents a cert that isn't in Node's default trust store, and
-      // recent pg treats sslmode=require as verify-full. Encrypt the connection
-      // without CA verification (the documented Supabase + node-postgres setup).
-      ssl: { rejectUnauthorized: false },
+      // Remote (Supabase/Neon): encrypt without CA verification — their certs
+      // aren't in Node's default trust store, and recent pg treats
+      // sslmode=require as verify-full (the documented Supabase setup).
+      // Local snapshot DB (P17B): plain TCP — no SSL handshake at all.
+      ssl: DB_IS_LOCAL ? false : { rejectUnauthorized: false },
     },
     // Pin the migration folder so `payload migrate` finds it on deploy
     // regardless of the host's working directory.
