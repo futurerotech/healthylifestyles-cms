@@ -513,8 +513,21 @@ async function main(): Promise<void> {
   if (fatal || counters.failed > 0) process.exit(1);
 }
 
-/* Run only when executed directly (payload run / tsx), never on import. */
-const isDirect = process.argv[1]?.replace(/\\/g, '/').includes('seo-audit-fix');
+/*
+ * Run only when this file is the requested script. `payload run <file>` IMPORTS
+ * the module (argv[1] is Payload's bin, the file path is a later argv entry),
+ * so we scan the whole argv. Under `payload migrate` no argv entry ever names
+ * this file → the import stays inert and only the no-op up/down are visible.
+ * RUN_SEO_AUDIT_FIX=true is an explicit fallback for exotic runners.
+ */
+const isDirect =
+  process.argv.some((a) => a.replace(/\\/g, '/').includes('seo-audit-fix')) ||
+  process.env.RUN_SEO_AUDIT_FIX === 'true';
 if (isDirect) {
-  void main();
+  // TOP-LEVEL await, not fire-and-forget: `payload run` imports this module and
+  // exits the process as soon as evaluation finishes — a void'd main() gets
+  // killed at its first await (observed: two [INFO] lines, then silence).
+  // Awaiting ties module evaluation to main()'s completion. The migration
+  // runner never satisfies isDirect, so no await runs there (stays inert).
+  await main();
 }
