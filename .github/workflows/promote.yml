@@ -58,8 +58,8 @@ jobs:
       - name: Secret-pattern guard (workflows)
         run: |
           set -e
-          PATTERNS='postgres(ql)?://[^[:space:]"]+@[a-zA-Z0-9.-]*(supabase\.co|neon\.tech|rds\.amazonaws\.com|azure|render\.com|railway|digitalocean)|sk-[A-Za-z0-9]{20,}|AKIA(?!IOSFODNN7EXAMPLE)[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY'
-          if grep -rPn "$PATTERNS" .github/workflows/; then
+          PATTERNS='postgres(ql)?://[^[:space:]"]+@[a-zA-Z0-9.-]*(supabase\.co|neon\.tech|rds\.amazonaws\.com|azure|render\.com|railway|digitalocean)|sk-[A-Za-z0-9]{20,}|AKIA(?!IOSFODNN7EXAMPLE)[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----(\\\\n|\n|\r|[A-Za-z0-9+/=]){40,}'
+          if grep -rPzn -e "$PATTERNS" .github/workflows/; then
             echo '::error::Real-credential fingerprint found in workflow files (SD2).'
             exit 1
           fi
@@ -108,11 +108,15 @@ jobs:
       # only trip on actual provider domains; placeholder hosts stay clean.
       # (Never quote a full matching literal in these comments — guard #1
       # scans this very file.)
+      # PEM check requires KEY MATERIAL after the header (≥40 base64ish chars,
+      # raw or JS-escaped newlines): crypto libs (jose, web-push) legitimately
+      # embed the bare header as a parser constant — run #36's false positive.
+      # -z scans whole files so multi-line keys can't hide across lines.
       - name: Secret-pattern guard (build artifacts)
         run: |
           set -e
-          PATTERNS='postgres(ql)?://[^[:space:]"]+@[a-zA-Z0-9.-]*(supabase\.co|neon\.tech|rds\.amazonaws\.com|azure|render\.com|railway|digitalocean)|AKIA(?!IOSFODNN7EXAMPLE)[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY'
-          if grep -rPnI --include='*.js' --include='*.json' -m1 "$PATTERNS" .next/ 2>/dev/null | head -5 | grep .; then
+          PATTERNS='postgres(ql)?://[^[:space:]"]+@[a-zA-Z0-9.-]*(supabase\.co|neon\.tech|rds\.amazonaws\.com|azure|render\.com|railway|digitalocean)|AKIA(?!IOSFODNN7EXAMPLE)[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----(\\\\n|\n|\r|[A-Za-z0-9+/=]){40,}'
+          if grep -rPznI --include='*.js' --include='*.json' -m1 -e "$PATTERNS" .next/ 2>/dev/null | head -5 | grep .; then
             echo '::error::Real-credential fingerprint found in build output (SD2) — offending matches printed above.'
             exit 1
           fi
