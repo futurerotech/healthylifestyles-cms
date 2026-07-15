@@ -149,6 +149,10 @@ import type { IndexingStatus } from '../collections/IndexingStatus';
  * Pings IndexNow + Google, then records results in IndexingStatus.
  */
 export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, operation, collection, req }) => {
+  // P17 audit F1/F2 — bulk maintenance runs (scripts/recovery/reseed-versions.ts
+  // sends context.reseedVersions) must not ping engines and must not flood
+  // IndexingStatus with per-doc records. Real editorial saves are unaffected.
+  if ((req?.context as { reseedVersions?: boolean } | undefined)?.reseedVersions) return doc;
   if (operation !== 'create' && operation !== 'update') return doc;
 
   const slug = doc?.slug || doc?.id || '';
