@@ -328,6 +328,30 @@ interface PageData {
   hasDisclaimer: boolean;
 }
 
+/**
+ * Collect every `@type` value from a parsed JSON-LD node tree — including the
+ * ARRAY form (`"@type":["MedicalWebPage","Article"]`). The old string-only
+ * regex could not see array types and false-flagged every article page as
+ * "missing Article schema" (P17 audit; same bug class previously fixed in the
+ * frontend's discover-audit). Walks nested nodes so types inside @graph,
+ * mainEntity, itemListElement, etc. are still counted, matching the old
+ * regex's incidental depth coverage. Exported for unit tests.
+ */
+export function collectJsonLdTypes(node: unknown, into: Set<string>): void {
+  if (Array.isArray(node)) {
+    for (const n of node) collectJsonLdTypes(n, into);
+    return;
+  }
+  if (node && typeof node === 'object') {
+    const t = (node as Record<string, unknown>)['@type'];
+    if (typeof t === 'string') into.add(t);
+    else if (Array.isArray(t)) for (const x of t) if (typeof x === 'string') into.add(x);
+    for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+      if (k !== '@type') collectJsonLdTypes(v, into);
+    }
+  }
+}
+
 function parsePage(url: string, status: number, html: string, bytes: number): PageData {
   const headEnd = html.indexOf('</head>');
   const head = headEnd > -1 ? html.slice(0, headEnd) : html;
@@ -338,8 +362,7 @@ function parsePage(url: string, status: number, html: string, bytes: number): Pa
   let jsonLdValid = true;
   for (const m of html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
     try {
-      JSON.parse(m[1]);
-      for (const t of m[1].matchAll(/"@type"\s*:\s*"([A-Za-z]+)"/g)) jsonLdTypes.add(t[1]);
+      collectJsonLdTypes(JSON.parse(m[1]), jsonLdTypes);
     } catch {
       jsonLdValid = false;
     }
