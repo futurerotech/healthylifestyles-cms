@@ -5,7 +5,7 @@
  * bitten by this class — discover-audit was the first).
  */
 import { describe, it, expect } from 'vitest';
-import { collectJsonLdTypes } from './siteAudit';
+import { collectJsonLdTypes, normalizeLinkTarget } from './siteAudit';
 
 const collect = (json: unknown): Set<string> => {
   const s = new Set<string>();
@@ -64,5 +64,29 @@ describe('collectJsonLdTypes', () => {
     expect(collect(null).size).toBe(0);
     expect(collect('string').size).toBe(0);
     expect(collect(42).size).toBe(0);
+  });
+});
+
+describe('normalizeLinkTarget (orphan-graph false-positive guard)', () => {
+  const BASE = 'https://www.healthylifesstyles.com/tools/bmi-calculator';
+
+  it('fragment links credit the base page', () => {
+    expect(normalizeLinkTarget(`${BASE}#how-it-works`)).toBe(BASE);
+  });
+
+  it('query-string links credit the base page', () => {
+    expect(normalizeLinkTarget(`${BASE}?utm_source=newsletter`)).toBe(BASE);
+  });
+
+  it('trailing slash is normalized', () => {
+    expect(normalizeLinkTarget(`${BASE}/`)).toBe(BASE);
+  });
+
+  it('combined slash + query + fragment', () => {
+    expect(normalizeLinkTarget(`${BASE}/?a=1#b`)).toBe(BASE);
+  });
+
+  it('clean URLs pass through unchanged', () => {
+    expect(normalizeLinkTarget(BASE)).toBe(BASE);
   });
 });

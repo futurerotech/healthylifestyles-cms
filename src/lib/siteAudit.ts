@@ -329,6 +329,17 @@ interface PageData {
 }
 
 /**
+ * Normalize an internal link target for inbound-graph matching: strip the
+ * fragment and query string, drop the trailing slash. Without this, a page
+ * linked only as `/page#section` or `/page?utm=x` earns zero inbound credit
+ * and gets falsely flagged as an orphan (fail-safe: crediting generously can
+ * only suppress orphan flags, never invent them). Exported for unit tests.
+ */
+export function normalizeLinkTarget(u: string): string {
+  return u.split('#')[0].split('?')[0].replace(/\/$/, '');
+}
+
+/**
  * Collect every `@type` value from a parsed JSON-LD node tree — including the
  * ARRAY form (`"@type":["MedicalWebPage","Article"]`). The old string-only
  * regex could not see array types and false-flagged every article page as
@@ -598,8 +609,9 @@ export async function runSiteAudit(payload: Payload): Promise<AuditResult> {
   for (const p of pages) {
     for (const u of new Set(p.anchorsAll)) {
       if (!isInternal(u)) continue;
-      const clean = u.replace(/\/$/, '');
-      if (clean === p.url.replace(/\/$/, '')) continue;
+      // Fragment/query variants must credit the base page (see normalizeLinkTarget).
+      const clean = normalizeLinkTarget(u);
+      if (clean === normalizeLinkTarget(p.url)) continue;
       if (inbound.has(clean)) inbound.set(clean, (inbound.get(clean) || 0) + 1);
       else if (!/\.(png|jpe?g|webp|avif|gif|svg|ico|css|js|xml|txt|pdf|woff2?)(\?|$)/i.test(clean)) unknownInternal.add(clean);
     }
