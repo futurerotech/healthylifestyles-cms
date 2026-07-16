@@ -7,6 +7,7 @@ import { afterChangeIndexingHook } from '../lib/indexing';
 import { afterPublishPushHook } from '../lib/push';
 import { trackPendingChange } from '../hooks/trackPendingChange';
 import { notifyIndexNow } from '../hooks/notifyIndexNow';
+import { publishGateHook } from '../hooks/publishGateHook';
 
 /** Which AI model generates this article (read per-request by the generator). */
 const aiProviderField: SelectField = {
@@ -233,10 +234,14 @@ export const Articles: CollectionConfig = {
     },
     { name: 'primaryTool', type: 'relationship', relationTo: 'tools', admin: { position: 'sidebar', description: 'The primary tool to embed inline within the article.' } },
     { name: 'relatedArticles', type: 'relationship', relationTo: 'articles', hasMany: true, admin: { position: 'sidebar', description: 'Explicitly link related articles (auto-fallback to same-category when empty).' } },
+    { name: 'publishGatePanel', type: 'ui', admin: { position: 'sidebar', components: { Field: '@/components/admin/PublishGatePanel#PublishGatePanel' } } },
     { name: 'requestIndexing', type: 'ui', admin: { position: 'sidebar', components: { Field: '@/components/admin/RequestIndexing#RequestIndexing' } } },
     { name: 'sendPushButton', type: 'ui', admin: { position: 'sidebar', components: { Field: '@/components/admin/SendPushButton#SendPushButton' } } },
   ],
   hooks: {
+    // Quality Gate P2 — blocks publish only on the narrow deterministic set
+    // (title, noindex, broken internal links); warnings surface in the sidebar.
+    beforeValidate: [publishGateHook],
     afterChange: [afterChangeIndexingHook, afterPublishPushHook, trackPendingChange, notifyIndexNow],
   },
 };
