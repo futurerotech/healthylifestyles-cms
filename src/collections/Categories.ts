@@ -19,7 +19,12 @@ export const Categories: CollectionConfig = {
     {
       name: 'kind',
       type: 'select',
-      defaultValue: 'tool',
+      // Default 'section', never 'tool': a category created without an explicit
+      // kind used to become kind='tool', which is invisible to the frontend's
+      // article-section queries — an article assigned to it crashed SSG builds
+      // (undefined category). Required so the choice is always explicit.
+      defaultValue: 'section',
+      required: true,
       options: [
         { label: 'Tool category', value: 'tool' },
         { label: 'Content section', value: 'section' },
