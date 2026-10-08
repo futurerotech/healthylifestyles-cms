@@ -12,6 +12,8 @@ import * as migration_20260707_152543_add_ai_settings_global from './20260707_15
 import * as migration_20260707_235442_add_gsc_inspection_fields from './20260707_235442_add_gsc_inspection_fields';
 import * as migration_20260709_171108_phase8_schema_flags from './20260709_171108_phase8_schema_flags';
 import * as migration_20260711_184910 from './20260711_184910';
+import * as migration_20261008_190423_add_reset_password_requested_at from './20261008_190423_add_reset_password_requested_at';
+import * as migration_20261008_225200_add_media_object_key from './20261008_225200_add_media_object_key';
 
 export const migrations = [
   {
@@ -83,5 +85,15 @@ export const migrations = [
     up: migration_20260711_184910.up,
     down: migration_20260711_184910.down,
     name: '20260711_184910'
+  },
+  {
+    up: migration_20261008_190423_add_reset_password_requested_at.up,
+    down: migration_20261008_190423_add_reset_password_requested_at.down,
+    name: '20261008_190423_add_reset_password_requested_at',
+  },
+  {
+    up: migration_20261008_225200_add_media_object_key.up,
+    down: migration_20261008_225200_add_media_object_key.down,
+    name: '20261008_225200_add_media_object_key',
   },
 ];
