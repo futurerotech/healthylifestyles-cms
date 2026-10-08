@@ -22,7 +22,7 @@ export const PendingDeploys: CollectionConfig = {
   },
   access: {
     read: isAdminOrEditor,
-    create: () => true,
+    create: () => false,
     update: () => false,
     delete: isAdminOrEditor,
   },
