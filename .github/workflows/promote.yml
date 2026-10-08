@@ -3,10 +3,10 @@ name: Promote dev → main
 on:
   push:
     branches: [dev]
-  # P15 close — run the full ci gate (migrate→build:ci on the mock DB, secret
-  # guards) on PRs to dev too. The promote job stays push-only.
+  # Run the full CI gate (migrations on the mock DB, then a migration-free
+  # build) before changes reach either deployment branch. Promotion stays push-only.
   pull_request:
-    branches: [dev]
+    branches: [dev, main]
 
 permissions:
   contents: write
@@ -89,15 +89,17 @@ jobs:
           PAYLOAD_SECRET: ci-mock-payload-secret-not-production
         run: npx payload migrate --force-accept-warning
 
-      # D4: the real build gate — migration-free build:ci against the mock DB.
+      # D4: exercise the actual Hostinger build command against the mock DB.
+      # Database migrations are a separate, explicit operation after a backup;
+      # never mutate production data as a side effect of a deployment build.
       # PAYLOAD_SECRET is a mock too: it only signs cookies of a server that
       # never serves traffic. INDEXNOW_DISABLE per SD5 (no pings from CI).
-      - name: Build (build:ci, mock DB — SD2)
+      - name: Build (production command, mock DB — SD2)
         env:
           DATABASE_URI: postgres://mock:mock@localhost:5432/mock
           PAYLOAD_SECRET: ci-mock-payload-secret-not-production
           INDEXNOW_DISABLE: 'true'
-        run: npm run build:ci
+        run: npm run build
 
       # D4/SD2 guard #2: the produced bundle must not embed real-looking secrets.
       # HOST-AWARE by design (P17 fix): the old any-URI pattern false-positived
