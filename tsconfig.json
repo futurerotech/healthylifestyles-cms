@@ -29,6 +29,7 @@
   "exclude": [
     "node_modules",
     "vitest.config.ts",
+    "vitest.security.config.ts",
     "vitest.setup.ts",
     "scripts/**",
     "**/__tests__/**",

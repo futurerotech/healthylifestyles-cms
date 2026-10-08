@@ -22,7 +22,8 @@ export const PendingDeploys: CollectionConfig = {
   },
   access: {
     read: isAdminOrEditor,
-    create: () => true,
+    // Only trusted Local API hooks may enqueue changes (overrideAccess: true).
+    create: () => false,
     update: () => false,
     delete: isAdminOrEditor,
   },

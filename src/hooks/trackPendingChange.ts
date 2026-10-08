@@ -40,6 +40,7 @@ export const trackPendingChange: CollectionAfterChangeHook = async ({
       await req.payload.update({
         collection: 'pending-deploys',
         id: (existing.docs[0] as any).id,
+        overrideAccess: true,
         data: {
           changedAt: new Date().toISOString(),
         },
@@ -48,6 +49,7 @@ export const trackPendingChange: CollectionAfterChangeHook = async ({
       // Create new pending entry
       await req.payload.create({
         collection: 'pending-deploys',
+        overrideAccess: true,
         data: {
           docId: String(doc.id),
           collectionSlug: collection.slug || 'unknown',

@@ -333,7 +333,7 @@ export interface Category {
    */
   seo?: {
     /**
-     * Title tag — ≤ 60 chars. Front-load your target keyword.
+     * Title tag. Advisory ~30–60 chars (guidance, not a ranking rule). Front-load the topic.
      */
     metaTitle?: string | null;
     /**
@@ -341,7 +341,7 @@ export interface Category {
      */
     canonical?: string | null;
     /**
-     * Meta description — 150–155 chars. Include keyword + value proposition + CTA.
+     * Meta description. Advisory ~120–160 chars (guidance, not a ranking rule). Lead with the value proposition.
      */
     metaDescription?: string | null;
     /**
@@ -679,7 +679,7 @@ export interface Tool {
    */
   seo?: {
     /**
-     * Title tag — ≤ 60 chars. Front-load your target keyword.
+     * Title tag. Advisory ~30–60 chars (guidance, not a ranking rule). Front-load the topic.
      */
     metaTitle?: string | null;
     /**
@@ -687,7 +687,7 @@ export interface Tool {
      */
     canonical?: string | null;
     /**
-     * Meta description — 150–155 chars. Include keyword + value proposition + CTA.
+     * Meta description. Advisory ~120–160 chars (guidance, not a ranking rule). Lead with the value proposition.
      */
     metaDescription?: string | null;
     /**
@@ -773,7 +773,7 @@ export interface Article {
    */
   excerpt?: string | null;
   /**
-   * Featured image.
+   * Featured image. Must be ≥1200px wide (Google Discover large-image requirement).
    */
   heroImage?: (number | null) | Media;
   /**
@@ -956,7 +956,7 @@ export interface Article {
    */
   seo?: {
     /**
-     * Title tag — ≤ 60 chars. Front-load your target keyword.
+     * Title tag. Advisory ~30–60 chars (guidance, not a ranking rule). Front-load the topic.
      */
     metaTitle?: string | null;
     /**
@@ -964,7 +964,7 @@ export interface Article {
      */
     canonical?: string | null;
     /**
-     * Meta description — 150–155 chars. Include keyword + value proposition + CTA.
+     * Meta description. Advisory ~120–160 chars (guidance, not a ranking rule). Lead with the value proposition.
      */
     metaDescription?: string | null;
     /**
@@ -1248,7 +1248,7 @@ export interface Page {
    */
   seo?: {
     /**
-     * Title tag — ≤ 60 chars. Front-load your target keyword.
+     * Title tag. Advisory ~30–60 chars (guidance, not a ranking rule). Front-load the topic.
      */
     metaTitle?: string | null;
     /**
@@ -1256,7 +1256,7 @@ export interface Page {
      */
     canonical?: string | null;
     /**
-     * Meta description — 150–155 chars. Include keyword + value proposition + CTA.
+     * Meta description. Advisory ~120–160 chars (guidance, not a ranking rule). Lead with the value proposition.
      */
     metaDescription?: string | null;
     /**

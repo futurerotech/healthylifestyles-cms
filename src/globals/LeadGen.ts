@@ -1,5 +1,5 @@
 import type { GlobalConfig } from 'payload';
-import { isAdmin, publicRead } from '../access/roles';
+import { isAdmin, isAdminField, publicRead } from '../access/roles';
 
 export const LeadGen: GlobalConfig = {
   slug: 'lead-gen',
@@ -122,6 +122,9 @@ export const LeadGen: GlobalConfig = {
             {
               name: 'n8nWebhookUrl',
               type: 'text',
+              // Public offer reads must never expose integration credentials.
+              // Trusted server Local API reads can use overrideAccess: true.
+              access: { read: isAdminField },
               admin: {
                 description: 'Your n8n webhook URL where leads are forwarded (POST JSON). Leave empty to log locally.',
               },
@@ -129,6 +132,7 @@ export const LeadGen: GlobalConfig = {
             {
               name: 'n8nApiKey',
               type: 'text',
+              access: { read: isAdminField },
               admin: {
                 description: 'Optional API key sent as Authorization header to the n8n webhook.',
               },
