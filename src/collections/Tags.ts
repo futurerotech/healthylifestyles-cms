@@ -1,3 +1,4 @@
+import { trackPendingChange, trackPendingDelete } from "../hooks/trackContentChange";
 import type { CollectionConfig } from 'payload';
 import { isAdminOrEditor, publicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
@@ -10,6 +11,7 @@ export const Tags: CollectionConfig = {
     listSearchableFields: ['name', 'slug'],
   },
   access: { read: publicRead, create: isAdminOrEditor, update: isAdminOrEditor, delete: isAdminOrEditor },
+  hooks: { afterChange: [trackPendingChange], afterDelete: [trackPendingDelete] },
   fields: [
     { name: 'name', type: 'text', required: true },
     slugField('name'),

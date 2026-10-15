@@ -1,5 +1,6 @@
+import { trackPendingChange, trackPendingDelete } from "../hooks/trackContentChange";
 import type { CollectionConfig } from 'payload';
-import { isAdmin } from '../access/roles';
+import { isAdmin, isAdminField } from '../access/roles';
 import { seoField } from '../fields/seo';
 
 export const PseoPages: CollectionConfig = {
@@ -11,7 +12,7 @@ export const PseoPages: CollectionConfig = {
     description: 'Generated programmatic SEO pages. One per CSV row.',
     listSearchableFields: ['slug', 'keyword'],
   },
-  access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
+  access: { read: ({ req }) => req.user?.role === 'admin' ? true : { status: { equals: 'published' } }, create: isAdmin, update: isAdmin, delete: isAdmin },
   fields: [
     { name: 'slug', type: 'text', required: true, unique: true, index: true },
     {
@@ -25,7 +26,7 @@ export const PseoPages: CollectionConfig = {
     { name: 'dataset', type: 'relationship', relationTo: 'pseo-datasets', required: true },
     { name: 'keyword', type: 'text', admin: { description: 'Primary keyword from the CSV row.' } },
     {
-      name: 'variables', type: 'json',
+      name: 'variables', type: 'json', access: { read: isAdminField },
       admin: { description: 'All column values from the CSV row stored as key-value pairs.', readOnly: true },
     },
     { name: 'headline', type: 'text', admin: { readOnly: true } },
@@ -44,6 +45,8 @@ export const PseoPages: CollectionConfig = {
     },
   ],
   hooks: {
+    afterDelete: [trackPendingDelete],
+    afterChange: [trackPendingChange],
     beforeChange: [
       ({ data }) => {
         if (data?.slug) {

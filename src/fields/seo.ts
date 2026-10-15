@@ -30,6 +30,13 @@ export const seoField: Field = {
         {
           name: 'canonical',
           type: 'text',
+          validate: (value: unknown) => {
+            if (!value) return true;
+            try {
+              const url = new URL(String(value), 'https://www.healthylifesstyles.com');
+              return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password || 'Use an HTTP(S) canonical URL without credentials.';
+            } catch { return 'Use a valid canonical URL.'; }
+          },
           admin: {
             width: '50%',
             description: 'Override the canonical URL (leave blank to auto-derive).',

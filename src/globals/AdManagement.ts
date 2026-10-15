@@ -1,8 +1,10 @@
+import { trackGlobalChange } from "../hooks/trackContentChange";
 import type { GlobalConfig } from 'payload';
 import { isAdmin } from '../access/roles';
 
 export const AdManagement: GlobalConfig = {
   slug: 'ad-management',
+  hooks: { afterChange: [trackGlobalChange] },
   label: 'Ad Management',
   admin: { group: 'Settings' },
   access: { read: () => true, update: isAdmin },

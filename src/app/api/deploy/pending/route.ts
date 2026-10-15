@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import config from '@payload-config';
+import { reconcileDeployedChanges } from '@/lib/deployment-sync';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,10 +33,10 @@ export async function GET(req: Request): Promise<NextResponse> {
   }
 
   try {
+    const verification = await reconcileDeployedChanges(payload);
     const result = await payload.find({ collection: 'pending-deploys', limit: 0 });
-    return NextResponse.json({ count: result.totalDocs });
+    return NextResponse.json({ count: result.totalDocs, ...verification }, { headers: { 'Cache-Control': 'no-store' } });
   } catch {
-    // Table might not exist
-    return NextResponse.json({ count: 0 });
+    return NextResponse.json({ error: 'Cannot verify pending changes.' }, { status: 503 });
   }
 }

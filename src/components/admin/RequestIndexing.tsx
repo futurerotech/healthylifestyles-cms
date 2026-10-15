@@ -49,7 +49,7 @@ export const RequestIndexing: React.FC = () => {
       <a className="hls-index__btn" href={gsc} target="_blank" rel="noopener noreferrer">
         Request indexing in Search Console →
       </a>
-      <p className="hls-index__note">Opens Google’s URL Inspection tool for this page. Re-crawls usually land within a day or two.</p>
+      <p className="hls-index__note">Verify that the site build has completed before requesting a crawl. Google decides when to crawl and index the page.</p>
     </div>
   );
 };

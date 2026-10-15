@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
  * - Admin-only (Payload session cookie auth).
  * - Debounced: refuses if a deploy was triggered < 5 minutes ago.
  * - Calls VERCEL_DEPLOY_HOOK_URL (server-side only, never exposed to client).
- * - Logs every trigger to deploy-log and clears the pending-deploys queue.
+ * - Logs the request; only a published content manifest can acknowledge changes.
  */
 export async function POST(req: Request): Promise<NextResponse> {
   // CSRF guard — this endpoint triggers production deploys, so the browser's
@@ -62,7 +62,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     // deploy-log table might not exist yet — continue
   }
 
-  // Count pending changes before clearing
+  // Count pending changes for the request log; leave all events queued.
   let pendingCount = 0;
   try {
     const pending = await payload.find({ collection: 'pending-deploys', limit: 0 });
@@ -81,7 +81,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
 
   try {
-    const res = await fetch(hookUrl, { method: 'POST' });
+    const res = await fetch(hookUrl, { method: 'POST', signal: AbortSignal.timeout(15000) });
     if (!res.ok) {
       return NextResponse.json(
         { error: `Vercel hook failed (${res.status} ${res.statusText}).` },
@@ -108,16 +108,5 @@ export async function POST(req: Request): Promise<NextResponse> {
     // non-fatal if deploy-log table is missing
   }
 
-  // Clear the pending-deploys queue in one bulk delete (no 500-row cap, so a
-  // large backlog fully drains). Non-fatal: the deploy already fired, and a
-  // leftover queue entry only means the next deploy shows a stale count.
-  if (pendingCount > 0) {
-    try {
-      await payload.delete({ collection: 'pending-deploys', where: { id: { exists: true } } });
-    } catch {
-      // non-fatal
-    }
-  }
-
-  return NextResponse.json({ ok: true, pendingCount });
+  return NextResponse.json({ ok: true, pendingCount, status: 'queued' });
 }

@@ -24,7 +24,7 @@ export const DeployLog: CollectionConfig = {
   },
   fields: [
     { name: 'triggeredBy', type: 'email', admin: { readOnly: true, description: 'Email of the user who triggered the deploy.' } },
-    { name: 'pendingCount', type: 'number', admin: { readOnly: true, description: 'Number of pending changes cleared by this deploy.' } },
+    { name: 'pendingCount', type: 'number', admin: { readOnly: true, description: 'Pending changes when the build was requested; not proof of publication.' } },
   ],
   timestamps: true,
 };

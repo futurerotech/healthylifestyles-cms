@@ -1,8 +1,10 @@
+import { trackGlobalChange } from "../hooks/trackContentChange";
 import type { GlobalConfig } from 'payload';
 import { isAdmin, isAdminField, publicRead } from '../access/roles';
 
 export const LeadGen: GlobalConfig = {
   slug: 'lead-gen',
+  hooks: { afterChange: [trackGlobalChange] },
   label: 'Lead Generation',
   admin: { group: 'Settings' },
   access: { read: publicRead, update: isAdmin },

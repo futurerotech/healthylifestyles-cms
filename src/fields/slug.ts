@@ -8,10 +8,10 @@ export const slugify = (s: string): string =>
     .replace(/^-+|-+$/g, '');
 
 /** Auto-fills `slug` from another field (e.g. name/title) when left blank. */
-export const slugField = (from = 'name'): Field => ({
+export const slugField = (from = 'name', unique = true): Field => ({
   name: 'slug',
   type: 'text',
-  unique: false,
+  unique,
   index: true,
   admin: {
     position: 'sidebar',

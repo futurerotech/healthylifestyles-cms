@@ -1,10 +1,10 @@
+import { validatePublicRoute } from "../lib/route-validation";
+import { trackPendingChange, trackPendingDelete } from "../hooks/trackContentChange";
 import type { CollectionConfig } from 'payload';
-import { isAdmin, publicRead } from '../access/roles';
+import { isAdmin, publishedPublicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { pageBlocks } from '../blocks';
-import { afterChangeIndexingHook } from '../lib/indexing';
-import { trackPendingChange } from '../hooks/trackPendingChange';
 
 export const Pages: CollectionConfig = {
   slug: 'pages',
@@ -14,7 +14,7 @@ export const Pages: CollectionConfig = {
     defaultColumns: ['title', '_status', 'updatedAt'],
     preview: (doc) => (doc?.slug ? `${process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'}/${doc.slug}` : null),
   },
-  access: { read: publicRead, create: isAdmin, update: isAdmin, delete: isAdmin },
+  access: { read: publishedPublicRead, create: isAdmin, update: isAdmin, delete: isAdmin },
   versions: { drafts: { autosave: { interval: 800 } }, maxPerDoc: 50 },
   fields: [
     { name: 'title', type: 'text', required: true },
@@ -37,6 +37,8 @@ export const Pages: CollectionConfig = {
     { name: 'publishDate', type: 'date', admin: { description: 'Used for ordering and scheduling.' } },
   ],
   hooks: {
-    afterChange: [afterChangeIndexingHook, trackPendingChange],
+    beforeChange: [validatePublicRoute],
+    afterDelete: [trackPendingDelete],
+    afterChange: [trackPendingChange],
   },
 };

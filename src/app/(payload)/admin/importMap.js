@@ -49,8 +49,8 @@ import { Logo as Logo_a44df17d0fc3dcd873dae43dc3bf66bd } from '@/components/admi
 import { default as default_08827a45d8bd8e44a15e7f00551f266e } from '@/components/admin/DeployButton'
 import { Dashboard as Dashboard_0e7b23c75ea046975e1784ba01f82886 } from '@/components/admin/Dashboard'
 import { BeforeLogin as BeforeLogin_89344134860f9bc63867ffefbf33f214 } from '@/components/admin/BeforeLogin'
-import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
+import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 
 /** @type import('payload').ImportMap */
 export const importMap = {
@@ -105,6 +105,6 @@ export const importMap = {
   "@/components/admin/DeployButton#default": default_08827a45d8bd8e44a15e7f00551f266e,
   "@/components/admin/Dashboard#Dashboard": Dashboard_0e7b23c75ea046975e1784ba01f82886,
   "@/components/admin/BeforeLogin#BeforeLogin": BeforeLogin_89344134860f9bc63867ffefbf33f214,
-  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
-  "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
+  "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
+  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24
 }

@@ -4,7 +4,7 @@ import { isAdminOrEditor } from '../access/roles';
 /**
  * AI SEO Autopilot — pending deploys queue (§7.1).
  * Each content save creates an entry here instead of triggering a Vercel build.
- * The deploy endpoint clears the queue when a manual deploy is triggered.
+ * Only a verified deployed content receipt can acknowledge queued events.
  */
 export const PendingDeploys: CollectionConfig = {
   slug: 'pending-deploys',
@@ -15,7 +15,7 @@ export const PendingDeploys: CollectionConfig = {
     listSearchableFields: ['collectionSlug', 'docId'],
     // Completely hidden from the admin navigation. This queue is machine-managed
     // (written by the trackPendingChange hook on content saves, drained by
-    // /api/deploy) — staff never browse it directly. `hidden` only removes the
+    // /api/deploy/pending after receipt verification) — staff never browse it directly. `hidden` only removes the
     // nav entry and list view; the REST/Local API the hook and endpoint use
     // keeps working.
     hidden: true,

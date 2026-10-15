@@ -67,16 +67,18 @@ describe('machine-managed deployment queue', () => {
     }));
   });
 
-  it('explicitly authorizes the trusted publish hook to update a duplicate queue entry', async () => {
+  it('records a second immutable event without overwriting a concurrent queue entry', async () => {
     const payload = {
       find: vi.fn().mockResolvedValue({ totalDocs: 1, docs: [{ id: 11 }] }),
       update: vi.fn().mockResolvedValue({ id: 11 }),
+      create: vi.fn().mockResolvedValue({ id: 12 }),
     };
     const doc = { id: 7, _status: 'published' };
     const args = { req: { payload }, doc, collection: { slug: 'articles' }, operation: 'update' };
     expect(await trackPendingChange(args as unknown as Parameters<CollectionAfterChangeHook>[0])).toBe(doc);
-    expect(payload.update).toHaveBeenCalledWith(expect.objectContaining({
-      collection: 'pending-deploys', id: 11, overrideAccess: true,
+    expect(payload.update).not.toHaveBeenCalled();
+    expect(payload.create).toHaveBeenCalledWith(expect.objectContaining({
+      collection: 'pending-deploys', overrideAccess: true,
       data: expect.objectContaining({ changedAt: expect.any(String) }),
     }));
   });
