@@ -100,6 +100,15 @@ jobs:
           DATABASE_URI: postgres://mock:mock@localhost:5432/mock
         run: node scripts/ci/check-auth-schema.mjs
 
+      - name: Real REST pSEO access and nested relationship tests (disposable mock DB)
+        env:
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          INDEXNOW_DISABLE: 'true'
+          NODE_ENV: production
+          RUN_DATABASE_TESTS: '1'
+        run: npx vitest run --config vitest.integration.config.ts
+
       # D4: exercise the actual Hostinger build command against the mock DB.
       # Database migrations are a separate, explicit operation after a backup;
       # never mutate production data as a side effect of a deployment build.
