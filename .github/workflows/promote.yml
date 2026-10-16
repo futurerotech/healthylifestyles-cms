@@ -4,7 +4,7 @@ on:
   push:
     branches: [dev, 'codex/**']
   # Run the full CI gate (migrations on the mock DB, then a migration-free
-  # build) before changes reach either deployment branch. Promotion stays push-only.
+  # build) before changes reach either deployment branch. This workflow never deploys.
   pull_request:
     branches: [dev, main]
 
