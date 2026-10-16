@@ -1,3 +1,5 @@
+import { seedDefaultOutreachTemplates } from './src/lib/seed-outreach-templates';
+import { postgresPoolOptions } from './src/lib/postgres-connection';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { buildConfig } from 'payload';
@@ -82,22 +84,6 @@ if (!process.env.DATABASE_URI) {
       '(e.g. postgres://user:pass@host/db?sslmode=require).',
   );
 }
-
-/**
- * P17B — SSL by host. Remote Postgres (Supabase/Neon) requires TLS with a cert
- * outside Node's default trust store; a LOCAL dev/staging Postgres (restored
- * snapshot on localhost) speaks plain TCP and rejects the SSL handshake.
- * Decide from the connection host so one config serves both. Any parse failure
- * falls back to SSL — production stays the safe default.
- */
-const DB_IS_LOCAL = (() => {
-  try {
-    const host = new URL(process.env.DATABASE_URI).hostname;
-    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
-  } catch {
-    return false;
-  }
-})();
 
 /**
  * Persistent media storage. Hostinger wipes the app folder on every redeploy, so
@@ -202,14 +188,9 @@ export default buildConfig({
   editor: lexicalEditor(),
   plugins: storagePlugins,
   db: postgresAdapter({
-    pool: {
-      connectionString: process.env.DATABASE_URI,
-      // Remote (Supabase/Neon): encrypt without CA verification — their certs
-      // aren't in Node's default trust store, and recent pg treats
-      // sslmode=require as verify-full (the documented Supabase setup).
-      // Local snapshot DB (P17B): plain TCP — no SSL handshake at all.
-      ssl: DB_IS_LOCAL ? false : { rejectUnauthorized: false },
-    },
+    // Providers with a private CA must configure DATABASE_CA_CERT explicitly.
+    // SSL URI flags cannot override certificate verification.
+    pool: postgresPoolOptions(process.env.DATABASE_URI, process.env.DATABASE_CA_CERT),
     // Pin the migration folder so `payload migrate` finds it on deploy
     // regardless of the host's working directory.
     migrationDir: path.resolve(dirname, 'src/migrations'),
@@ -232,64 +213,6 @@ export default buildConfig({
   },
   sharp,
   endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks, runAudit, analyzeRecipe, schemaFlagsCron],
-  // Seed the four default outreach templates once (idempotent: only when the
-  // collection is empty). Runs at server boot, never during `payload migrate`.
-  onInit: async (payload) => {
-    try {
-      const { totalDocs } = await payload.count({ collection: 'outreach-templates' as never });
-      if (totalDocs > 0) return;
-      const templates = [
-        {
-          name: 'Guest post pitch',
-          type: 'guest-post',
-          subject: 'Guest post idea for {{siteName}}',
-          body:
-            'Hi {{contactName}},\n\n' +
-            "I'm {{myName}} from HealthyLifeStyles — we build free, evidence-based health calculators.\n\n" +
-            'I had an article idea your readers might genuinely use: a practical, non-preachy piece I could write for {{siteName}} (happy to share 2–3 title options). I write from the data our calculators produce, cite primary sources (CDC/WHO/NHS), and keep it educational — no medical claims.\n\n' +
-            'If guest contributions are open, could you point me at your guidelines?\n\nThanks either way,\n{{myName}}',
-          notes: 'Personalize with a line about a recent post of theirs BEFORE the pitch. Never send as-is.',
-        },
-        {
-          name: '“We made a free calculator”',
-          type: 'free-calculator',
-          subject: 'A free {{toolName}} your readers can use',
-          body:
-            'Hi {{contactName}},\n\n' +
-            'I noticed {{pageUrl}} covers this topic well. We built a free, no-signup {{toolName}} that might be a useful add-on for your readers: {{toolUrl}}\n\n' +
-            "It's evidence-based (sources cited on the page), mobile-friendly, and embeddable — if you'd rather host it inside your article, the embed snippet is one copy-paste.\n\n" +
-            'If it fits, a mention or embed would make my day. Happy to return the favor with a look at anything you want feedback on.\n\n{{myName}}',
-          notes: 'Best template for a tools site — the tool does the persuading. Only send to genuinely relevant pages.',
-        },
-        {
-          name: 'Broken-link outreach',
-          type: 'broken-link',
-          subject: 'Broken link on {{pageUrl}}',
-          body:
-            'Hi {{contactName}},\n\n' +
-            'Quick heads-up: {{pageUrl}} links to a resource that now 404s (happy to send the exact anchor if useful).\n\n' +
-            'If you want a drop-in replacement, we maintain a free {{toolName}} that covers the same ground: {{toolUrl}} — evidence-based and no signup.\n\n' +
-            'Either way, hope the heads-up helps!\n\n{{myName}}',
-          notes: 'Verify the broken link yourself first (curl/browser). The value = the heads-up; the link is the ask.',
-        },
-        {
-          name: 'Data-study pitch',
-          type: 'data-study',
-          subject: 'New data: what {{toolName}} usage reveals',
-          body:
-            'Hi {{contactName}},\n\n' +
-            'We aggregated anonymous usage from our {{toolName}} and found a pattern your audience might care about (happy to share the chart + methodology).\n\n' +
-            "If you cover this, you're welcome to the data with attribution — full dataset, methodology, and a quotable summary here: {{toolUrl}}\n\n" +
-            'Want the one-page summary?\n\n{{myName}}',
-          notes: 'Only use with REAL aggregated data you can defend. Never invent statistics — that torches trust and rankings.',
-        },
-      ];
-      for (const t of templates) {
-        await payload.create({ collection: 'outreach-templates' as never, data: t as never });
-      }
-      payload.logger.info('Seeded 4 default outreach templates.');
-    } catch (err) {
-      payload.logger.warn('Outreach template seeding skipped: ' + ((err as Error)?.message || 'unknown'));
-    }
-  },
+  // Disabled by default and always disabled in production.
+  onInit: seedDefaultOutreachTemplates,
 });

@@ -35,10 +35,11 @@ describe('publish gate — BLOCK set (narrow, deterministic)', () => {
     expect(runPublishGate({ ...healthy(), title: 'x'.repeat(60) }, ctx()).blocks).toHaveLength(0);
   });
 
-  it('noindex on a real article blocks (B3)', () => {
+  it('an intentional noindex is publishable and warns about sitemap exclusion', () => {
     const doc = healthy();
     doc.seo.noIndex = true as never;
-    expect(runPublishGate(doc, ctx()).blocks.map((b) => b.code)).toContain('B3');
+    expect(runPublishGate(doc, ctx()).blocks).toHaveLength(0);
+    expect(runPublishGate(doc, ctx()).warns.map((b) => b.code)).toContain('W6');
   });
 
   it('healthy doc: zero blocks, zero warns', () => {

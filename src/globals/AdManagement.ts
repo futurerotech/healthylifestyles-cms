@@ -1,11 +1,13 @@
+import { trackGlobalChange } from "../hooks/trackContentChange";
 import type { GlobalConfig } from 'payload';
-import { isAdminOrEditor } from '../access/roles';
+import { isAdmin } from '../access/roles';
 
 export const AdManagement: GlobalConfig = {
   slug: 'ad-management',
+  hooks: { afterChange: [trackGlobalChange] },
   label: 'Ad Management',
   admin: { group: 'Settings' },
-  access: { read: () => true, update: isAdminOrEditor },
+  access: { read: () => true, update: isAdmin },
   fields: [
     {
       type: 'tabs',

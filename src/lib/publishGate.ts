@@ -27,6 +27,8 @@
  * Pure module — no Payload imports; fully unit-tested in publishGate.test.ts.
  */
 
+import { canonicalToolSlug, SUPPORTED_TOOL_SLUGS, normalizeInternalHref } from './site-routes';
+
 export interface GateIssue {
   code: string;
   message: string;
@@ -76,13 +78,13 @@ export function extractInternalLinks(node: unknown, out: string[] = []): string[
 export function findBrokenInternalLinks(links: string[], ctx: GateContext): string[] {
   const broken: string[] = [];
   for (const raw of links) {
-    const clean = raw.split('#')[0].split('?')[0].replace(/\/$/, '');
+    const clean = normalizeInternalHref(raw).split('#')[0].split('?')[0].replace(/\/$/, '');
     const m = clean.match(/^\/(tools|wellness-hub)\/([a-z0-9-]+)$/);
     if (!m) continue;
     const [, section, slug] = m;
     const known =
       section === 'tools'
-        ? ctx.toolSlugs.has(slug)
+        ? ctx.toolSlugs.has(canonicalToolSlug(slug)) && SUPPORTED_TOOL_SLUGS.has(canonicalToolSlug(slug))
         : ctx.articleSlugs.has(slug) || ctx.categorySlugs.has(slug);
     if (!known) broken.push(clean);
   }
@@ -109,7 +111,7 @@ export function runPublishGate(doc: GateDoc, ctx: GateContext): GateResult {
     blocks.push({ code: 'B2', message: `Title is ${title.length} chars (max ${TITLE_MAX}).` });
 
   if (doc.seo?.noIndex === true)
-    blocks.push({ code: 'B3', message: 'noindex is enabled — this article would be invisible to search engines. Untick "No-index" (or keep it a draft).' });
+    warns.push({ code: 'W6', message: 'No-index is enabled: this page will be published but excluded from search sitemaps.' });
 
   const links = extractInternalLinks(doc.layout ?? null);
   for (const b of findBrokenInternalLinks(links, ctx))

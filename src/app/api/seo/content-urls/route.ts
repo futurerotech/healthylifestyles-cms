@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { authorizeSeoRequest } from '../../../../lib/seo-guard';
 import { SITE_BASE_URL } from '../../../../lib/site-config';
+import { publicContentPath } from '../../../../lib/site-routes';
+import { readDeployedManifest } from '../../../../lib/deployment-sync';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,6 +26,9 @@ export async function GET(req: Request): Promise<NextResponse> {
   // all 90 scan URLs on the wrong origin (the real Permission-denied source).
   // site-config guarantees no trailing slash.
   const site = SITE_BASE_URL;
+  let deployed: Set<string>;
+  try { deployed = new Set((await readDeployedManifest()).records.filter((r) => r.path && !r.noIndex).map((r) => r.path!)); }
+  catch { return NextResponse.json({ error: 'Deploy the frontend content manifest before scanning URLs.' }, { status: 503 }); }
 
   const safeDocs = async (fn: () => Promise<{ docs: unknown[] }>): Promise<Record<string, unknown>[]> => {
     try {
@@ -36,7 +41,7 @@ export async function GET(req: Request): Promise<NextResponse> {
   const [articleDocs, pageDocs, toolDocs] = await Promise.all([
     safeDocs(() => payload.find({ collection: 'articles', where: { _status: { equals: 'published' } }, limit: 1000, depth: 0, sort: '-updatedAt', pagination: false }) as any),
     safeDocs(() => payload.find({ collection: 'pages', where: { _status: { equals: 'published' } }, limit: 1000, depth: 0, sort: '-updatedAt', pagination: false }) as any),
-    safeDocs(() => payload.find({ collection: 'tools', limit: 1000, depth: 0, sort: '-updatedAt', pagination: false }) as any),
+    safeDocs(() => payload.find({ collection: 'tools', where: { _status: { equals: 'published' }, enabled: { equals: true } }, limit: 1000, depth: 0, sort: '-updatedAt', pagination: false }) as any),
   ]);
 
   const articles: ContentUrl[] = articleDocs
@@ -49,5 +54,11 @@ export async function GET(req: Request): Promise<NextResponse> {
     .filter((d) => str(d.slug))
     .map((d) => ({ id: str(d.id), title: str(d.name), url: `${site}/tools/${str(d.slug)}`, updatedAt: str(d.updatedAt) }));
 
-  return NextResponse.json({ articles, pages, tools, total: articles.length + pages.length + tools.length });
+  const live = (items: ContentUrl[], collection: string) => [...new Map(items.map((item) => {
+    const slug = new URL(item.url).pathname.split('/').pop();
+    const path = publicContentPath(collection, { slug });
+    return [path, { ...item, url: `${site}${path}` }] as const;
+  }).filter(([path]) => path && deployed.has(path))).values()];
+  const catalogue = { articles: live(articles, 'articles'), pages: live(pages, 'pages'), tools: live(tools, 'tools') };
+  return NextResponse.json({ ...catalogue, total: Object.values(catalogue).reduce((n, list) => n + list.length, 0) });
 }

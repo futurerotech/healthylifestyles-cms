@@ -1,8 +1,10 @@
+import { trackGlobalChange } from "../hooks/trackContentChange";
 import type { GlobalConfig } from 'payload';
 import { isAdmin, publicRead } from '../access/roles';
 
 export const Settings: GlobalConfig = {
   slug: 'settings',
+  hooks: { afterChange: [trackGlobalChange] },
   admin: { group: 'Settings' },
   access: { read: publicRead, update: isAdmin },
   versions: { max: 20 },

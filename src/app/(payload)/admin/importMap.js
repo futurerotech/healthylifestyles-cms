@@ -35,6 +35,7 @@ import { AiDraftBanner as AiDraftBanner_a0f201cde11054913a8b99628eb2cde1 } from 
 import { AiWritingAssistant as AiWritingAssistant_c165315c516d66152e5724e9400f7797 } from '@/components/admin/AiWritingAssistant'
 import { AutoGenerateButton as AutoGenerateButton_13faa3f644b200515a206d8bf869096b } from '@/components/admin/AutoGenerateButton'
 import { SchemaEmissionHint as SchemaEmissionHint_7a873af398c26c4f6a42a7c83615f811 } from '@/components/admin/SchemaEmissionHint'
+import { PublishGatePanel as PublishGatePanel_d538a6cc9a7cd10a2f067c88b19dd000 } from '@/components/admin/PublishGatePanel'
 import { RequestIndexing as RequestIndexing_b0b9d2ee6c2480c76b145ce374759272 } from '@/components/admin/RequestIndexing'
 import { SendPushButton as SendPushButton_9c358e38283330420a145f491e607807 } from '@/components/admin/SendPushButton'
 import { PseoPreview as PseoPreview_df1e029c23b5302932b057731a635d41 } from '@/components/admin/PseoPreview'
@@ -48,8 +49,8 @@ import { Logo as Logo_a44df17d0fc3dcd873dae43dc3bf66bd } from '@/components/admi
 import { default as default_08827a45d8bd8e44a15e7f00551f266e } from '@/components/admin/DeployButton'
 import { Dashboard as Dashboard_0e7b23c75ea046975e1784ba01f82886 } from '@/components/admin/Dashboard'
 import { BeforeLogin as BeforeLogin_89344134860f9bc63867ffefbf33f214 } from '@/components/admin/BeforeLogin'
-import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } from '@payloadcms/next/rsc'
+import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 
 /** @type import('payload').ImportMap */
 export const importMap = {
@@ -90,6 +91,7 @@ export const importMap = {
   "@/components/admin/AiWritingAssistant#AiWritingAssistant": AiWritingAssistant_c165315c516d66152e5724e9400f7797,
   "@/components/admin/AutoGenerateButton#AutoGenerateButton": AutoGenerateButton_13faa3f644b200515a206d8bf869096b,
   "@/components/admin/SchemaEmissionHint#SchemaEmissionHint": SchemaEmissionHint_7a873af398c26c4f6a42a7c83615f811,
+  "@/components/admin/PublishGatePanel#PublishGatePanel": PublishGatePanel_d538a6cc9a7cd10a2f067c88b19dd000,
   "@/components/admin/RequestIndexing#RequestIndexing": RequestIndexing_b0b9d2ee6c2480c76b145ce374759272,
   "@/components/admin/SendPushButton#SendPushButton": SendPushButton_9c358e38283330420a145f491e607807,
   "@/components/admin/PseoPreview#PseoPreview": PseoPreview_df1e029c23b5302932b057731a635d41,
@@ -103,6 +105,6 @@ export const importMap = {
   "@/components/admin/DeployButton#default": default_08827a45d8bd8e44a15e7f00551f266e,
   "@/components/admin/Dashboard#Dashboard": Dashboard_0e7b23c75ea046975e1784ba01f82886,
   "@/components/admin/BeforeLogin#BeforeLogin": BeforeLogin_89344134860f9bc63867ffefbf33f214,
-  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
-  "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1
+  "@payloadcms/next/rsc#CollectionCards": CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1,
+  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24
 }

@@ -13,7 +13,7 @@ import React from 'react';
 
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 300;
-const QUOTA_LIMIT = 200; // daily Indexing API publish quota (free tier)
+const QUOTA_LIMIT = 2000; // Google URL Inspection quota; IndexNow has no Google publish quota.
 
 type Status = 'idle' | 'loading' | 'scanning' | 'scan_complete' | 'submitting' | 'done' | 'scan_error';
 type ContentType = 'article' | 'page' | 'tool';
@@ -233,7 +233,6 @@ export const SeoIndexingEngine: React.FC = () => {
   }
 
   async function submitOne(url: string) {
-    if (state.quota.remaining <= 0) return;
     dispatch({ type: 'ROW_SUBMIT_START', url });
     try {
       const res = await fetch('/api/seo/submit-indexing', {
@@ -259,20 +258,27 @@ export const SeoIndexingEngine: React.FC = () => {
   async function submitAllNotIndexed() {
     const targets = state.rows.filter((r) => r.state === 'not-indexed').map((r) => r.url);
     if (targets.length === 0) return;
-    const ok = window.confirm(`Submit ${targets.length} URL${targets.length === 1 ? '' : 's'} for indexing? (${state.quota.remaining} quota remaining)`);
+    const ok = window.confirm(`Notify IndexNow about ${targets.length} published URL${targets.length === 1 ? '' : 's'}? Google crawl requests are made in Search Console.`);
     if (!ok) return;
     dispatch({ type: 'BATCH_SUBMIT_START' });
     try {
+      const submitted: string[] = [];
+      const failed: { url: string; reason: string }[] = [];
+      for (let offset = 0; offset < targets.length; offset += 100) {
+      const batch = targets.slice(offset, offset + 100);
       const res = await fetch('/api/seo/submit-indexing', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: targets.slice(0, 100), type: 'URL_UPDATED' }),
+        body: JSON.stringify({ urls: batch, type: 'URL_UPDATED' }),
       });
       applyQuotaHeader(res);
       const data = await res.json().catch(() => ({}));
       if (data?.quota) dispatch({ type: 'QUOTA', quota: { used: data.quota.used, remaining: data.quota.remaining, limit: QUOTA_LIMIT } });
-      dispatch({ type: 'BATCH_SUBMIT_DONE', submitted: data.submitted || [], failed: data.failed || [] });
+      if (res.ok) { submitted.push(...(data.submitted || [])); failed.push(...(data.failed || [])); }
+      else failed.push(...batch.map((url) => ({ url, reason: data.error || `Failed (${res.status}).` })));
+      }
+      dispatch({ type: 'BATCH_SUBMIT_DONE', submitted, failed });
     } catch (e) {
       dispatch({ type: 'SCAN_ERROR', error: e instanceof Error ? e.message : 'Submit failed.' });
     }
@@ -316,18 +322,19 @@ export const SeoIndexingEngine: React.FC = () => {
           <button type="button" className="seo-btn seo-btn--primary" onClick={() => startTransition(() => { void scanAll(); })} disabled={scanning || loading || state.rows.length === 0}>
             {scanning ? 'Scanning…' : 'Scan All ▶'}
           </button>
-          <button type="button" className="seo-btn seo-btn--primary" onClick={() => void submitAllNotIndexed()} disabled={submitting || quotaEmpty || notIndexedCount === 0}>
-            Scan &amp; Submit All Not-Indexed
+          <button type="button" className="seo-btn seo-btn--primary" onClick={() => void submitAllNotIndexed()} disabled={submitting || notIndexedCount === 0}>
+            Notify IndexNow for Not-Indexed URLs
           </button>
         </div>
       </header>
 
       {/* Quota bar */}
-      <div className="seo-quota" aria-label="Daily indexing quota">
+      <p>IndexNow notifies participating engines. For Google, open a page in Search Console and request a crawl there.</p>
+      <div className="seo-quota" aria-label="Daily URL inspection quota">
         <div className="seo-quota__track">
           <div className={`seo-quota__fill seo-quota__fill--${quotaTone}`} style={{ width: `${quotaPct}%` }} />
         </div>
-        <span className="seo-quota__label">Quota: {state.quota.used} / {state.quota.limit} used today</span>
+        <span className="seo-quota__label">Inspection quota: {state.quota.used} / {state.quota.limit} used today</span>
       </div>
 
       {/* Filters */}
@@ -381,10 +388,11 @@ export const SeoIndexingEngine: React.FC = () => {
                         type="button"
                         className="seo-btn seo-btn--sm seo-btn--primary"
                         onClick={() => void submitOne(row.url)}
-                        disabled={row.submitting || submitting || quotaEmpty}
+                        disabled={row.submitting || submitting}
                       >
-                        {row.submitting ? 'Submitting…' : 'Submit'}
+                        {row.submitting ? 'Queuing…' : 'Notify IndexNow'}
                       </button>
+                      <a className="seo-btn seo-btn--sm" href={`https://search.google.com/search-console/inspect?id=${encodeURIComponent(row.url)}`} target="_blank" rel="noopener noreferrer">Google Search Console</a>
                     </div>
                     <div className="seo-row__meta">
                       <span>Last crawled: {fmtDate(row.lastCrawled)}</span>

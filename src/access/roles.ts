@@ -23,6 +23,11 @@ export const publicRead: Access = () => true;
 export const publishedPublicRead: Access = ({ req }) =>
   req.user ? true : { _status: { equals: 'published' } };
 
+/** pSEO uses its own status field, not Payload's draft _status. Only admins
+ * may inspect drafts; public Astro builds need no privileged credential. */
+export const publishedPseoRead: Access = ({ req }) =>
+  req.user?.role === 'admin' ? true : { status: { equals: 'published' } };
+
 /** Logged-in staff (any role). */
 export const isStaff: Access = ({ req }) => Boolean(req.user);
 

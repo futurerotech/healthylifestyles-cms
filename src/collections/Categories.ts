@@ -1,9 +1,9 @@
+import { validatePublicRoute } from "../lib/route-validation";
+import { trackPendingChange, trackPendingDelete } from "../hooks/trackContentChange";
 import type { CollectionConfig } from 'payload';
 import { isAdminOrEditor, publicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
-import { afterChangeIndexingHook } from '../lib/indexing';
-import { trackPendingChange } from '../hooks/trackPendingChange';
 /**
  * Categories AND content sections. New entries flow into the nav, hub pages and
  * sitemap automatically (the public site reads this collection at build time).
@@ -13,9 +13,10 @@ export const Categories: CollectionConfig = {
   admin: { useAsTitle: 'name', group: 'Content', defaultColumns: ['name', 'kind', 'order'], listSearchableFields: ['name', 'slug'] },
   access: { read: publicRead, create: isAdminOrEditor, update: isAdminOrEditor, delete: isAdminOrEditor },
   versions: { drafts: false, maxPerDoc: 20 },
+  indexes: [{ fields: ['kind', 'slug'], unique: true }],
   fields: [
     { name: 'name', type: 'text', required: true },
-    slugField('name'),
+    slugField('name', false),
     {
       name: 'kind',
       type: 'select',
@@ -43,6 +44,8 @@ export const Categories: CollectionConfig = {
     seoField,
   ],
   hooks: {
-    afterChange: [afterChangeIndexingHook, trackPendingChange],
+    beforeChange: [validatePublicRoute],
+    afterDelete: [trackPendingDelete],
+    afterChange: [trackPendingChange],
   },
 };

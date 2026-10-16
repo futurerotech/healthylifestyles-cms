@@ -6,6 +6,9 @@ dist/
 .env*.local
 .env.development
 .env.production
+.env.*.backup
+*.dump
+.security-work/
 .vercel
 nul
 
@@ -22,3 +25,4 @@ tsconfig.tsbuildinfo
 
 # Local build/debug logs
 build*.log
+install-review.log

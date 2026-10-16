@@ -18,7 +18,9 @@ export async function buildGateContext(
 ): Promise<GateContext> {
   const slugs = async (collection: string, limit: number): Promise<Set<string>> => {
     try {
-      const r = await payload.find({ collection, limit, depth: 0, select: { slug: true } } as never);
+      const where = collection === 'tools' ? { _status: { equals: 'published' }, enabled: { equals: true } }
+        : collection === 'articles' ? { _status: { equals: 'published' } } : { kind: { equals: 'section' } };
+      const r = await payload.find({ collection, where, pagination: false, limit, depth: 0, select: { slug: true } } as never);
       return new Set(r.docs.map((d) => d.slug).filter((s): s is string => typeof s === 'string'));
     } catch {
       return new Set(); // fail safe: unknown sets — but see fail-safe note below

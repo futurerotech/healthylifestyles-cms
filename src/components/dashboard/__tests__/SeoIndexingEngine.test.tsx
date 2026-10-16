@@ -102,7 +102,7 @@ describe('SeoIndexingEngine', () => {
     expect(screen.getAllByText(/· checked /).length).toBe(2);
   });
 
-  it('disables Submit buttons when quota is 0', async () => {
+  it('keeps IndexNow available when the separate Google inspection quota is exhausted', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/api/seo/content-urls')) {
@@ -124,8 +124,8 @@ describe('SeoIndexingEngine', () => {
     fireEvent.click(screen.getByRole('button', { name: /Scan All/i }));
 
     await waitFor(() => {
-      const submit = screen.getByRole('button', { name: /^Submit$/i });
-      expect(submit).toBeDisabled();
+      const submit = screen.getByRole('button', { name: /^Notify IndexNow$/i });
+      expect(submit).not.toBeDisabled();
     });
   });
 });

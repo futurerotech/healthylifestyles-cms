@@ -26,13 +26,15 @@ const DeployButton: React.FC = () => {
 
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<number | null>(null);
+  const [verified, setVerified] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       const res = await fetch('/api/deploy/pending', { credentials: 'include' });
       if (res.ok) {
-        const data = (await res.json()) as { count?: number };
+        const data = (await res.json()) as { count?: number; verified?: boolean };
         setPending(data.count ?? 0);
+        setVerified(data.verified === true);
       }
     } catch {
       /* transient network error — keep the last known count */
@@ -60,10 +62,9 @@ const DeployButton: React.FC = () => {
       if (res.ok) {
         const n = data.pendingCount ?? 0;
         toast.success(
-          `Deployment started on Vercel${n ? ` — ${n} change${n === 1 ? '' : 's'} published` : ''}.`,
+          `Build requested${n ? ` for ${n} pending change${n === 1 ? '' : 's'}` : ''}. Changes remain pending until the published site confirms them.`,
           { id },
         );
-        setPending(0);
       } else {
         toast.error(data.error || `Deploy failed (${res.status}).`, { id });
       }
@@ -91,7 +92,7 @@ const DeployButton: React.FC = () => {
         {busy
           ? 'Deploying…'
           : nothingToDo
-            ? 'Site up to date'
+            ? verified ? 'Site up to date' : 'Site status unavailable'
             : `Deploy site (${count} pending)`}
       </Button>
     </div>
