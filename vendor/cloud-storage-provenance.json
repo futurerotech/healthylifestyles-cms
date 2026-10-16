@@ -6,7 +6,8 @@
     "integrity": "sha512-VWA73ZUC31hFcB2H2Szgeveo+BLm6JW8YK6x1lTNgkEd+q6iApXSKPQcWBs87hI9TidoaxB+FtIsJ2kMPyaeBw=="
   },
   "patch": "Remove an unused dependency and its unused development types; no executable, declaration, source-map, license or documentation bytes changed.",
-  "localVersion": "3.91.0+hls.1",
+  "localVersion": "3.91.0",
+  "patchID": "unused-find-node-modules-removal-2",
   "upstreamManifest": {
     "name": "@payloadcms/plugin-cloud-storage",
     "version": "3.91.0",
@@ -89,8 +90,8 @@
   },
   "upstreamProposal": "https://github.com/payloadcms/payload/pull/18645",
   "advisory": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
-  "archive": "payloadcms-plugin-cloud-storage-3.91.0-hls.1.tgz",
-  "archiveIntegrity": "sha512-SrMZR76BMgp6h/aSHLNvGGZvs4NCkwNaZWFPNQVQ1czC0X4G7p9C0PI10VJNFU7O1fiRp5b4W4OIUBn+TJeu2Q==",
+  "archive": "payloadcms-plugin-cloud-storage-3.91.0-hls.2.tgz",
+  "archiveIntegrity": "sha512-n0Pe/f2fjNVw+9N+dzS3zWavlxMeTJJ5buip54cFolBUJPEmJLg5auCXa/zse7VQfN7MjOaz3XjQ5fmFRYpuPg==",
   "unchangedFiles": {
     "azure.d.ts": "b8ee4126f6d12abb1a9c1547ab3357067f7b1ba93eb4549a5616a3aa40710c19",
     "azure.js": "32f872dedc0d8b04a8c871a67555066c819c4ce2d77b6696ccb638b888760ce3",

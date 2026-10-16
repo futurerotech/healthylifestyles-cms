@@ -42,20 +42,22 @@ async function inspect(folder) {
 }
 await inspect(directory);
 const patched = structuredClone(original);
-patched.version = '3.91.0+hls.1';
+// Payload enforces exact versions across its packages. Keep the upstream version,
+// and identify the local manifest patch explicitly instead of bypassing that check.
+patched._hlsPatch = 'unused-find-node-modules-removal-2';
 delete patched.dependencies['find-node-modules'];
 delete patched.devDependencies['@types/find-node-modules'];
 await writeFile(join(directory, 'package.json'), JSON.stringify(patched, null, 2) + '\n');
 await mkdir('vendor', { recursive: true });
 const packed = JSON.parse(execFileSync(process.execPath, [process.env.npm_execpath, 'pack', '--ignore-scripts', '--json', '--pack-destination', resolve('vendor')], { cwd: directory, encoding: 'utf8', windowsHide: true }));
-const target = resolve('vendor/payloadcms-plugin-cloud-storage-3.91.0-hls.1.tgz');
+const target = resolve('vendor/payloadcms-plugin-cloud-storage-3.91.0-hls.2.tgz');
 await rename(resolve('vendor', packed[0].filename), target);
 const receipt = {
   upstream, patch: 'Remove an unused dependency and its unused development types; no executable, declaration, source-map, license or documentation bytes changed.',
-  localVersion: patched.version, upstreamManifest: original,
+  localVersion: patched.version, patchID: patched._hlsPatch, upstreamManifest: original,
   upstreamProposal: 'https://github.com/payloadcms/payload/pull/18645',
   advisory: 'https://github.com/advisories/GHSA-vfj7-8cjw-p6xm',
-  archive: 'payloadcms-plugin-cloud-storage-3.91.0-hls.1.tgz',
+  archive: 'payloadcms-plugin-cloud-storage-3.91.0-hls.2.tgz',
   archiveIntegrity: `sha512-${hash('sha512', await readFile(target))}`,
   unchangedFiles: Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b))),
 };

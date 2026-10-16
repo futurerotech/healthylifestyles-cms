@@ -1,10 +1,13 @@
 # Cloud storage dependency repair
 
-`payloadcms-plugin-cloud-storage-3.91.0-hls.1.tgz` is a locally maintained,
+`payloadcms-plugin-cloud-storage-3.91.0-hls.2.tgz` is a locally maintained,
 metadata-only patch of the official MIT-licensed Payload 3.91.0 package.
 All 120 non-manifest files (JavaScript, declarations, maps, documentation and
-license) are byte-identical. Only the package version and the unused
-`find-node-modules` dependency/development types change. The S3 adapter and AWS
+license) are byte-identical. Only the unused `find-node-modules`
+dependency/development types are removed, and `_hlsPatch` identifies the repair.
+The upstream version is retained because Payload enforces exact equality across
+its packages; the local archive, integrity and patch identifier distinguish this
+from the official artifact. The S3 adapter and AWS
 SDK remain installed and functional.
 
 The removed chain brings GHSA-vfj7-8cjw-p6xm into the production dependency

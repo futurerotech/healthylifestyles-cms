@@ -37,6 +37,7 @@ describe('production Payload REST access using the committed schema on a disposa
     const routes = await import('@payloadcms/next/routes');
     rest = { GET: routes.REST_GET, POST: routes.REST_POST, PATCH: routes.REST_PATCH, DELETE: routes.REST_DELETE };
     payload = await getPayload({ config });
+    expect((await payload.count({ collection: 'outreach-templates' })).totalDocs).toBe(0);
     const suffix = `${Date.now()}`;
     for (const role of ['admin', 'editor']) {
       const email = `rest-${role}-${suffix}@example.invalid`;

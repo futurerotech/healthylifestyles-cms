@@ -10,11 +10,15 @@ assert.equal(`sha512-${createHash('sha512').update(archive).digest('base64')}`, 
 const require = createRequire(import.meta.url);
 const root = dirname(dirname(require.resolve('@payloadcms/plugin-cloud-storage')));
 const installed = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+const payloadRoot = dirname(dirname(require.resolve('payload')));
+assert.equal(installed.version, JSON.parse(await readFile(join(payloadRoot, 'package.json'), 'utf8')).version,
+  'Payload requires exact version equality; never bypass its dependency checker');
 const expected = structuredClone(receipt.upstreamManifest);
 expected.version = receipt.localVersion;
+expected._hlsPatch = receipt.patchID;
 delete expected.dependencies['find-node-modules'];
 delete expected.devDependencies['@types/find-node-modules'];
-assert.deepEqual(installed, expected, 'Only the reviewed manifest removal and local build version are allowed');
+assert.deepEqual(installed, expected, 'Only the reviewed manifest removal and explicit patch identifier are allowed');
 const files = {};
 async function inspect(folder) {
   for (const entry of await readdir(folder, { withFileTypes: true })) {

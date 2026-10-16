@@ -48,7 +48,7 @@
     "sharp": "^0.35.5",
     "web-push": "^3.6.7",
     "zod": "^4.4.3",
-    "@payloadcms/plugin-cloud-storage": "file:vendor/payloadcms-plugin-cloud-storage-3.91.0-hls.1.tgz"
+    "@payloadcms/plugin-cloud-storage": "file:vendor/payloadcms-plugin-cloud-storage-3.91.0-hls.2.tgz"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.1",
