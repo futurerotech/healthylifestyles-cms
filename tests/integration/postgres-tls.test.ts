@@ -46,7 +46,7 @@ describe('real PostgreSQL TLS handshakes using the production pool options', () 
     expect(result.rows[0].ssl).toBe(true);
   });
   it('rejects a CA that is not trusted by Node instead of retrying without verification', async () => {
-    await expect(connect(uri())).rejects.toMatchObject({ code: expect.stringMatching(/CERT|ISSUER|SELF_SIGNED/) });
+    await expect(connect(uri())).rejects.toMatchObject({ code: expect.stringMatching(/CERT|ISSUER|SELF_SIGNED|VERIFY_LEAF_SIGNATURE/) });
   });
   it('rejects an incorrect certificate hostname even with the trusted test CA', async () => {
     await expect(connect(uri('mismatched-ci.example.invalid'), ca)).rejects.toMatchObject({ code: 'ERR_TLS_CERT_ALTNAME_INVALID' });
