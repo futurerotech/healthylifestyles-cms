@@ -1,4 +1,5 @@
 import path from 'path';
+import { canSeedDevelopmentDefaults } from './src/lib/development-seeding';
 import { fileURLToPath } from 'url';
 import { buildConfig } from 'payload';
 import { postgresAdapter } from '@payloadcms/db-postgres';
@@ -235,6 +236,7 @@ export default buildConfig({
   // Seed the four default outreach templates once (idempotent: only when the
   // collection is empty). Runs at server boot, never during `payload migrate`.
   onInit: async (payload) => {
+    if (!canSeedDevelopmentDefaults()) return;
     try {
       const { totalDocs } = await payload.count({ collection: 'outreach-templates' as never });
       if (totalDocs > 0) return;

@@ -1,4 +1,9 @@
 node_modules/
+.security-work/
+.env.*.backup
+*.dump
+build*.log
+install-review.log
 dist/
 .next/
 .env

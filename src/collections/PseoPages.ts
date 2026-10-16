@@ -1,6 +1,5 @@
 import type { CollectionConfig } from 'payload';
-import { isAdmin } from '../access/roles';
-import { seoField } from '../fields/seo';
+import { isAdmin, isAdminField, publishedPseoRead } from '../access/roles';
 
 export const PseoPages: CollectionConfig = {
   slug: 'pseo-pages',
@@ -11,7 +10,7 @@ export const PseoPages: CollectionConfig = {
     description: 'Generated programmatic SEO pages. One per CSV row.',
     listSearchableFields: ['slug', 'keyword'],
   },
-  access: { read: isAdmin, create: isAdmin, update: isAdmin, delete: isAdmin },
+  access: { read: publishedPseoRead, create: isAdmin, update: isAdmin, delete: isAdmin },
   fields: [
     { name: 'slug', type: 'text', required: true, unique: true, index: true },
     {
@@ -21,11 +20,11 @@ export const PseoPages: CollectionConfig = {
         { label: 'Published', value: 'published' },
       ],
     },
-    { name: 'template', type: 'relationship', relationTo: 'pseo-templates', required: true },
-    { name: 'dataset', type: 'relationship', relationTo: 'pseo-datasets', required: true },
-    { name: 'keyword', type: 'text', admin: { description: 'Primary keyword from the CSV row.' } },
+    { name: 'template', type: 'relationship', relationTo: 'pseo-templates', required: true, access: { read: isAdminField } },
+    { name: 'dataset', type: 'relationship', relationTo: 'pseo-datasets', required: true, access: { read: isAdminField } },
+    { name: 'keyword', type: 'text', access: { read: isAdminField }, admin: { description: 'Primary keyword from the CSV row.' } },
     {
-      name: 'variables', type: 'json',
+      name: 'variables', type: 'json', access: { read: isAdminField },
       admin: { description: 'All column values from the CSV row stored as key-value pairs.', readOnly: true },
     },
     { name: 'headline', type: 'text', admin: { readOnly: true } },
