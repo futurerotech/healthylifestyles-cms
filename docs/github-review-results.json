@@ -1,0 +1,42 @@
+{
+  "reviewDate": "2026-10-16",
+  "branch": "codex/seo-cms-sync",
+  "mainMerged": false,
+  "productionDeployed": false,
+  "productionDataWritten": false,
+  "secretsPublished": false,
+  "pullRequest": "https://github.com/futurerotech/healthylifestyles-cms/pull/27",
+  "versions": {
+    "payload": "3.91.0",
+    "next": "16.4.2",
+    "sharp": "0.35.5",
+    "vitest": "5.0.5"
+  },
+  "checks": {
+    "unitTests": 96,
+    "typecheck": "pass",
+    "databaseIsolatedCompilation": "pass; unreachable local mock DB and no migrations; not release approval",
+    "cleanInstallNpm10": "pass dry-run",
+    "security": {
+      "critical": 0,
+      "high": 6,
+      "moderate": 0,
+      "low": 0
+    }
+  },
+  "remainingAdvisory": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+  "remainingChain": [
+    "@payloadcms/storage-s3",
+    "@payloadcms/plugin-cloud-storage",
+    "find-node-modules",
+    "findup-sync",
+    "micromatch",
+    "braces"
+  ],
+  "latestBracesVersionChecked": "3.0.3 (affected; no patched release available)",
+  "productionInitializationSeeds": false,
+  "remoteDatabaseCertificateVerification": true,
+  "providerPrivateCaRequiresStagingVerification": true,
+  "securityGateBypassed": false,
+  "releaseReady": false
+}

@@ -1,0 +1,133 @@
+{
+  "reviewDate": "2026-10-16",
+  "scope": "current CMS repair branch",
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 6,
+      "critical": 0,
+      "total": 6
+    },
+    "dependencies": {
+      "prod": 834,
+      "dev": 98,
+      "optional": 140,
+      "peer": 40,
+      "peerOptional": 0,
+      "total": 1051
+    }
+  },
+  "vulnerabilities": {
+    "@payloadcms/plugin-cloud-storage": {
+      "name": "@payloadcms/plugin-cloud-storage",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "find-node-modules"
+      ],
+      "effects": [
+        "@payloadcms/storage-s3"
+      ],
+      "range": "",
+      "nodes": [
+        "node_modules/@payloadcms/plugin-cloud-storage"
+      ],
+      "fixAvailable": false
+    },
+    "@payloadcms/storage-s3": {
+      "name": "@payloadcms/storage-s3",
+      "severity": "high",
+      "isDirect": true,
+      "via": [
+        "@payloadcms/plugin-cloud-storage"
+      ],
+      "effects": [],
+      "range": "",
+      "nodes": [
+        "node_modules/@payloadcms/storage-s3"
+      ],
+      "fixAvailable": false
+    },
+    "braces": {
+      "name": "braces",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        {
+          "source": 1240992,
+          "name": "braces",
+          "dependency": "braces",
+          "title": "braces vulnerable to stack-exhaustion denial of service through deeply nested patterns",
+          "url": "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm",
+          "severity": "high",
+          "cwe": [
+            "CWE-674"
+          ],
+          "cvss": {
+            "score": 7.5,
+            "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+          },
+          "range": "<=3.0.3"
+        }
+      ],
+      "effects": [
+        "micromatch"
+      ],
+      "range": "",
+      "nodes": [
+        "node_modules/braces"
+      ],
+      "fixAvailable": false
+    },
+    "find-node-modules": {
+      "name": "find-node-modules",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "findup-sync"
+      ],
+      "effects": [
+        "@payloadcms/plugin-cloud-storage"
+      ],
+      "range": "",
+      "nodes": [
+        "node_modules/find-node-modules"
+      ],
+      "fixAvailable": false
+    },
+    "findup-sync": {
+      "name": "findup-sync",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "micromatch"
+      ],
+      "effects": [
+        "find-node-modules"
+      ],
+      "range": "",
+      "nodes": [
+        "node_modules/findup-sync"
+      ],
+      "fixAvailable": false
+    },
+    "micromatch": {
+      "name": "micromatch",
+      "severity": "high",
+      "isDirect": false,
+      "via": [
+        "braces"
+      ],
+      "effects": [
+        "findup-sync"
+      ],
+      "range": "",
+      "nodes": [
+        "node_modules/micromatch"
+      ],
+      "fixAvailable": false
+    }
+  }
+}

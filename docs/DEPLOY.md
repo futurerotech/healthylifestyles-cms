@@ -1,5 +1,15 @@
 # Deployment Flow
 
+## GitHub implementation update — 16 October 2026
+
+The owner now authorizes repair-branch pushes and PRs, with no main merge or deployment. All prior work is preserved in https://github.com/futurerotech/healthylifestyles-cms/pull/27 on `codex/seo-cms-sync`. Changes below are review code only; they do not alter Hostinger or production data. Historical no-push statements and audit counts below describe earlier snapshots.
+
+The branch now disables automatic dev-to-main promotion and runs tests/types plus a strict security gate. Normal `npm run build` also runs that gate before cleaning/building. Vercel automatic deployments are disabled for codex/**. Payload packages move together to 3.91.0, Next to 16.4.2, sharp to 0.35.5 and Vitest to 5. Sass/DOMPurify and the old esbuild loader use tested scoped updates. The Node 22/npm 10 lockfile passes clean-install validation. 96 tests and TypeScript pass; a database-isolated `build:ci` compilation passes without production DB access or migrations. This diagnostic compilation is not release approval and does not prove production schema compatibility.
+
+Production initialization no longer seeds outreach templates: seeding is opt-in for nonproduction only and is always disabled in production, even with the flag set. Remote PostgreSQL now verifies TLS certificates, and URI SSL flags cannot weaken verification. A provider requiring a private CA must supply `DATABASE_CA_CERT`; validate this against an isolated staging DB before any approved release. Credentials, database URLs and backup files remain excluded from Git.
+
+The current audit has six high package findings, all one upstream braces advisory through find-node-modules/findup-sync/micromatch and Payload cloud storage. braces 3.0.3 is the latest published version checked and is affected; no patched release was available. No empty-package replacement, scanner exclusion, baseline waiver or forced incompatible override was used. The strict gate remains red. The full Astro production build also remains blocked until the separately approved CMS pSEO access release and verified complete inventory. Do not merge or deploy either PR.
+
 ## خطة Hostinger المستقلة — 16 أكتوبر 2026
 
 CMS هو تطبيق Next.js/Payload مستقل على Hostinger، ومستودعه `futurerotech/healthylifestyles-cms`. الواجهة Astro من مستودع `futurerotech/HealthyLifestyles` على Vercel؛ تتصل به عبر HTTPS. الهدف الأول إصدار صلاحيات pSEO على Hostinger وحده، ثم التحقق والبناء المحلي، ثم إصدار Vercel بموافقة منفصلة. **هذه خطة معلّقة؛ لم يُنفذ رفع أو دمج أو نشر أو ترحيل أو تغيير إعدادات استضافة.**
@@ -60,7 +70,7 @@ CMS هو تطبيق Next.js/Payload مستقل على Hostinger، ومستودع
 4. **hPanel للمراجعة والمراقبة والتراجع المعتمد:** افتح تطبيق CMS القائم → Deployments لقراءة حالة البناء وSHA والسجل. تحقق من Node 22.x وأوامر البناء والتشغيل والقيم الموجودة دون كشفها. لا تضغط Redeploy إضافياً بعد حدث GitHub فتُنشئ بناءً ثانياً. لا تنشئ موقعاً بديلاً ولا تحذف الموقع ولا تُغيّر المستودع. لمشروع Next الحالي ناتج البناء `.next` وليس `out`، والتشغيل يحتاج Node دائم. راجع الأمر الفعلي لدى المضيف قبل اعتماده.
 5. **تشغيل التطبيق المُدار:** اترك إدارة Node.js والبناء وتفعيل المخرج لـhPanel، بالأوامر المعتمدة بعد التحقق. لا تنفذ تثبيتاً أو بناءً يدوياً عبر SSH ولا تثبّت مدير عمليات. لا تستخدم Restart لاختبار الإعدادات قبل الموافقة؛ يمكن أن يعيد تهيئة Payload ويشغّل onInit. راقب سجلات الإصدار وحالة Running والموارد بعد الإصدار المعتمد.
 6. تحقق من حالة العملية ومن السجل دون تسريب الأسرار، وAPI عام منشور 200، وقيود المسودات/حقول التوليد، وتطابق inventory كاملاً عبر pagination. تحقق من بقاء 39 مقالاً و70 سجل أدوات و56 FAQ وصورها وIDs وتواريخها وSEO وعلاقاتها بلا تغير غير مراجع. لا تنشئ سجلات أو تحفظ مقالات أو تستدعِ مولد pSEO في الإنتاج لاختبار الصلاحيات.
-7. تأكد أن Vercel deployment ID لم يتغير ولم يصله حدث Webhook، وأن الموقع وواجهاته تعمل. بعد نجاح هذه المرحلة انتقل إلى جرد pSEO/baseline والبناء المحلي المباشر وفحوص Sitemap وCanonical، وفق [دليل الواجهة](../../docs/DEPLOY.md). إصدار Vercel يحتاج موافقة مستقلة.
+7. تأكد أن Vercel deployment ID لم يتغير ولم يصله حدث Webhook، وأن الموقع وواجهاته تعمل. بعد نجاح هذه المرحلة انتقل إلى جرد pSEO/baseline والبناء المحلي المباشر وفحوص Sitemap وCanonical، وفق [دليل الواجهة](https://github.com/futurerotech/HealthyLifestyles/blob/codex/seo-cms-sync/docs/DEPLOY.md). إصدار Vercel يحتاج موافقة مستقلة.
 
 ### تراجع CMS دون استرجاع قاعدة الإنتاج
 
