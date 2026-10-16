@@ -1,5 +1,6 @@
 import path from 'path';
 import { canSeedDevelopmentDefaults } from './src/lib/development-seeding';
+import { postgresPoolOptions } from './src/lib/postgres-connection';
 import { fileURLToPath } from 'url';
 import { buildConfig } from 'payload';
 import { postgresAdapter } from '@payloadcms/db-postgres';
@@ -83,22 +84,6 @@ if (!process.env.DATABASE_URI) {
       '(e.g. postgres://user:pass@host/db?sslmode=require).',
   );
 }
-
-/**
- * P17B — SSL by host. Remote Postgres (Supabase/Neon) requires TLS with a cert
- * outside Node's default trust store; a LOCAL dev/staging Postgres (restored
- * snapshot on localhost) speaks plain TCP and rejects the SSL handshake.
- * Decide from the connection host so one config serves both. Any parse failure
- * falls back to SSL — production stays the safe default.
- */
-const DB_IS_LOCAL = (() => {
-  try {
-    const host = new URL(process.env.DATABASE_URI).hostname;
-    return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
-  } catch {
-    return false;
-  }
-})();
 
 /**
  * Persistent media storage. Hostinger wipes the app folder on every redeploy, so
@@ -203,14 +188,7 @@ export default buildConfig({
   editor: lexicalEditor(),
   plugins: storagePlugins,
   db: postgresAdapter({
-    pool: {
-      connectionString: process.env.DATABASE_URI,
-      // Remote (Supabase/Neon): encrypt without CA verification — their certs
-      // aren't in Node's default trust store, and recent pg treats
-      // sslmode=require as verify-full (the documented Supabase setup).
-      // Local snapshot DB (P17B): plain TCP — no SSL handshake at all.
-      ssl: DB_IS_LOCAL ? false : { rejectUnauthorized: false },
-    },
+    pool: postgresPoolOptions(process.env.DATABASE_URI, process.env.DATABASE_CA_CERT),
     // Pin the migration folder so `payload migrate` finds it on deploy
     // regardless of the host's working directory.
     migrationDir: path.resolve(dirname, 'src/migrations'),
@@ -218,9 +196,9 @@ export default buildConfig({
     // `npm run migrate`. `push` (Payload's dev auto-schema-sync) is OFF
     // everywhere by default and only turns on when a developer explicitly sets
     // ALLOW_DB_PUSH=true — intended for a throwaway local dev database. This
-    // universally protects the live Supabase schema from accidental
+      // protects the live Neon schema from accidental
     // mutation/drops during local `npm run dev`.
-    push: process.env.ALLOW_DB_PUSH === 'true',
+      push: !IS_PROD && process.env.ALLOW_DB_PUSH === 'true',
   }),
   secret: process.env.PAYLOAD_SECRET,
   // The CMS's own public URL (cookie/CSRF anchor + absolute admin URLs) — NOT

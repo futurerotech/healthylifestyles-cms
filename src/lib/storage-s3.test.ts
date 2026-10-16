@@ -18,11 +18,18 @@ describe('real S3 SDK and storage adapter against an isolated loopback object st
   const objects = new Map<string, { buffer: Buffer; contentType: string; etag: string }>();
   const errors = vi.fn();
   const filenames: string[] = [];
+  const requests: { method: string; key: string; authorization: string }[] = [];
   let adapter: ReturnType<ReturnType<typeof createS3Adapter>>;
 
   beforeAll(async () => {
     server = createServer(async (req, res) => {
       const key = decodeURIComponent(new URL(req.url!, 'http://localhost').pathname);
+      requests.push({ method: req.method!, key, authorization: String(req.headers.authorization) });
+      // R2 supports these object operations but does not implement S3 ACLs.
+      if (Object.keys(req.headers).some(header => header === 'x-amz-acl' || header.startsWith('x-amz-grant-'))) {
+        res.writeHead(501).end('ACLs are not supported by the R2 compatibility fixture');
+        return;
+      }
       if (req.method === 'PUT') {
         const chunks: Buffer[] = [];
         for await (const chunk of req) chunks.push(Buffer.from(chunk));
@@ -140,5 +147,14 @@ describe('real S3 SDK and storage adapter against an isolated loopback object st
     for (const filename of filenames) await adapter.handleDelete({ storageFilePath: `media/${filename}` } as any);
     expect(objects.size).toBe(0);
     expect((await serve(filenames[0]))?.status).toBe(404);
+  });
+
+  it('uses the R2 S3 contract: auto region, signature V4, path-style bucket and preserved media prefix', () => {
+    expect(new Set(requests.map(request => request.method))).toEqual(new Set(['PUT', 'GET', 'HEAD', 'DELETE']));
+    for (const request of requests) {
+      expect(request.key).toMatch(/^\/test-media\/media\//);
+      expect(request.authorization).toMatch(/^AWS4-HMAC-SHA256 /);
+      expect(request.authorization).toContain('/auto/s3/aws4_request');
+    }
   });
 });
