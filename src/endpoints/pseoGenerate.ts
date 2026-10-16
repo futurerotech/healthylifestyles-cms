@@ -15,6 +15,9 @@ export const pseoGenerate: Endpoint = {
     if (!req.user) {
       return Response.json({ ok: false, count: 0, message: 'Not authenticated.' }, { status: 401 });
     }
+    if (req.user.role !== 'admin') {
+      return Response.json({ ok: false, count: 0, message: 'Forbidden — admin only.' }, { status: 403 });
+    }
 
     let body: { datasetId?: string; templateId?: string };
     try {
