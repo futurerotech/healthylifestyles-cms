@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { Client } from 'pg';
+import { postgresPoolOptions } from '../../src/lib/postgres-connection.ts';
 const url = new URL(process.env.DATABASE_URI || 'postgres://invalid/invalid');
 assert.ok(process.env.GITHUB_ACTIONS === 'true' && process.env.RUN_DATABASE_TESTS === '1' &&
   ['localhost', '127.0.0.1'].includes(url.hostname) && url.pathname === '/mock' && url.username === 'mock',
   'Restore validation requires the disposable CI database');
-const original = new Client({ connectionString: url.toString() });
+const original = new Client(postgresPoolOptions(url.toString(), process.env.DATABASE_CA_CERT));
 url.pathname = '/mock_restore';
-const restored = new Client({ connectionString: url.toString() });
+const restored = new Client(postgresPoolOptions(url.toString(), process.env.DATABASE_CA_CERT));
 try {
   await original.connect();
   await restored.connect();

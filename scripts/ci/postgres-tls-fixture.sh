@@ -30,4 +30,11 @@ docker exec "$POSTGRES_CONTAINER" psql -v ON_ERROR_STOP=1 -U mock -d mock -c 'SE
 printf '127.0.0.1 neon-ci.example.invalid mismatched-ci.example.invalid\n' | sudo tee -a /etc/hosts >/dev/null
 echo "CI_POSTGRES_CA_FILE=$TLS_DIR/ca.crt" >> "$GITHUB_ENV"
 echo 'CI_POSTGRES_TLS_READY=1' >> "$GITHUB_ENV"
+# Give the actual Payload REST/build processes this PUBLIC fixture CA as well.
+# Do not export its private key or weaken Node's certificate validation.
+{
+  echo 'DATABASE_CA_CERT<<HLS_PUBLIC_CI_CA'
+  cat "$TLS_DIR/ca.crt"
+  echo 'HLS_PUBLIC_CI_CA'
+} >> "$GITHUB_ENV"
 echo 'Disposable PostgreSQL TLS fixture configured; generated private keys stay outside the repository.'

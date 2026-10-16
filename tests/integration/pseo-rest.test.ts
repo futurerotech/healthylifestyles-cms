@@ -37,6 +37,9 @@ describe('production Payload REST access using the committed schema on a disposa
     const routes = await import('@payloadcms/next/routes');
     rest = { GET: routes.REST_GET, POST: routes.REST_POST, PATCH: routes.REST_PATCH, DELETE: routes.REST_DELETE };
     payload = await getPayload({ config });
+    expect(payload.db.push).toBe(false);
+    const transport = await payload.db.pool.query('SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()');
+    expect(transport.rows[0].ssl).toBe(true);
     expect((await payload.count({ collection: 'outreach-templates' })).totalDocs).toBe(0);
     const suffix = `${Date.now()}`;
     for (const role of ['admin', 'editor']) {

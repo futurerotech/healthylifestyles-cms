@@ -113,6 +113,7 @@ jobs:
           INDEXNOW_DISABLE: 'true'
           NODE_ENV: production
           RUN_DATABASE_TESTS: '1'
+          ALLOW_DB_PUSH: 'true' # Prove production ignores the dev opt-in.
         run: npx vitest run --config vitest.integration.config.ts
 
       - name: Rehearse backup and restore (synthetic disposable data only)

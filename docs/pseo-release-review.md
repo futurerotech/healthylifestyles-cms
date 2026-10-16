@@ -41,6 +41,10 @@ CI additionally configures TLS on its disposable PostgreSQL service and checks
 real verified queries, SCRAM-SHA-256-PLUS, downgrade resistance, untrusted CA
 rejection and hostname mismatch rejection. Generated CI private keys stay in the
 runner's temporary directory and are never committed or uploaded. It rehearses
+The actual Payload REST suite and production-command build also receive only the
+public fixture CA; REST asserts its real database session is encrypted and that
+production ignores `ALLOW_DB_PUSH=true`.
+CI rehearses
 `pg_dump`/`pg_restore` using synthetic data and compares every table's rows,
 fingerprints, IDs, sequences and indexes after restoration to a second mock DB.
 
