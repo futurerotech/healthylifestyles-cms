@@ -8,6 +8,7 @@ dist/
 .env.production
 .env.*.backup
 *.dump
+.security-work/
 .vercel
 nul
 
