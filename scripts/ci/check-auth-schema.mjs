@@ -1,6 +1,7 @@
 import { Client } from 'pg'
+import { postgresPoolOptions } from '../../src/lib/postgres-connection.ts'
 
-const client = new Client({ connectionString: process.env.DATABASE_URI })
+const client = new Client(postgresPoolOptions(process.env.DATABASE_URI || '', process.env.DATABASE_CA_CERT))
 try {
   await client.connect()
   // The login page reads the first user; LIMIT 0 verifies the generated auth

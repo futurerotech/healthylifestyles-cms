@@ -26,6 +26,9 @@ fail without an insecure retry. URI SSL parameters cannot replace the verified
 driver settings. Conflicting query-host/credential parameters are rejected.
 Only literal loopback connections without a custom CA use plaintext for local CI.
 Automatic schema push is disabled in production even if its dev opt-in is set.
+The unused legacy migration-marker cleanup utility is also blocked in production
+and on remote targets; it requires a separate explicit local-development opt-in.
+The read-only schema checker uses the same verified connection policy.
 
 Cloudflare R2 bucket `healthylifestyles-media`, prefix `media/`, is confirmed.
 The storage implementation, bucket selection, object keys, CDN URLs, credentials
