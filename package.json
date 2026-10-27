@@ -69,6 +69,10 @@
     "@esbuild-kit/core-utils": {
       "esbuild": "^0.28.2"
     },
-    "@payloadcms/plugin-cloud-storage": "$@payloadcms/plugin-cloud-storage"
+    "@payloadcms/plugin-cloud-storage": "$@payloadcms/plugin-cloud-storage",
+    "happy-dom": "21.0.4",
+    "payload": {
+      "undici": "7.30.1"
+    }
   }
 }
