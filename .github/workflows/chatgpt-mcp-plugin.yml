@@ -1,0 +1,25 @@
+name: Verify private ChatGPT MCP draft-only endpoint
+on:
+  push:
+    branches: [feat/chatgpt-mcp-plugin-20261027]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/app/api/chatgpt-mcp/**'
+      - '.github/workflows/chatgpt-mcp-plugin.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run security:check
+      - run: npx tsc --noEmit
+      - run: npm test
