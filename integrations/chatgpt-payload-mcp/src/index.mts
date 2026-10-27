@@ -275,7 +275,6 @@ export default new OAuthProvider<Environment>({
   resourceMetadata: {
     resource: e.MCP_RESOURCE_URL,
     authorization_servers: [e.MCP_ISSUER],
-    scopes_supported: [READ, CREATE],
     resource_name: 'HealthyLifeStyles Editorial Drafts',
   },
 });
