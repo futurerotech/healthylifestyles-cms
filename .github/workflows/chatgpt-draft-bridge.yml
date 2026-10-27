@@ -5,8 +5,10 @@ on:
     branches: [main]
     paths:
       - 'src/lib/chatgptDraftPolicy.ts'
+      - 'src/lib/chatgptDraftAuth.ts'
       - 'src/app/api/chatgpt-drafts/**'
       - 'tests/chatgptDraftPolicy.node-tests.mjs'
+      - 'tests/chatgptDraftAuth.node-tests.mjs'
       - 'integrations/chatgpt-payload-mcp/**'
       - '.github/workflows/chatgpt-draft-bridge.yml'
 
@@ -22,7 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - run: node --experimental-strip-types --test tests/chatgptDraftPolicy.node-tests.mjs
+      - run: node --experimental-strip-types --test tests/chatgptDraftPolicy.node-tests.mjs tests/chatgptDraftAuth.node-tests.mjs
       - run: node --experimental-strip-types --check src/app/api/chatgpt-drafts/route.ts
   worker:
     runs-on: ubuntu-latest
