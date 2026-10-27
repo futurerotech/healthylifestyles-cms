@@ -103,7 +103,7 @@ function createServer() {
   server.registerTool('whoami', {
     title: 'Connected HealthyLifeStyles editor',
     description: 'Returns the authenticated editor identity and allowed scopes; never returns secrets.',
-    inputSchema: z.object({}), securitySchemes: [{ type: 'oauth2', scopes: [READ] }],
+    inputSchema: {}, securitySchemes: [{ type: 'oauth2', scopes: [READ] }],
   }, async () => {
     try {
       const p = auth(READ);
@@ -113,7 +113,7 @@ function createServer() {
   server.registerTool('list_article_references', {
     title: 'List verified editorial reference IDs',
     description: 'Read existing published article/tool IDs, categories, authors and tags for safe draft relationships. No changes.',
-    inputSchema: z.object({}), securitySchemes: [{ type: 'oauth2', scopes: [READ] }],
+    inputSchema: {}, securitySchemes: [{ type: 'oauth2', scopes: [READ] }],
   }, async () => {
     try { auth(READ); return answer(await payloadApi('GET', '/api/chatgpt-drafts?kind=references')); }
     catch (error) { return reject(error); }
@@ -121,7 +121,7 @@ function createServer() {
   server.registerTool('find_article_by_slug', {
     title: 'Check existing article before drafting',
     description: 'Read whether an article slug exists, including unpublished drafts, to avoid duplicates. No changes.',
-    inputSchema: z.object({ slug: z.string().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/) }),
+    inputSchema: { slug: z.string().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/) },
     securitySchemes: [{ type: 'oauth2', scopes: [READ] }],
   }, async ({ slug }) => {
     try { auth(READ); return answer(await payloadApi('GET', '/api/chatgpt-drafts?kind=article&slug=' + slug)); }
@@ -130,7 +130,7 @@ function createServer() {
   server.registerTool('create_article_draft', {
     title: 'Create one unpublished HealthyLifeStyles article draft',
     description: 'Creates exactly ONE new DRAFT after validation and duplicate checks. Requires user approval. NEVER publishes, updates, deletes, deploys or uploads media. Pass the full checked article JSON object serialized as a string.',
-    inputSchema: z.object({ article_json: z.string().min(100).max(CODE_MAX) }),
+    inputSchema: { article_json: z.string().min(100).max(CODE_MAX) },
     securitySchemes: [{ type: 'oauth2', scopes: [CREATE] }],
   }, async ({ article_json }) => {
     try {
@@ -264,7 +264,7 @@ const defaultHandler: ExportedHandler<Environment> = {
 const e = env as unknown as Environment;
 export default new OAuthProvider<Environment>({
   apiRoute: '/mcp',
-  apiHandler: createMcpHandler(createServer),
+  apiHandler: { fetch(request: Request) { return createMcpHandler(createServer).fetch(request); } },
   defaultHandler,
   authorizeEndpoint: '/authorize',
   tokenEndpoint: '/oauth/token',
