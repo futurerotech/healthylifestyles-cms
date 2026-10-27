@@ -71,6 +71,7 @@
     },
     "@payloadcms/plugin-cloud-storage": "$@payloadcms/plugin-cloud-storage",
     "happy-dom": "21.0.4",
-    "undici": "7.30.1"
+    "undici": "7.30.1",
+    "fast-uri": "3.1.9"
   }
 }
