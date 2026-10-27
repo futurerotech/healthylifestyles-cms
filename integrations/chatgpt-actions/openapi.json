@@ -53,7 +53,125 @@
               "application/json": {
                 "schema": {
                   "type": "object",
-                  "additionalProperties": true
+                  "description": "Either references (tools, publishedArticles, categories, authors, tags) or an exact-slug lookup (matches, count).",
+                  "properties": {
+                    "tools": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "publishedArticles": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "authors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "slug": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "tags": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "matches": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "slug": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
             }
@@ -69,7 +187,7 @@
       "post": {
         "operationId": "createHealthyLifeStylesArticleDraft",
         "summary": "Create ONE unpublished article draft only",
-        "description": "WRITE ACTION: Run only after explicit confirmation from the site owner. First GET references and GET existing article slug; do not retry after uncertain result. Backend enforces draft status, disables featured status and fake human reviews, rejects duplicate titles and slugs, and forbids publishing or modifying existing content.",
+        "description": "Create one unpublished article draft only after the owner's explicit approval. First read references and check the exact slug for duplicates. Never retry after an uncertain result. Server-side policy blocks publishing, updates, deletions and invalid relationships.",
         "requestBody": {
           "required": true,
           "content": {
@@ -231,7 +349,7 @@
             "type": "array",
             "minItems": 14,
             "maxItems": 90,
-            "description": "Structured article blocks: text h2/h3/p, exactly one toolEmbed matching primaryTool, FAQ peopleAlsoAsk with 4-5 items, plus lists/tables/callout as appropriate. Must include >=3 contextual internal tool links, >=2 published internal article links, and >=2 evidence links inside paragraphs. Backend independently validates.",
+            "description": "Structured CMS blocks: paragraphs/headings, exactly one toolEmbed matching primaryTool, 4–5 FAQs, and useful lists/tables/callouts. Include contextual links to 3 existing tools, 2 published articles and 2 independent scientific sources; the server validates independently.",
             "items": {
               "type": "object",
               "required": [
