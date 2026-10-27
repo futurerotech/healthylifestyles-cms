@@ -1,8 +1,8 @@
-import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import config from '@payload-config';
 import { validateDraftInput, type DraftObject } from '@/lib/chatgptDraftPolicy';
+import { draftBridgeAuth } from '@/lib/chatgptDraftAuth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,22 +12,9 @@ const NO_CACHE = { 'Cache-Control': 'no-store, private', 'X-Content-Type-Options
 const send = (data: Record<string, unknown>, status = 200) =>
   NextResponse.json(data, { status, headers: NO_CACHE });
 
-function authenticated(req: Request): 'ok' | 'unconfigured' | 'denied' {
-  const secret = process.env.CHATGPT_DRAFT_BRIDGE_TOKEN;
-  if (!secret || secret.length < 43 || /\s/.test(secret)) return 'unconfigured';
-  // Browser requests are never legitimate callers. A remote MCP Worker sends
-  // Authorization without cookies, Origin or any browser auth state.
-  if (req.headers.has('origin') || req.headers.has('cookie')) return 'denied';
-  const authorization = req.headers.get('authorization') || '';
-  if (!authorization.startsWith('Bearer ')) return 'denied';
-  const supplied = Buffer.from(authorization.slice(7), 'utf8');
-  const expected = Buffer.from(secret, 'utf8');
-  return supplied.length === expected.length && timingSafeEqual(supplied, expected)
-    ? 'ok' : 'denied';
-}
 
 function gate(req: Request): NextResponse | null {
-  const state = authenticated(req);
+  const state = draftBridgeAuth(req.headers, process.env.CHATGPT_DRAFT_BRIDGE_TOKEN);
   if (state === 'ok') return null;
   return send({ error: state === 'unconfigured' ? 'Draft bridge is disabled.' : 'Unauthorized.' }, state === 'unconfigured' ? 503 : 401);
 }
