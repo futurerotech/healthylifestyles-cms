@@ -1,0 +1,24 @@
+{
+  "name": "healthylifestyles-chatgpt-payload-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Draft-only OAuth 2.1 ChatGPT MCP connector for HealthyLifeStyles Payload CMS",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@cloudflare/workers-oauth-provider": "1.2.4",
+    "@modelcontextprotocol/server": "2.0.0",
+    "agents": "0.20.0",
+    "zod": "4.1.11"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260730.1",
+    "typescript": "5.9.3",
+    "wrangler": "4.115.0"
+  }
+}
