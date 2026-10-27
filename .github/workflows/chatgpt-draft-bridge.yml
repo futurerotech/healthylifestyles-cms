@@ -40,4 +40,29 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm test
       - run: npm run check
+      - name: Smoke-test Worker in local runtime (no account or secrets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler dev --local --ip 127.0.0.1 --port 8789 \
+            --var MCP_ISSUER:http://127.0.0.1:8789 \
+            --var MCP_RESOURCE_URL:http://127.0.0.1:8789/mcp \
+            > worker-local.log 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          status=000
+          for attempt in $(seq 1 35); do
+            status=$(curl --max-time 3 -s -o worker-health.json -w "%{http_code}" http://127.0.0.1:8789/health || true)
+            if [ "$status" = 200 ]; then break; fi
+            sleep 1
+          done
+          if [ "$status" != 200 ]; then
+            echo "Worker failed its isolated health test."
+            tail -n 90 worker-local.log
+            exit 1
+          fi
+          grep -q '"ok":true' worker-health.json
+          status=$(curl --max-time 3 -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8789/not-a-route)
+          [ "$status" = 404 ] || { echo "Worker must reject unknown routes (got $status)."; exit 1; }
+          echo "Worker startup, health and 404 tests passed without credentials."
       - run: npx wrangler deploy --dry-run --outdir=.wrangler/bridge-review
