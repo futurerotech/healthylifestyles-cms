@@ -1,0 +1,400 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "HealthyLifeStyles Draft-Only Editorial API",
+    "version": "1.0.0",
+    "description": "Private, least-privilege GPT Action for verifying editorial relationships and creating exactly one unpublished article draft per confirmed request. Does not publish, update, or delete existing content. Only install into a private GPT after owner-approved CMS deployment."
+  },
+  "servers": [
+    {
+      "url": "https://cms.healthylifesstyles.com"
+    }
+  ],
+  "security": [
+    {
+      "DraftBridgeBearer": []
+    }
+  ],
+  "paths": {
+    "/api/chatgpt-drafts": {
+      "get": {
+        "operationId": "checkHealthyLifeStylesEditorialReferences",
+        "summary": "Read published editorial references or check for existing article slug",
+        "description": "For kind=references returns published article/tool IDs and metadata for building a fully verified draft. For kind=article, requires slug and returns matching records including drafts. Always look up duplicates before trying a create.",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "references",
+                "article"
+              ]
+            }
+          },
+          {
+            "name": "slug",
+            "in": "query",
+            "required": false,
+            "description": "Required when kind=article. Check exact slug before writing.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+              "maxLength": 120
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "References or article slug search; no writes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "503": {
+            "description": "Backend disabled or unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createHealthyLifeStylesArticleDraft",
+        "summary": "Create ONE unpublished article draft only",
+        "description": "WRITE ACTION: Run only after explicit confirmation from the site owner. First GET references and GET existing article slug; do not retry after uncertain result. Backend enforces draft status, disables featured status and fake human reviews, rejects duplicate titles and slugs, and forbids publishing or modifying existing content.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "New unpublished draft created; response contains ID, slug, draft status, and CMS edit URL.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "id",
+                    "slug",
+                    "status"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "integer"
+                    },
+                    "slug": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "draft"
+                      ]
+                    },
+                    "adminUrl": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "409": {
+            "description": "Duplicate slug/title; no new draft created"
+          },
+          "422": {
+            "description": "Draft failed schema/relationship validation"
+          },
+          "503": {
+            "description": "CMS unavailable"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "DraftBridgeBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Set the private GPT Action API-key authentication to Bearer. Use only the dedicated CHATGPT_DRAFT_BRIDGE_TOKEN secret created for this endpoint; NEVER use a Payload editor/admin API key."
+      }
+    },
+    "schemas": {
+      "ArticleDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "slug",
+          "excerpt",
+          "category",
+          "author",
+          "tags",
+          "primaryTool",
+          "relatedTools",
+          "relatedArticles",
+          "layout",
+          "takeaways",
+          "sources",
+          "semanticEntities",
+          "seo",
+          "hasFAQ",
+          "isHowTo",
+          "isHealthTopic"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "maxLength": 120
+          },
+          "excerpt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "category": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Existing verified Payload relationship ID"
+          },
+          "author": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Existing verified Payload relationship ID"
+          },
+          "primaryTool": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Existing verified Payload relationship ID"
+          },
+          "tags": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Existing verified Payload relationship ID"
+            }
+          },
+          "relatedTools": {
+            "type": "array",
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Existing verified Payload relationship ID"
+            }
+          },
+          "relatedArticles": {
+            "type": "array",
+            "maxItems": 6,
+            "uniqueItems": true,
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Existing verified Payload relationship ID"
+            }
+          },
+          "layout": {
+            "type": "array",
+            "minItems": 14,
+            "maxItems": 90,
+            "description": "Structured article blocks: text h2/h3/p, exactly one toolEmbed matching primaryTool, FAQ peopleAlsoAsk with 4-5 items, plus lists/tables/callout as appropriate. Must include >=3 contextual internal tool links, >=2 published internal article links, and >=2 evidence links inside paragraphs. Backend independently validates.",
+            "items": {
+              "type": "object",
+              "required": [
+                "blockType"
+              ],
+              "properties": {
+                "blockType": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "toolEmbed",
+                    "list",
+                    "table",
+                    "callout",
+                    "peopleAlsoAsk"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "takeaways": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": {
+              "type": "object",
+              "required": [
+                "text"
+              ],
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "maxLength": 800
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "sources": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "required": [
+                "label",
+                "url"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri",
+                  "pattern": "^https://"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "semanticEntities": {
+            "type": "array",
+            "minItems": 5,
+            "maxItems": 7,
+            "items": {
+              "type": "object",
+              "required": [
+                "term",
+                "url"
+              ],
+              "properties": {
+                "term": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "url": {
+                  "type": "string",
+                  "format": "uri",
+                  "pattern": "^https://"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "seo": {
+            "type": "object",
+            "required": [
+              "metaTitle",
+              "metaDescription",
+              "ogTitle",
+              "ogDescription",
+              "twitterTitle",
+              "twitterDescription",
+              "canonical",
+              "noIndex",
+              "keywords"
+            ],
+            "properties": {
+              "metaTitle": {
+                "type": "string",
+                "maxLength": 60
+              },
+              "metaDescription": {
+                "type": "string",
+                "minLength": 110,
+                "maxLength": 160
+              },
+              "ogTitle": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "ogDescription": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "twitterTitle": {
+                "type": "string",
+                "maxLength": 100
+              },
+              "twitterDescription": {
+                "type": "string",
+                "maxLength": 250
+              },
+              "canonical": {
+                "type": "string",
+                "const": ""
+              },
+              "noIndex": {
+                "type": "boolean",
+                "const": false
+              },
+              "keywords": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 12,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 100
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "hasFAQ": {
+            "type": "boolean",
+            "const": true
+          },
+          "isHowTo": {
+            "type": "boolean"
+          },
+          "isHealthTopic": {
+            "type": "boolean"
+          },
+          "aiImagePrompt": {
+            "type": "string",
+            "maxLength": 8000
+          }
+        }
+      }
+    }
+  }
+}
