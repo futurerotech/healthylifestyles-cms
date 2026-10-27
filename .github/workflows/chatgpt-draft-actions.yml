@@ -1,0 +1,24 @@
+name: Verify direct ChatGPT draft-only API
+on:
+  push:
+    branches: [feat/direct-chatgpt-draft-actions-20261027]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/app/api/chatgpt-drafts/**'
+      - 'src/lib/chatgptDraft*'
+      - 'tests/chatgptDraft*'
+      - 'integrations/chatgpt-actions/**'
+      - '.github/workflows/chatgpt-draft-actions.yml'
+permissions:
+  contents: read
+jobs:
+  isolated-draft-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --experimental-strip-types --test tests/chatgptDraftPolicy.node-tests.mjs tests/chatgptDraftAuth.node-tests.mjs
+      - run: node --experimental-strip-types --check src/app/api/chatgpt-drafts/route.ts
