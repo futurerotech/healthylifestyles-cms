@@ -33,6 +33,10 @@ jobs:
         run: |
           npm run check:domain
           npx tsc --noEmit
+      - name: Run CMS regression tests
+        run: npm test
+      - name: Verify real Hostinger prebuild command with isolated test config
+        run: npm run prebuild
       - name: Commit lockfile only after every prior gate passes
         run: |
           if ! git diff --quiet -- package-lock.json; then
