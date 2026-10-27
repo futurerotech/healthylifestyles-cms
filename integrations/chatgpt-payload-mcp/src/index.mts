@@ -103,7 +103,7 @@ function createServer() {
   server.registerTool('whoami', {
     title: 'Connected HealthyLifeStyles editor',
     description: 'Returns the authenticated editor identity and allowed scopes; never returns secrets.',
-    inputSchema: {}, securitySchemes: [{ type: 'oauth2', scopes: [READ] }],
+    inputSchema: z.object({}), securitySchemes: [{ type: 'oauth2', scopes: [READ] }],
   }, async () => {
     try {
       const p = auth(READ);
@@ -113,7 +113,7 @@ function createServer() {
   server.registerTool('list_article_references', {
     title: 'List verified editorial reference IDs',
     description: 'Read existing published article/tool IDs, categories, authors and tags for safe draft relationships. No changes.',
-    inputSchema: {}, securitySchemes: [{ type: 'oauth2', scopes: [READ] }],
+    inputSchema: z.object({}), securitySchemes: [{ type: 'oauth2', scopes: [READ] }],
   }, async () => {
     try { auth(READ); return answer(await payloadApi('GET', '/api/chatgpt-drafts?kind=references')); }
     catch (error) { return reject(error); }
@@ -121,7 +121,7 @@ function createServer() {
   server.registerTool('find_article_by_slug', {
     title: 'Check existing article before drafting',
     description: 'Read whether an article slug exists, including unpublished drafts, to avoid duplicates. No changes.',
-    inputSchema: { slug: z.string().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/) },
+    inputSchema: z.object({ slug: z.string().min(1).max(120).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/) }),
     securitySchemes: [{ type: 'oauth2', scopes: [READ] }],
   }, async ({ slug }) => {
     try { auth(READ); return answer(await payloadApi('GET', '/api/chatgpt-drafts?kind=article&slug=' + slug)); }
@@ -130,7 +130,7 @@ function createServer() {
   server.registerTool('create_article_draft', {
     title: 'Create one unpublished HealthyLifeStyles article draft',
     description: 'Creates exactly ONE new DRAFT after validation and duplicate checks. Requires user approval. NEVER publishes, updates, deletes, deploys or uploads media. Pass the full checked article JSON object serialized as a string.',
-    inputSchema: { article_json: z.string().min(100).max(CODE_MAX) },
+    inputSchema: z.object({ article_json: z.string().min(100).max(CODE_MAX) }),
     securitySchemes: [{ type: 'oauth2', scopes: [CREATE] }],
   }, async ({ article_json }) => {
     try {
@@ -172,6 +172,7 @@ async function authorize(req: Request, e: Environment): Promise<Response> {
     // Never redirect a malformed client or unvalidated redirect URI.
     return respond(error instanceof AuthorizationError ? special(error.description) : 'Invalid OAuth request.', 400);
   }
+  cfg();
   const client = await e.OAUTH_PROVIDER.lookupClient(oauth.clientId);
   if (!client) return respond('Unknown OAuth client.', 400);
   const nonce = token();
@@ -182,6 +183,7 @@ async function authorize(req: Request, e: Environment): Promise<Response> {
   return respond(html, 200, { 'Set-Cookie': cookie('HLS-CONSENT', nonce) });
 }
 async function consent(req: Request, e: Environment): Promise<Response> {
+  cfg();
   if (req.headers.get('origin') !== e.MCP_ISSUER) return respond('Invalid origin.',403);
   if (!(req.headers.get('content-type') || '').startsWith('application/x-www-form-urlencoded')) return respond('Invalid form.',415);
   const form = await req.formData();
@@ -205,6 +207,7 @@ async function consent(req: Request, e: Environment): Promise<Response> {
   }});
 }
 async function callback(req: Request, e: Environment): Promise<Response> {
+  cfg();
   const u = new URL(req.url);
   if (u.searchParams.has('error')) return respond('GitHub authorization denied.',403);
   const state = u.searchParams.get('state');
@@ -256,7 +259,9 @@ const defaultHandler: ExportedHandler<Environment> = {
 
 // The provider owns OAuth 2.1 token issuance, validation, PKCE, CIMD/DCR,
 // issuer identification, metadata and refresh/revocation.
-const e = cfg();
+// OAuth metadata needs only public Worker URL bindings.
+// Secrets are checked at request time, not at first-worker provisioning.
+const e = env as unknown as Environment;
 export default new OAuthProvider<Environment>({
   apiRoute: '/mcp',
   apiHandler: createMcpHandler(createServer),
@@ -266,6 +271,7 @@ export default new OAuthProvider<Environment>({
   clientRegistrationEndpoint: '/oauth/register',
   scopesSupported: [READ, CREATE],
   clientIdMetadataDocumentEnabled: true,
+  requiredScopes: [READ, CREATE],
   resourceMetadata: {
     resource: e.MCP_RESOURCE_URL,
     authorization_servers: [e.MCP_ISSUER],
