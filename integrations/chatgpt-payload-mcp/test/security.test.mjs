@@ -22,3 +22,12 @@ test('no secret values committed in code or Worker config', () => {
   }
   assert.match(config,/REPLACE_WITH_YOUR_WORKER_HOST/);
 });
+
+test('MCP SDK avoids known cross-client HTTP response isolation vulnerability', () => {
+  const pkg=JSON.parse(readFileSync(new URL('../package.json', import.meta.url),'utf8'));
+  const v=pkg.dependencies['@modelcontextprotocol/server'].split('.').map(Number);
+  assert.ok(v[0] > 2 || (v[0] === 2 && v[1] >= 3), 'Use patched MCP SDK >= 2.3.0');
+  assert.match(source,/createMcpHandler\(createServer\)/,'Per-request fresh server factory');
+  assert.match(source,/requiredScopes: \[READ, CREATE\]/);
+  assert.match(source,/inputSchema: z\.object\(\{ slug:/);
+});
