@@ -29,5 +29,5 @@ test('MCP SDK avoids known cross-client HTTP response isolation vulnerability', 
   assert.ok(v[0] > 2 || (v[0] === 2 && v[1] >= 3), 'Use patched MCP SDK >= 2.3.0');
   assert.match(source,/createMcpHandler\(createServer\)/,'Per-request fresh server factory');
   assert.match(source,/requiredScopes: \[READ, CREATE\]/);
-  assert.match(source,/inputSchema: z\.object\(\{ slug:/);
+  assert.match(source,/inputSchema: \{ slug:/);
 });
