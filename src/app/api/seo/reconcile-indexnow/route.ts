@@ -3,7 +3,7 @@ import { getPayload } from 'payload';
 import config from '@payload-config';
 import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest } from '@/lib/indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,41 +63,44 @@ export async function POST(req: Request): Promise<NextResponse> {
   const pending = await payload.find({
     collection: 'pending-deploys', limit: 20, page: requestedPage, depth: 0, sort: 'changedAt',
   });
-  const ready: Array<{ id: number | string; path: string; changedAt: string }> = [];
-  const deferred: Array<{ id: number | string; reason: string }> = [];
-  for (const p of pending.docs) {
+  // Remote checks are limited to four in flight; results still match the
+  // original queue order so the exact preview approval remains deterministic.
+  type Checked =
+    | { kind: 'ready'; id: number | string; path: string; changedAt: string }
+    | { kind: 'deferred'; id: number | string; reason: string };
+  const checked = await mapWithBoundedConcurrency(pending.docs, 4, async (p): Promise<Checked> => {
     const record = p as unknown as { id: number | string; collectionSlug?: string; docId?: string; changedAt?: string };
     const type = record.collectionSlug;
     const collection = type === 'articles' ? 'articles' : type === 'tools' ? 'tools' : null;
-    if (!collection || !record.docId || !record.changedAt) {
-      deferred.push({ id: record.id, reason: 'unsupported collection or incomplete entry' }); continue;
-    }
+    const docId = record.docId;
+    const changedAt = record.changedAt;
+    const defer = (reason: string): Checked => ({ kind: 'deferred', id: record.id, reason });
+    if (!collection || !docId || !changedAt) return defer('unsupported collection or incomplete entry');
     try {
-      const current = await payload.findByID({ collection, id: record.docId, depth: 0, draft: false }) as {
+      const current = await payload.findByID({ collection, id: docId, depth: 0, draft: false }) as {
         _status?: string; enabled?: boolean; seo?: { noIndex?: boolean }; updatedAt?: string;
       };
       const proof = selectPublishedProof(manifest.buildStartedAt!, manifest.records!, record, current);
-      if (!proof.ok) {
-        deferred.push({ id: record.id, reason: proof.reason }); continue;
-      }
-      const match = proof.record;
-      const deployedPath = match.path;
-      if (!deployedPath) { deferred.push({ id: record.id, reason: 'missing deployed path' }); continue; }
+      if (!proof.ok) return defer(proof.reason);
+      const deployedPath = proof.record.path;
+      if (!deployedPath) return defer('missing deployed path');
       const page = await fetchPublic(deployedPath);
-      if (page.status !== 200) {
-        deferred.push({ id: record.id, reason: 'public page status ' + page.status }); continue;
-      }
+      if (page.status !== 200) return defer('public page status ' + page.status);
       const html = await page.text();
       const canonicalUrl = publicOrigin + deployedPath;
       const verification = verifyDeployedHtml(html, canonicalUrl, page.url,
         page.headers.get('content-type'), page.headers.get('x-robots-tag'));
-      if (!verification.ok) {
-        deferred.push({ id: record.id, reason: verification.reason }); continue;
-      }
-      ready.push({ id: record.id, path: deployedPath, changedAt: record.changedAt });
+      if (!verification.ok) return defer(verification.reason);
+      return { kind: 'ready', id: record.id, path: deployedPath, changedAt };
     } catch (e) {
-      deferred.push({ id: record.id, reason: 'validation failed: ' + String(e).slice(0,100) });
+      return defer('validation failed: ' + String(e).slice(0, 100));
     }
+  });
+  const ready: Array<{ id: number | string; path: string; changedAt: string }> = [];
+  const deferred: Array<{ id: number | string; reason: string }> = [];
+  for (const item of checked) {
+    if (item.kind === 'ready') ready.push({ id: item.id, path: item.path, changedAt: item.changedAt });
+    else deferred.push({ id: item.id, reason: item.reason });
   }
   const readyVersions = ready.map(x => ({ url: publicOrigin + x.path, changedAt: x.changedAt }));
   const report = { dryRun: !explicitlyConfirmed, ready: ready.map(x => publicOrigin + x.path), readyVersions,
