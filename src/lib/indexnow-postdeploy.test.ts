@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { acknowledgeIndexNowQueueRevision } from './indexnow-queue-ack';
 import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency } from './indexnow-postdeploy';
 
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
@@ -9,6 +10,21 @@ const build = '2026-10-28T11:30:00Z';
 const expected='https://www.healthylifesstyles.com/wellness-hub/example-guide';
 
 describe('post-deploy IndexNow safety gates', () => {
+ it('never acknowledges a newer queue revision or a missing row', async () => {
+  const calls: unknown[] = [];
+  const original = { id: 7, changedAt: '2026-10-28T12:00:00Z' };
+  const superseded = async (statement: unknown) => {
+   calls.push(statement);
+   return { rows: [] };
+  };
+  expect(await acknowledgeIndexNowQueueRevision(superseded, original)).toBe(false);
+  expect(calls).toHaveLength(1);
+  expect(await acknowledgeIndexNowQueueRevision(async () => ({ rows: [{ id: 7 }] }), original)).toBe(true);
+  expect(await acknowledgeIndexNowQueueRevision(async () => ({ rows: [{ id: 8 }] }), original)).toBe(false);
+  expect(await acknowledgeIndexNowQueueRevision(superseded, { id: 0, changedAt: original.changedAt })).toBe(false);
+  expect(await acknowledgeIndexNowQueueRevision(superseded, { id: 7, changedAt: 'invalid' })).toBe(false);
+  expect(calls).toHaveLength(1);
+ });
  it('bounds concurrent checks while preserving queue order', async () => {
   const items = [0, 1, 2, 3, 4, 5, 6, 7];
   let active = 0;
