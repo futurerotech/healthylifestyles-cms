@@ -46,6 +46,23 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
 
   afterAll(async () => { await payload?.destroy(); });
 
+  it('detects duplicate historical queue identities even when records are on different pages', async () => {
+    const docId = 'historical-duplicate-' + Date.now() + '-' + Math.random();
+    await payload.create({ collection: 'pending-deploys', data: {
+      collectionSlug: 'articles', docId, changedAt: '2026-10-28T08:00:00.000Z',
+    } });
+    await payload.create({ collection: 'pending-deploys', data: {
+      collectionSlug: 'articles', docId, changedAt: '2026-10-28T08:01:00.000Z',
+    } });
+    const duplicates = await payload.count({ collection: 'pending-deploys',
+      where: { and: [
+        { collectionSlug: { equals: 'articles' } },
+        { docId: { equals: docId } },
+      ] },
+    });
+    expect(duplicates.totalDocs).toBe(2);
+  });
+
   it('deduplicates simultaneous initial publishes in the actual PostgreSQL queue', async () => {
     const docId = `indexnow-concurrent-${Date.now()}-${Math.random()}`;
     const older = '2026-10-28T10:00:00.000Z';
