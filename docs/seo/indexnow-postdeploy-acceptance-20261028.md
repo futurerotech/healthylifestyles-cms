@@ -18,6 +18,7 @@ Status: REVIEW ONLY. PR #34 does not enable production delivery until explicitly
 - Each queue preview checks at most 20 entries with no more than 4 concurrent page checks, returning the original queue order despite differing network latency. Requires operator-driven requests; multiple slow/unreachable pages can still delay or defer a batch.
 - Pending deletions, slug changes and redirects are not yet modeled as separate IndexNow URL_DELETED/redirect events. Do not describe this as a complete change-data capture solution.
 - A generic CMS `updatedAt` may advance on a metadata-only edit; manifest and canonical checks remain essential. The sender should remain conservative.
+- The queue publisher handles a 404 on updating an existing pending row by re-creating the pending event (a concurrent acknowledgement may have deleted the row). This is a narrow safety fallback, not a guarantee of exactly-once delivery. Distinct simultaneous creates still require an independent database uniqueness/idempotency review.
 - Real production origin, service credentials and host keys cannot be validated from a GitHub CI run alone.
 - Do not merge, deploy or send live notifications without owner permission.
 
