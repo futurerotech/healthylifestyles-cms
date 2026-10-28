@@ -42,8 +42,10 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      - name: Install exact locked dependencies
-        run: npm ci
+      - name: Install exact locked dependencies (including test devDependencies)
+        env:
+          NODE_ENV: development
+        run: npm ci --include=dev
       - name: Unit tests
         run: npm test
       - name: TypeScript
