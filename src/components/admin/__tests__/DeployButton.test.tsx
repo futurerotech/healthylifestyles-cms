@@ -1,6 +1,6 @@
 import React from 'react';
-import { beforeEach, describe, expect, fireEvent, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import DeployButton from '../DeployButton';
 
 const mockUser = vi.hoisted(() => ({ role: 'admin' as string }));
