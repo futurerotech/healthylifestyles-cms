@@ -5,7 +5,7 @@ import config from '@payload-config';
 import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
 import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest } from '@/lib/indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -118,8 +118,8 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   // A dry-run is useful even when IndexNow is not yet configured. Guard only
   // the actual submission; never log/return the configured ownership key.
-  if (process.env.INDEXNOW_DISABLE === 'true') {
-    return NextResponse.json({ ...report, error: 'IndexNow disabled; queue preserved' }, { status: 503 });
+  if (!isIndexNowLiveSubmissionEnabled(process.env.INDEXNOW_LIVE_ENABLED, process.env.INDEXNOW_DISABLE)) {
+    return NextResponse.json({ ...report, error: 'IndexNow live submission is not explicitly enabled; queue preserved' }, { status: 503 });
   }
   // Explicit no-network safety for operator staging, regardless of NODE_ENV.
   // Keep queued items and approval intact for a subsequent real preview.
