@@ -316,9 +316,7 @@ export const SeoIndexingEngine: React.FC = () => {
           <button type="button" className="seo-btn seo-btn--primary" onClick={() => startTransition(() => { void scanAll(); })} disabled={scanning || loading || state.rows.length === 0}>
             {scanning ? 'Scanning…' : 'Scan All ▶'}
           </button>
-          <button type="button" className="seo-btn seo-btn--primary" onClick={() => void submitAllNotIndexed()} disabled={submitting || quotaEmpty || notIndexedCount === 0}>
-            Scan &amp; Submit All Not-Indexed
-          </button>
+          <span className="seo-indexing-note">Google inspection is read-only. Submit eligible indexing requests manually in Search Console.</span>
         </div>
       </header>
 
