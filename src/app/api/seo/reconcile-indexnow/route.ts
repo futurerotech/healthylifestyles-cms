@@ -3,6 +3,7 @@ import { getPayload } from 'payload';
 import config from '@payload-config';
 import { isAllowedOrigin } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
+import { selectPublishedProof, verifyDeployedHtml } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,35 +64,25 @@ export async function POST(req: Request): Promise<NextResponse> {
     if (!collection || !record.docId || !record.changedAt) {
       deferred.push({ id: record.id, reason: 'unsupported collection or incomplete entry' }); continue;
     }
-    if (Date.parse(manifest.buildStartedAt!) < Date.parse(record.changedAt)) {
-      deferred.push({ id: record.id, reason: 'production build older than queued change' }); continue;
-    }
-    const match = manifest.records!.find(x => x.collection === collection && String(x.docId) === String(record.docId));
-    if (!match?.path || match.noIndex) {
-      deferred.push({ id: record.id, reason: 'not an indexable URL in deployed manifest' }); continue;
-    }
     try {
       const current = await payload.findByID({ collection, id: record.docId, depth: 0, draft: false }) as {
         _status?: string; enabled?: boolean; seo?: { noIndex?: boolean }; updatedAt?: string;
       };
-      if (current._status !== 'published' || current.enabled === false || current.seo?.noIndex ||
-          !match.updatedAt || !current.updatedAt ||
-          Date.parse(match.updatedAt) < Date.parse(current.updatedAt)) {
-        deferred.push({ id: record.id, reason: 'CMS state newer than deployed manifest or not indexable' }); continue;
+      const proof = selectPublishedProof(manifest.buildStartedAt!, manifest.records!, record, current);
+      if (!proof.ok) {
+        deferred.push({ id: record.id, reason: proof.reason }); continue;
       }
+      const match = proof.record;
       const page = await fetchPublic(match.path);
       if (page.status !== 200) {
         deferred.push({ id: record.id, reason: 'public page status ' + page.status }); continue;
       }
       const html = await page.text();
       const canonicalUrl = publicOrigin + match.path;
-      const canonical = html.match(/<link\b[^>]*rel=["']canonical["'][^>]*>/i)?.[0] || '';
-      const canonicalMatches = canonical.includes('href="' + canonicalUrl + '"') || canonical.includes("href='" + canonicalUrl + "'");
-      const robotsNoindex = /<meta\b[^>]*name=["']robots["'][^>]*content=["'][^"']*noindex/i.test(html) ||
-        /<meta\b[^>]*content=["'][^"']*noindex[^"']*["'][^>]*name=["']robots["']/i.test(html) ||
-        /\bnoindex\b/i.test(page.headers.get('x-robots-tag') || '');
-      if (!canonicalMatches || robotsNoindex) {
-        deferred.push({ id: record.id, reason: 'canonical mismatch or noindex' }); continue;
+      const verification = verifyDeployedHtml(html, canonicalUrl, page.url,
+        page.headers.get('content-type'), page.headers.get('x-robots-tag'));
+      if (!verification.ok) {
+        deferred.push({ id: record.id, reason: verification.reason }); continue;
       }
       ready.push({ id: record.id, path: match.path, changedAt: record.changedAt });
     } catch (e) {
