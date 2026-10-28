@@ -25,3 +25,5 @@ Status: REVIEW ONLY. PR #34 does not enable production delivery until explicitly
 
 ## Rollback
 Revert/disable this branch's feature safely through a reviewed follow-up PR; `INDEXNOW_DISABLE=true` disables real submissions while preserving the normal CMS content flow. Preserve the pending change queue and all existing Google Search Console, sitemap and SEO data.
+
+- New publishes are serialized per document using PostgreSQL transaction advisory locks, avoiding simultaneous first-insert duplicates without a schema migration. Historical duplicate rows are untouched; their count and cleanup require a separate approved audit. The disposable PostgreSQL integration test sends eight concurrent publishes to one document and asserts one queued row and the newest timestamp.
