@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { acknowledgeIndexNowQueueRevision } from './indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest } from './indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled } from './indexnow-postdeploy';
 
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
  updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
@@ -10,6 +10,13 @@ const build = '2026-10-28T11:30:00Z';
 const expected='https://www.healthylifesstyles.com/wellness-hub/example-guide';
 
 describe('post-deploy IndexNow safety gates', () => {
+ it('requires explicit live enablement and honors emergency disable', () => {
+  expect(isIndexNowLiveSubmissionEnabled('true', undefined)).toBe(true);
+  expect(isIndexNowLiveSubmissionEnabled('true', 'true')).toBe(false);
+  for (const enabled of [undefined, false, true, 'false', '1', '']) {
+   expect(isIndexNowLiveSubmissionEnabled(enabled, undefined)).toBe(false);
+  }
+ });
  it('accepts only a canonical production CMS manifest', () => {
   const data = { version:1, source:'cms', buildKind:'cms',
    cmsOrigin:'https://cms.healthylifesstyles.com', buildStartedAt:build, records };
