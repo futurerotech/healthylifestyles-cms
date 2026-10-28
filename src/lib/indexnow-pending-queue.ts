@@ -1,68 +1,80 @@
-import type { PostgresAdapter } from '@payloadcms/db-postgres';
+import { sql, type PostgresAdapter } from '@payloadcms/db-postgres';
+
+type TransactionDB = NonNullable<Parameters<PostgresAdapter['execute']>[0]['db']>;
+type PendingIdentity = {
+  collectionSlug: 'articles' | 'tools';
+  docId: string;
+  changedAt: string;
+};
 
 /**
- * A single publisher-owned pending row per document, without schema changes.
+ * Record publish changes inside the SAME Payload transaction as the content
+ * save. This avoids queue events surviving an aborted publication and avoids
+ * taking a second pool connection while Payload is holding its first one.
  *
- * Two simultaneous Payload afterChange hooks otherwise both find an empty
- * queue and independently INSERT. A transaction-scoped PostgreSQL advisory
- * lock serializes writers for the same (collection, doc ID), and a SECOND
- * statement (new READ COMMITTED snapshot) checks for a committed row after
- * taking that lock.
+ * Without a Payload transaction, create a small independent PostgreSQL
+ * transaction. An advisory transaction lock serializes writers for the same
+ * document; the lock and the SELECT/UPSERT sequence share the same connection.
  *
- * A concurrent IndexNow acknowledgement deletes by (id, changed_at) in one
- * atomic statement. Its row lock and this transaction's SELECT FOR UPDATE
- * ensure that a newer published change survives either ordering.
- *
- * Historical duplicate rows are NOT deleted or rewritten here. They require
- * a separate read-only audit and explicit remediation.
+ * Do not rewrite/delete historical duplicate rows: they require a separately
+ * approved audit. Concurrent IndexNow acknowledgement uses an exact-revision
+ * atomic DELETE; publication writes lock the same queue rows via FOR UPDATE.
  */
 export async function recordPublishedPendingChange(
-  pool: Pick<PostgresAdapter['pool'], 'connect'>,
-  input: { collectionSlug: 'articles' | 'tools'; docId: string; changedAt: string },
+  db: PostgresAdapter,
+  input: PendingIdentity,
+  payloadTransactionID?: number | string | Promise<number | string>,
 ): Promise<'inserted' | 'updated'> {
-  if (!input.docId || typeof input.changedAt !== 'string' ||
-      !Number.isFinite(Date.parse(input.changedAt))) {
+  const changedMillis = typeof input.changedAt === 'string' ? Date.parse(input.changedAt) : NaN;
+  if ((input.collectionSlug !== 'articles' && input.collectionSlug !== 'tools') ||
+      typeof input.docId !== 'string' || !input.docId.trim() ||
+      !Number.isFinite(changedMillis)) {
     throw new Error('Invalid published-change queue identity or timestamp');
   }
-  const client = await pool.connect();
-  let transactionOpen = false;
-  try {
-    await client.query('BEGIN');
-    transactionOpen = true;
-    // The two hashes are only lock keys, not database identifiers. Collisions
-    // at worst serialize unrelated keys; they cannot mix rows in the SQL WHERE.
-    await client.query(
-      'SELECT pg_advisory_xact_lock(hashtext($1::text), hashtext($2::text))',
-      [input.collectionSlug, input.docId],
-    );
-    const existing = await client.query<{ id: number; changed_at: string }>(
-      'SELECT id, changed_at FROM pending_deploys WHERE collection_slug = $1 AND doc_id = $2 ORDER BY id ASC FOR UPDATE',
-      [input.collectionSlug, input.docId],
-    );
-    const previous = existing.rows.reduce((max, row) => {
-      const parsed = Date.parse(row.changed_at);
+
+  const write = async (tx: TransactionDB): Promise<'inserted' | 'updated'> => {
+    const query = (statement: ReturnType<typeof sql>) =>
+      db.execute({ db: tx, sql: statement });
+
+    // Advisory keys are a serializing gate, not part of the row WHERE clause.
+    // Any hash collision merely serializes unrelated documents.
+    await query(sql`SELECT pg_advisory_xact_lock(
+      hashtext(${input.collectionSlug}::text),
+      hashtext(${input.docId}::text)
+    )`);
+
+    const existing = await query(sql`
+      SELECT id, changed_at FROM pending_deploys
+      WHERE collection_slug = ${input.collectionSlug} AND doc_id = ${input.docId}
+      ORDER BY id ASC FOR UPDATE
+    `);
+    const newestMillis = existing.rows.reduce((max: number, row) => {
+      const value = (row as { changed_at?: unknown }).changed_at;
+      const parsed = typeof value === 'string' ? Date.parse(value) : NaN;
       return Number.isFinite(parsed) ? Math.max(max, parsed) : max;
-    }, Date.parse(input.changedAt));
-    const newestChangedAt = new Date(previous).toISOString();
-    const first = existing.rows[0];
+    }, changedMillis);
+    const changedAt = new Date(newestMillis).toISOString();
+    const first = existing.rows[0] as { id?: number } | undefined;
     if (first) {
-      await client.query(
-        'UPDATE pending_deploys SET changed_at = $1, updated_at = NOW() WHERE id = $2',
-        [newestChangedAt, first.id],
-      );
+      await query(sql`
+        UPDATE pending_deploys SET changed_at = ${changedAt}, updated_at = NOW()
+        WHERE id = ${first.id}
+      `);
     } else {
-      await client.query(
-        'INSERT INTO pending_deploys (collection_slug, doc_id, changed_at, created_at, updated_at) VALUES ($1, $2, $3, NOW(), NOW())',
-        [input.collectionSlug, input.docId, newestChangedAt],
-      );
+      await query(sql`
+        INSERT INTO pending_deploys
+          (collection_slug, doc_id, changed_at, created_at, updated_at)
+        VALUES (${input.collectionSlug}, ${input.docId}, ${changedAt}, NOW(), NOW())
+      `);
     }
-    await client.query('COMMIT');
-    transactionOpen = false;
     return first ? 'updated' : 'inserted';
-  } catch (error) {
-    if (transactionOpen) await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
+  };
+
+  if (payloadTransactionID !== undefined) {
+    const sessionId = String(await payloadTransactionID);
+    const session = db.sessions[sessionId];
+    if (!session) throw new Error('Active Payload transaction unavailable; queue write aborted');
+    return write(session.db as TransactionDB);
   }
+  return db.drizzle.transaction(async (tx) => write(tx as TransactionDB));
 }
