@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import config from '@payload-config';
-import { isAllowedOrigin } from '@/lib/allowedOrigins';
+import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
 import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot } from '@/lib/indexnow-postdeploy';
 
@@ -13,7 +13,8 @@ export const dynamic = 'force-dynamic';
 // For the first release the operator must opt into actual submission (confirm=true).
 // No new secrets, schema changes, background jobs, or automatic production writes.
 export async function POST(req: Request): Promise<NextResponse> {
-  if (!isAllowedOrigin(req.headers.get('origin'))) {
+  if (!isAllowedOrigin(req.headers.get('origin')) ||
+      (process.env.NODE_ENV === 'production' && req.headers.get('origin') !== CMS_ORIGIN)) {
     return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
   }
   const payload = await getPayload({ config });
