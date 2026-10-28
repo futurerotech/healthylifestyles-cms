@@ -34,6 +34,7 @@ const DeployButton: React.FC = () => {
 
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<number | null>(null);
+  const [pendingError, setPendingError] = useState(false);
   const [indexPreview, setIndexPreview] = useState<IndexPreview | null>(null);
   const [indexBusy, setIndexBusy] = useState(false);
   const [indexPage, setIndexPage] = useState(1);
@@ -41,12 +42,16 @@ const DeployButton: React.FC = () => {
   const refresh = useCallback(async () => {
     try {
       const res = await fetch('/api/deploy/pending', { credentials: 'include' });
-      if (res.ok) {
-        const data = (await res.json()) as { count?: number };
-        setPending(data.count ?? 0);
+      if (!res.ok) throw new Error('Pending queue unavailable');
+      const data = (await res.json()) as { count?: unknown };
+      if (typeof data.count !== 'number' || !Number.isSafeInteger(data.count) || data.count < 0) {
+        throw new Error('Invalid pending queue count');
       }
+      setPending(data.count);
+      setPendingError(false);
     } catch {
-      /* transient network error — keep the last known count */
+      setPending(null);
+      setPendingError(true);
     }
   }, []);
 
@@ -133,13 +138,13 @@ const DeployButton: React.FC = () => {
   };
 
   const count = pending ?? 0;
-  const nothingToDo = count === 0;
+  const nothingToDo = !pendingError && pending === 0;
 
   return (
     <div style={{ padding: '0.5rem 0.75rem 1rem' }}>
       <Button
         onClick={() => void deploy()}
-        disabled={busy || nothingToDo}
+        disabled={busy || pendingError || pending === null || nothingToDo}
         buttonStyle={nothingToDo ? 'secondary' : 'primary'}
         size="small"
         icon={busy ? undefined : ['plus']}
@@ -147,10 +152,13 @@ const DeployButton: React.FC = () => {
       >
         {busy
           ? 'Deploying…'
+          : pendingError || pending === null
+            ? 'Deploy status unavailable'
           : nothingToDo
             ? 'Site up to date'
             : `Deploy site (${count} pending)`}
       </Button>
+      {pendingError && <p role="alert">Pending deploy queue unavailable. Check CMS database before deploying.</p>}
       <section aria-label="IndexNow post-deploy verification" style={{ marginTop: 12 }}>
         <p style={{ fontSize: 12 }}>IndexNow: verify production pages after Vercel is ready. Google uses Search Console.</p>
         <Button onClick={() => void previewIndexNow()} disabled={busy || indexBusy}
