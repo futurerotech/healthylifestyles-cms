@@ -31,3 +31,5 @@ Revert/disable this branch's feature safely through a reviewed follow-up PR; `IN
 - Publish queue recording now participates in the active Payload transaction where present. This prevents a queue entry from committing when its parent content publication rolls back; a new disposable-PostgreSQL integration test checks rollback. No production migrations or data cleanup.
 
 - Live submission is fail-closed: `INDEXNOW_LIVE_ENABLED=true` must be deliberately configured by the owner in addition to admin preview/confirmation; `INDEXNOW_DISABLE=true` remains an emergency stop. Missing live-enable setting never sends provider requests. Do not activate either setting or change production secrets during draft review.
+
+- Before accepting each queued identity, the reconciliation preview now counts matching (collectionSlug, docId) entries across the full queue, not just the selected page. Historical duplicates are deferred for manual audit and are never automatically removed. This check cannot replace an operator's read-only legacy duplicate audit.
