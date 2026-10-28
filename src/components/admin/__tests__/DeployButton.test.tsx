@@ -48,6 +48,14 @@ beforeEach(() => {
 });
 
 describe('DeployButton IndexNow preview-and-approve workflow', () => {
+  it('never reports the site up to date when pending queue fails', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => json({ error: 'Pending queue unavailable' }, 503)));
+    render(<DeployButton />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Pending deploy queue unavailable'));
+    expect(screen.getByRole('button', { name: 'Deploy site to Vercel' })).toBeDisabled();
+    expect(screen.queryByText('Site up to date')).not.toBeInTheDocument();
+  });
+
   it('keeps IndexNow action hidden from non-admins', () => {
     mockUser.role = 'editor';
     const fetchMock = vi.fn();
