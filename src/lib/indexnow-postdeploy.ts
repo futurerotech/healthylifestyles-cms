@@ -69,7 +69,7 @@ export function selectPublishedProof(
 
 function attribute(tag: string, name: string): string | null {
   // HTML attributes can be in either order. Reject missing or ambiguous URLs.
-  const re = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27)', 'i');
+  const re = new RegExp('(?:^|\s)' + name + '\s*=\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27)', 'i');
   const m = tag.match(re);
   return m ? (m[1] ?? m[2]) : null;
 }
@@ -86,16 +86,16 @@ export function verifyDeployedHtml(
   if (!contentType?.toLowerCase().startsWith('text/html')) {
     return { ok: false, reason: 'non-HTML response' };
   }
-  if (/\\bnoindex\\b/i.test(xRobotsTag ?? '')) return { ok: false, reason: 'X-Robots-Tag noindex' };
-  const links = html.match(/<link\\b[^>]*>/gi) ?? [];
-  const canonicals = links.filter((tag) => /(?:^|\\s)rel\\s*=/.test(tag.toLowerCase()) &&
-    (attribute(tag, 'rel') ?? '').toLowerCase().split(/\\s+/).includes('canonical'));
+  if (/\bnoindex\b/i.test(xRobotsTag ?? '')) return { ok: false, reason: 'X-Robots-Tag noindex' };
+  const links = html.match(/<link\b[^>]*>/gi) ?? [];
+  const canonicals = links.filter((tag) => /(?:^|\s)rel\s*=/.test(tag.toLowerCase()) &&
+    (attribute(tag, 'rel') ?? '').toLowerCase().split(/\s+/).includes('canonical'));
   if (canonicals.length !== 1 || attribute(canonicals[0], 'href') !== expectedUrl) {
     return { ok: false, reason: 'missing, duplicate, or mismatched canonical link' };
   }
-  const metas = html.match(/<meta\\b[^>]*>/gi) ?? [];
+  const metas = html.match(/<meta\b[^>]*>/gi) ?? [];
   if (metas.some((tag) => ['robots', 'googlebot', 'bingbot'].includes((attribute(tag, 'name') ?? '').toLowerCase()) &&
-    /\\bnoindex\\b/i.test(attribute(tag, 'content') ?? ''))) {
+    /\bnoindex\b/i.test(attribute(tag, 'content') ?? ''))) {
     return { ok: false, reason: 'meta robots noindex' };
   }
   return { ok: true, reason: 'verified' };
