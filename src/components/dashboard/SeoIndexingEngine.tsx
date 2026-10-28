@@ -375,14 +375,7 @@ export const SeoIndexingEngine: React.FC = () => {
                         {row.title}
                       </a>
                       <span className={`seo-badge seo-badge--${row.state}`}>{STATE_LABEL[row.state]}</span>
-                      <button
-                        type="button"
-                        className="seo-btn seo-btn--sm seo-btn--primary"
-                        onClick={() => void submitOne(row.url)}
-                        disabled={row.submitting || submitting || quotaEmpty}
-                      >
-                        {row.submitting ? 'Submitting…' : 'Submit'}
-                      </button>
+
                     </div>
                     <div className="seo-row__meta">
                       <span>Last crawled: {fmtDate(row.lastCrawled)}</span>
