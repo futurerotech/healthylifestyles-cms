@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
  * - Admin-only (Payload session cookie auth).
  * - Debounced: refuses if a deploy was triggered < 5 minutes ago.
  * - Calls VERCEL_DEPLOY_HOOK_URL (server-side only, never exposed to client).
- * - Logs every trigger to deploy-log and clears the pending-deploys queue.
+ * - Logs every trigger; pending content is preserved until production is verified and IndexNow accepts it.
  */
 export async function POST(req: Request): Promise<NextResponse> {
   // CSRF guard — this endpoint triggers production deploys, so the browser's
@@ -108,16 +108,9 @@ export async function POST(req: Request): Promise<NextResponse> {
     // non-fatal if deploy-log table is missing
   }
 
-  // Clear the pending-deploys queue in one bulk delete (no 500-row cap, so a
-  // large backlog fully drains). Non-fatal: the deploy already fired, and a
-  // leftover queue entry only means the next deploy shows a stale count.
-  if (pendingCount > 0) {
-    try {
-      await payload.delete({ collection: 'pending-deploys', where: { id: { exists: true } } });
-    } catch {
-      // non-fatal
-    }
-  }
+  // Do NOT clear pending-deploys here: Vercel accepted a build request, not a successful deployment.
+  // An authenticated post-deployment reconciliation explicitly confirms the content manifest
+  // and public URLs before submitting any IndexNow notification.
 
   return NextResponse.json({ ok: true, pendingCount });
 }
