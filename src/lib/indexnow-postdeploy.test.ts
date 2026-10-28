@@ -1,0 +1,42 @@
+import { describe, expect, it } from 'vitest';
+import { selectPublishedProof, verifyDeployedHtml } from './indexnow-postdeploy';
+
+const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
+ updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
+const queue = { collectionSlug:'articles', docId:'69', changedAt:'2026-10-28T11:00:00Z' };
+const current = { _status:'published', updatedAt:'2026-10-28T11:00:00Z', seo:{ noIndex:false } };
+const build = '2026-10-28T11:30:00Z';
+const expected='https://www.healthylifesstyles.com/wellness-hub/example-guide';
+
+describe('post-deploy IndexNow safety gates', () => {
+ it('accepts one published canonical record in a newer build', () => {
+  expect(selectPublishedProof(build,records,queue,current).ok).toBe(true);
+ });
+ it('rejects older Vercel builds and newer CMS revisions', () => {
+  expect(selectPublishedProof('2026-10-28T10:00:00Z',records,queue,current).ok).toBe(false);
+  expect(selectPublishedProof(build,records,queue,{...current,updatedAt:'2026-10-28T12:30:00Z'}).ok).toBe(false);
+ });
+ it('rejects draft, disabled, noindex, duplicates and traversal', () => {
+  expect(selectPublishedProof(build,records,queue,{...current,_status:'draft'}).ok).toBe(false);
+  expect(selectPublishedProof(build,records,queue,{...current,enabled:false}).ok).toBe(false);
+  expect(selectPublishedProof(build,records.map(x=>({...x,noIndex:true})),queue,current).ok).toBe(false);
+  expect(selectPublishedProof(build,[...records,...records],queue,current).ok).toBe(false);
+  expect(selectPublishedProof(build,records.map(x=>({...x,path:'/tools/../bad'})),queue,current).ok).toBe(false);
+ });
+ it('rejects invalid timestamps and unsupported collections', () => {
+  expect(selectPublishedProof(build,records,{...queue,changedAt:'invalid'},current).ok).toBe(false);
+  expect(selectPublishedProof(build,records,{...queue,collectionSlug:'authors'},current).ok).toBe(false);
+ });
+ it('accepts different attribute order and quoted valid canonical', () => {
+  const html='<html><head><link href="'+expected+'" rel="canonical"><meta name="robots" content="index,follow"></head></html>';
+  expect(verifyDeployedHtml(html,expected,expected,'text/html; charset=utf-8',null).ok).toBe(true);
+ });
+ it('rejects noindex, duplicates, redirects and non-html responses', () => {
+  const html='<link rel="canonical" href="'+expected+'">';
+  expect(verifyDeployedHtml(html,expected,expected,'text/html','noindex').ok).toBe(false);
+  expect(verifyDeployedHtml(html+'<meta content="noindex" name="robots">',expected,expected,'text/html',null).ok).toBe(false);
+  expect(verifyDeployedHtml(html+html,expected,expected,'text/html',null).ok).toBe(false);
+  expect(verifyDeployedHtml(html,expected,expected+'/redirect','text/html',null).ok).toBe(false);
+  expect(verifyDeployedHtml(html,expected,expected,'application/json',null).ok).toBe(false);
+ });
+});
