@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import config from '@payload-config';
+import { verifiedCollectionCount } from '@/lib/deploy-readiness';
 import { isAllowedOrigin } from '@/lib/allowedOrigins';
 
 export const runtime = 'nodejs';
@@ -52,23 +53,23 @@ export async function POST(req: Request): Promise<NextResponse> {
       where: { createdAt: { greater_than: fiveMinAgo } },
       limit: 1,
     });
-    if (recent.totalDocs > 0) {
+    if (verifiedCollectionCount(recent) > 0) {
       return NextResponse.json(
         { error: 'A deploy was triggered in the last 5 minutes. Please wait before trying again.' },
         { status: 429 },
       );
     }
   } catch {
-    // deploy-log table might not exist yet — continue
+    return NextResponse.json({ error: 'Cannot verify recent deploys; no deployment was triggered.' }, { status: 503 });
   }
 
   // Count pending changes before clearing
   let pendingCount = 0;
   try {
     const pending = await payload.find({ collection: 'pending-deploys', limit: 0 });
-    pendingCount = pending.totalDocs;
+    pendingCount = verifiedCollectionCount(pending);
   } catch {
-    // pending-deploys table might not exist yet
+    return NextResponse.json({ error: 'Pending queue unavailable; no deployment was triggered.' }, { status: 503 });
   }
 
   // Call the Vercel deploy hook
