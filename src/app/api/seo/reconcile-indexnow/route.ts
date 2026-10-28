@@ -103,6 +103,13 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ ...report, error: 'IndexNow key is missing or invalid; queue preserved' }, { status: 503 });
   }
 
+  // Explicit no-network safety for operator staging, regardless of NODE_ENV.
+  // Keep queued items and approval intact for a subsequent real preview.
+  if (process.env.INDEXNOW_DRY_RUN === 'true') {
+    return NextResponse.json({ ...report, dryRun: true, simulation: true,
+      message: 'IndexNow simulation: no provider request and no queue deletion.' });
+  }
+
   // Key proof MUST be public on the same host. Do not disclose the key in logs.
   const proof = await fetchPublic('/' + key + '.txt').catch(() => null);
   if (!proof?.ok || (await proof.text()).trim() !== key) {
