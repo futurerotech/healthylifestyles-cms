@@ -160,3 +160,27 @@ export function isExplicitIndexNowSubmitRequest(input: unknown): boolean {
   return input !== null && typeof input === 'object' && !Array.isArray(input) &&
     (input as Record<string, unknown>).confirm === true;
 }
+
+/**
+ * Bound remote HTML checks so one slow page does not serialize an entire queue
+ * preview. Results preserve the original queue order used for admin approval.
+ */
+export async function mapWithBoundedConcurrency<T, R>(
+  items: readonly T[],
+  maxConcurrent: number,
+  check: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (!Number.isSafeInteger(maxConcurrent) || maxConcurrent < 1 || maxConcurrent > 20) {
+    throw new Error('maxConcurrent must be an integer from 1 to 20');
+  }
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async (): Promise<void> => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await check(items[index]!, index);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(maxConcurrent, items.length) }, () => worker()));
+  return results;
+}
