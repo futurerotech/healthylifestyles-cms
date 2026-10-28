@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview } from './indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot } from './indexnow-postdeploy';
 
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
  updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
@@ -47,6 +47,17 @@ describe('post-deploy IndexNow safety gates', () => {
   expect(matchesApprovedIndexNowPreview([urls[0],urls[0]],urls)).toBe(false);
   expect(matchesApprovedIndexNowPreview([...urls,'https://www.healthylifesstyles.com/tools/three'],urls)).toBe(false);
   expect(matchesApprovedIndexNowPreview(null,urls)).toBe(false);
+ });
+
+ it('rejects approval when the build or queued revision changed', () => {
+  const versions = [{url:expected,changedAt:'2026-10-28T11:00:00Z'}];
+  const input={approvedUrls:[expected],approvedVersions:versions,approvedBuildStartedAt:build};
+  const snapshot={ready:[expected],readyVersions:versions,buildStartedAt:build};
+  expect(matchesApprovedIndexNowSnapshot(input,snapshot)).toBe(true);
+  expect(matchesApprovedIndexNowSnapshot(input,{...snapshot,buildStartedAt:'2026-10-28T12:00:00Z'})).toBe(false);
+  expect(matchesApprovedIndexNowSnapshot(input,{...snapshot,readyVersions:[{url:expected,changedAt:'2026-10-28T11:01:00Z'}]})).toBe(false);
+  expect(matchesApprovedIndexNowSnapshot({...input,approvedVersions:[]},snapshot)).toBe(false);
+  expect(matchesApprovedIndexNowSnapshot({...input,approvedUrls:[]},snapshot)).toBe(false);
  });
 
 });
