@@ -3,9 +3,7 @@ import { isAdminOrEditor, publishedPublicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { validateFormula } from '../lib/formula';
-import { afterChangeIndexingHook } from '../lib/indexing';
 import { trackPendingChange } from '../hooks/trackPendingChange';
-import { notifyIndexNow } from '../hooks/notifyIndexNow';
 /** Lucide icon names used by the public tiles — a select "picker" for editors. */
 const ICON_OPTIONS = [
   'flame', 'pie-chart', 'egg', 'wheat', 'droplet', 'scale', 'percent', 'target',
@@ -42,7 +40,7 @@ export const Tools: CollectionConfig = {
   versions: { drafts: { autosave: { interval: 800 } }, maxPerDoc: 50 },
 
   hooks: {
-    afterChange: [afterChangeIndexingHook, trackPendingChange, notifyIndexNow],
+    afterChange: [trackPendingChange],
     beforeValidate: [
       ({ data }) => {
         // Enforce safe, valid formulas at save time for formula tools.
