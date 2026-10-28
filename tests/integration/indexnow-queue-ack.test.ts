@@ -79,6 +79,62 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
     expect(rows.rows).toHaveLength(0);
   });
 
+  it('preserves a queued publish when a real parent transaction commits during acknowledgement', async () => {
+    const old = '2026-10-28T14:00:00.000Z';
+    const newer = '2026-10-28T14:01:00.000Z';
+    const pending = await createPending(old);
+    const txId = await payload.db.beginTransaction();
+    expect(txId).toBeTruthy();
+    let open = true;
+    try {
+      await recordPublishedPendingChange(db, {
+        collectionSlug: 'articles', docId: pending.docId, changedAt: newer,
+      }, txId!);
+      // The acknowledgement must wait for the parent content transaction's
+      // row lock and must not erase the committed newer pending revision.
+      const acknowledgement = acknowledgeIndexNowQueueRevision(execute, {
+        id: pending.id, changedAt: old,
+      });
+      const state = await Promise.race([
+        acknowledgement.then(() => 'finished'),
+        new Promise<string>(resolve => setTimeout(() => resolve('blocked'), 40)),
+      ]);
+      expect(state).toBe('blocked');
+      await payload.db.commitTransaction(txId!);
+      open = false;
+      expect(await acknowledgement).toBe(false);
+      const stillQueued = await payload.findByID({ collection: 'pending-deploys', id: pending.id });
+      expect(stillQueued.changedAt).toBe(newer);
+    } finally {
+      if (open) await payload.db.rollbackTransaction(txId!);
+    }
+  });
+
+  it('recreates a pending record when an older acknowledgement commits before a new publish', async () => {
+    const old = '2026-10-28T15:00:00.000Z';
+    const newer = '2026-10-28T15:01:00.000Z';
+    const pending = await createPending(old);
+    expect(await acknowledgeIndexNowQueueRevision(execute, {
+      id: pending.id, changedAt: old,
+    })).toBe(true);
+    expect(await recordPublishedPendingChange(db, {
+      collectionSlug: 'articles', docId: pending.docId, changedAt: newer,
+    })).toBe('inserted');
+    const queued = await payload.find({
+      collection: 'pending-deploys', depth: 0,
+      where: {
+        and: [
+          { collectionSlug: { equals: 'articles' } },
+          { docId: { equals: pending.docId } },
+        ],
+      },
+      limit: 5,
+    });
+    expect(queued.totalDocs).toBe(1);
+    expect(queued.docs[0]?.changedAt).toBe(newer);
+    expect(queued.docs[0]?.id).not.toBe(pending.id);
+  });
+
   it('rejects a stale revision and only deletes the exact revision', async () => {
     const old = '2026-10-28T10:00:00.000Z';
     const updated = '2026-10-28T11:00:00.000Z';
