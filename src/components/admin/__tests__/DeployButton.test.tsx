@@ -174,4 +174,26 @@ describe('DeployButton IndexNow preview-and-approve workflow', () => {
     await waitFor(() => expect(screen.getByText(/0 verified URL\(s\)/)).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: 'Submit approved IndexNow URLs' })).not.toBeInTheDocument();
   });
+  it('navigates to page two and submits the reviewed page only', async () => {
+    const sent: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      if (String(input).includes('/api/deploy/pending')) return json({ count: 25 });
+      const body = JSON.parse(String(options?.body)) as Record<string, unknown>;
+      if (body.confirm) { sent.push(body); return json({ acknowledged: [URL] }); }
+      return json({ ...preview, page: body.page, totalPages: 2, ready: body.page === 1 ? [] : [URL],
+        readyVersions: body.page === 1 ? [] : preview.readyVersions });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    render(<DeployButton />);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview IndexNow URLs' }));
+    await waitFor(() => expect(screen.getByText(/Queue page 1 of 2/)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Next IndexNow page' }));
+    await waitFor(() => expect(screen.getByText(/Queue page 2 of 2/)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Submit approved IndexNow URLs' }));
+    await waitFor(() => expect(sent).toHaveLength(1));
+    expect(sent[0].page).toBe(2);
+    expect(sent[0].approvedUrls).toEqual([URL]);
+  });
+
 });
