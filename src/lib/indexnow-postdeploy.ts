@@ -113,3 +113,44 @@ export function matchesApprovedIndexNowPreview(expected: unknown, ready: readonl
   const approved = new Set<string>(expected);
   return ready.every((url) => approved.has(url));
 }
+
+/** URL + queued revision as seen in one admin preview. */
+export interface IndexNowReadyVersion {
+  url: string;
+  changedAt: string;
+}
+
+/**
+ * Require the exact build and queued revisions that the admin reviewed.
+ * Checking only URL strings would allow a new edit of the SAME page to be
+ * submitted under an old approval.
+ */
+export function matchesApprovedIndexNowSnapshot(
+  input: {
+    approvedUrls?: unknown;
+    approvedVersions?: unknown;
+    approvedBuildStartedAt?: unknown;
+  },
+  current: {
+    ready: readonly string[];
+    readyVersions: readonly IndexNowReadyVersion[];
+    buildStartedAt: string;
+  },
+): boolean {
+  if (!matchesApprovedIndexNowPreview(input.approvedUrls, current.ready)) return false;
+  if (input.approvedBuildStartedAt !== current.buildStartedAt) return false;
+  if (!Array.isArray(input.approvedVersions) ||
+      input.approvedVersions.length !== current.readyVersions.length ||
+      current.readyVersions.length !== current.ready.length) return false;
+  const approved = new Map<string, string>();
+  for (const item of input.approvedVersions) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+    const value = item as Record<string, unknown>;
+    if (typeof value.url !== 'string' || typeof value.changedAt !== 'string' ||
+        !Number.isFinite(Date.parse(value.changedAt)) || approved.has(value.url)) return false;
+    approved.set(value.url, value.changedAt);
+  }
+  return current.readyVersions.every(({ url, changedAt }) =>
+    typeof changedAt === 'string' && Number.isFinite(Date.parse(changedAt)) &&
+    approved.get(url) === changedAt);
+}
