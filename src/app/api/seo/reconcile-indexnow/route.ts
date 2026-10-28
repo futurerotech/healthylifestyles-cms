@@ -3,7 +3,7 @@ import { getPayload } from 'payload';
 import config from '@payload-config';
 import { isAllowedOrigin } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
-import { selectPublishedProof, verifyDeployedHtml } from '@/lib/indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (!user || (user as { role?: string }).role !== 'admin') {
     return NextResponse.json({ error: 'Admin login required' }, { status: 403 });
   }
-  const body = await req.json().catch(() => ({})) as { confirm?: boolean };
+  const body = await req.json().catch(() => ({})) as { confirm?: boolean; approvedUrls?: unknown };
   const origin = new URL(SITE_BASE_URL);
   if (origin.protocol !== 'https:') return NextResponse.json({ error: 'HTTPS site required' }, { status: 503 });
   const publicOrigin = origin.origin;
@@ -87,6 +87,10 @@ export async function POST(req: Request): Promise<NextResponse> {
   const report = { dryRun: body.confirm !== true, ready: ready.map(x => publicOrigin + x.path),
     deferred, queuedTotal: pending.totalDocs, buildStartedAt: manifest.buildStartedAt };
   if (!body.confirm || !ready.length) return NextResponse.json(report);
+  // Require the admin to approve precisely the URL list returned by preview.
+  if (!matchesApprovedIndexNowPreview(body.approvedUrls, report.ready)) {
+    return NextResponse.json({ ...report, error: 'Preview URLs changed or not approved. Run a fresh dry-run before confirming.' }, { status: 409 });
+  }
 
   // A dry-run is useful even when IndexNow is not yet configured. Guard only
   // the actual submission; never log/return the configured ownership key.
