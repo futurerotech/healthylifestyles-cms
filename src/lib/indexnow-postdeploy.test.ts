@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest } from './indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency } from './indexnow-postdeploy';
 
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
  updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
@@ -9,6 +9,22 @@ const build = '2026-10-28T11:30:00Z';
 const expected='https://www.healthylifesstyles.com/wellness-hub/example-guide';
 
 describe('post-deploy IndexNow safety gates', () => {
+ it('bounds concurrent checks while preserving queue order', async () => {
+  const items = [0, 1, 2, 3, 4, 5, 6, 7];
+  let active = 0;
+  let peak = 0;
+  const results = await mapWithBoundedConcurrency(items, 3, async (item) => {
+   active += 1;
+   peak = Math.max(peak, active);
+   await new Promise<void>(resolve => setTimeout(resolve, item % 3));
+   active -= 1;
+   return item * 10;
+  });
+  expect(peak).toBe(3);
+  expect(results).toEqual(items.map(item => item * 10));
+  await expect(mapWithBoundedConcurrency(items, 0, async item => item)).rejects.toThrow(/maxConcurrent/);
+  expect(await mapWithBoundedConcurrency([], 4, async item => item)).toEqual([]);
+ });
  it('requires an actual boolean true before any provider submission', () => {
   expect(isExplicitIndexNowSubmitRequest({confirm:true})).toBe(true);
   for (const confirm of [false, 'true', 'false', 1, 0, null, undefined]) {
