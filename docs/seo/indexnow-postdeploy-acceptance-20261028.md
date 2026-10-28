@@ -37,3 +37,5 @@ Revert/disable this branch's feature safely through a reviewed follow-up PR; `IN
 - The admin pending deploy count is fail-closed: failed CMS queue reads return HTTP 503, not count zero. The UI displays an error and disables the deploy button until the count can be verified; never treat a database outage as site up-to-date.
 
 - POST /api/deploy now fails closed if either the five-minute deploy-log debounce query or pending queue count cannot be verified. No Vercel hook is called after a failed or malformed count. Shared count validator has unit regression tests. Operators should resolve database availability rather than bypass this gate.
+
+- Manual Vercel deploy triggers now use a transaction-scoped PostgreSQL advisory lock and insert an attempt reservation in deploy_log BEFORE calling the hook; competing admin requests cannot both pass the five-minute debounce. Failed or ambiguous hook calls keep the reservation and require manual review after cooldown. A reserved attempt does NOT prove Vercel Ready. Isolated PostgreSQL integration tests cover concurrent requests.
