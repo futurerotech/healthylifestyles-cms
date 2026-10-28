@@ -80,6 +80,18 @@ export async function POST(req: Request): Promise<NextResponse> {
     const defer = (reason: string): Checked => ({ kind: 'deferred', id: record.id, reason });
     if (!collection || !docId || !changedAt) return defer('unsupported collection or incomplete entry');
     try {
+      // Check the ENTIRE queue, not just this 20-row page. Historical duplicate
+      // identities can be split across pages and must never be sent/cleared.
+      const identityCount = await payload.count({
+        collection: 'pending-deploys',
+        where: { and: [
+          { collectionSlug: { equals: collection } },
+          { docId: { equals: docId } },
+        ] },
+      });
+      if (identityCount.totalDocs !== 1) {
+        return defer('duplicate pending document identity; manual queue review required');
+      }
       const current = await payload.findByID({ collection, id: docId, depth: 0, draft: false }) as {
         _status?: string; enabled?: boolean; seo?: { noIndex?: boolean }; updatedAt?: string;
       };
