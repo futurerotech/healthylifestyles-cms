@@ -184,3 +184,13 @@ export async function mapWithBoundedConcurrency<T, R>(
   await Promise.all(Array.from({ length: Math.min(maxConcurrent, items.length) }, () => worker()));
   return results;
 }
+
+/** Verify public key ownership without accepting a redirect to another URL/host. */
+export function matchesIndexNowOwnershipProof(
+  response: { status: number; url: string; body: string },
+  requestedUrl: string,
+  key: string,
+): boolean {
+  return response.status === 200 && response.url === requestedUrl &&
+    response.body.trim() === key;
+}
