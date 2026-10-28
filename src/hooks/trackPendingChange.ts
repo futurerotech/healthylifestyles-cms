@@ -13,11 +13,11 @@ export const trackPendingChange: CollectionAfterChangeHook = async ({ req, doc, 
 
   try {
     const db = req.payload.db as unknown as PostgresAdapter
-    await recordPublishedPendingChange(db.pool, {
+    await recordPublishedPendingChange(db, {
       collectionSlug: slug,
       docId: String(doc.id),
       changedAt: new Date().toISOString(),
-    })
+    }, req.transactionID)
   } catch (err) {
     // Preserve publishing behavior on queue failure, but report the failure.
     // Operator must inspect missing queued changes before IndexNow acceptance.
