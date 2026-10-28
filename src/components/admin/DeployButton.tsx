@@ -18,6 +18,12 @@ import { Button, toast, useAuth } from '@payloadcms/ui';
  *                 it rather than show a button that always 403s)
  */
 const POLL_MS = 30_000;
+interface IndexPreview {
+ ready: string[];
+ readyVersions: {url:string;changedAt:string}[];
+ deferred: {id:string|number;reason:string}[];
+ buildStartedAt: string;
+}
 
 const DeployButton: React.FC = () => {
   const { user } = useAuth();
@@ -26,6 +32,8 @@ const DeployButton: React.FC = () => {
 
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<number | null>(null);
+  const [indexPreview, setIndexPreview] = useState<IndexPreview | null>(null);
+  const [indexBusy, setIndexBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -46,10 +54,54 @@ const DeployButton: React.FC = () => {
     return () => clearInterval(id);
   }, [isAdmin, refresh]);
 
+  async function previewIndexNow() {
+    setIndexBusy(true); setIndexPreview(null);
+    try {
+      const res = await fetch('/api/seo/reconcile-indexnow', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: false }),
+      });
+      const body = await res.json().catch(() => ({})) as Partial<IndexPreview> & {error?:string};
+      if (!res.ok || !Array.isArray(body.ready) || !Array.isArray(body.readyVersions) ||
+          !Array.isArray(body.deferred) || !body.buildStartedAt) {
+        throw new Error(body.error || 'Unable to verify deployed URLs.');
+      }
+      setIndexPreview(body as IndexPreview);
+      toast.success('Verified preview ready. Nothing sent to IndexNow.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Preview failed.');
+    } finally { setIndexBusy(false); }
+  }
+
+  async function submitIndexNow() {
+    const preview = indexPreview;
+    if (!preview?.ready.length || indexBusy) return;
+    if (!window.confirm('Send precisely ' + preview.ready.length +
+      ' verified URLs to IndexNow? This is a real submission to participating engines.')) return;
+    setIndexPreview(null); setIndexBusy(true);
+    try {
+      const res = await fetch('/api/seo/reconcile-indexnow', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true, approvedUrls: preview.ready,
+          approvedVersions: preview.readyVersions,
+          approvedBuildStartedAt: preview.buildStartedAt }),
+      });
+      const body = await res.json().catch(() => ({})) as { error?:string; acknowledged?:string[] };
+      if (!res.ok) throw new Error(body.error || 'IndexNow rejected the submission.');
+      toast.success((body.acknowledged?.length ?? 0) + ' URL(s) acknowledged by IndexNow. Indexing is not guaranteed.');
+      void refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Submission failed; queue preserved.');
+    } finally { setIndexBusy(false); }
+  }
+
   // Only admins can deploy — hide the control entirely for everyone else.
   if (!isAdmin) return null;
 
   const deploy = async () => {
+    setIndexPreview(null);
     setBusy(true);
     // sonner (what @payloadcms/ui re-exports): toast.loading returns an id;
     // passing that same { id } to toast.success/error replaces the toast in place.
@@ -93,6 +145,23 @@ const DeployButton: React.FC = () => {
             ? 'Site up to date'
             : `Deploy site (${count} pending)`}
       </Button>
+      <section aria-label="IndexNow post-deploy verification" style={{ marginTop: 12 }}>
+        <p style={{ fontSize: 12 }}>IndexNow: verify production pages after Vercel is ready. Google uses Search Console.</p>
+        <Button onClick={() => void previewIndexNow()} disabled={busy || indexBusy}
+          buttonStyle="secondary" size="small" aria-label="Preview IndexNow URLs">
+          {indexBusy ? 'Checking…' : 'Preview IndexNow'}
+        </Button>
+        {indexPreview && <div role="region" aria-label="IndexNow preview" style={{ fontSize: 12, overflowWrap: 'anywhere' }}>
+          <p>{indexPreview.ready.length} verified URL(s), {indexPreview.deferred.length} deferred. No URLs submitted.</p>
+          <ul style={{ maxHeight: 160, overflowY: 'auto', paddingLeft: 18 }}>
+            {indexPreview.ready.map(url => <li key={url}>{url}</li>)}
+          </ul>
+          {indexPreview.ready.length > 0 && <Button onClick={() => void submitIndexNow()}
+            disabled={indexBusy} buttonStyle="primary" size="small" aria-label="Submit approved IndexNow URLs">
+            Submit verified URLs to IndexNow
+          </Button>}
+        </div>}
+      </section>
     </div>
   );
 };
