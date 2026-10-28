@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
+import type { PostgresAdapter } from '@payloadcms/db-postgres';
 import config from '@payload-config';
 import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
@@ -153,11 +154,17 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ ...report, httpStatus: response.status,
       error: response.status === 202 ? 'IndexNow key pending verification; queue preserved' : 'IndexNow rejected; queue preserved' }, { status: 502 });
   }
+  // payload.config.ts uses postgresAdapter. Narrow the generic Payload DB type
+  // before executing this Postgres-only, revision-conditional SQL statement.
+  const postgresDb = payload.db as PostgresAdapter;
   const acknowledged: string[] = [];
   for (const item of ready) {
     try {
       const deleted = await acknowledgeIndexNowQueueRevision(
-        (statement) => payload.db.execute({ drizzle: payload.db.drizzle, sql: statement }),
+        (statement) => postgresDb.execute({
+          drizzle: postgresDb.drizzle as Parameters<PostgresAdapter['execute']>[0]['drizzle'],
+          sql: statement,
+        }),
         { id: item.id, changedAt: item.changedAt },
       );
       if (deleted) acknowledged.push(publicOrigin + item.path);
