@@ -73,18 +73,20 @@ export async function POST(req: Request): Promise<NextResponse> {
         deferred.push({ id: record.id, reason: proof.reason }); continue;
       }
       const match = proof.record;
-      const page = await fetchPublic(match.path);
+      const deployedPath = match.path;
+      if (!deployedPath) { deferred.push({ id: record.id, reason: 'missing deployed path' }); continue; }
+      const page = await fetchPublic(deployedPath);
       if (page.status !== 200) {
         deferred.push({ id: record.id, reason: 'public page status ' + page.status }); continue;
       }
       const html = await page.text();
-      const canonicalUrl = publicOrigin + match.path;
+      const canonicalUrl = publicOrigin + deployedPath;
       const verification = verifyDeployedHtml(html, canonicalUrl, page.url,
         page.headers.get('content-type'), page.headers.get('x-robots-tag'));
       if (!verification.ok) {
         deferred.push({ id: record.id, reason: verification.reason }); continue;
       }
-      ready.push({ id: record.id, path: match.path, changedAt: record.changedAt });
+      ready.push({ id: record.id, path: deployedPath, changedAt: record.changedAt });
     } catch (e) {
       deferred.push({ id: record.id, reason: 'validation failed: ' + String(e).slice(0,100) });
     }
