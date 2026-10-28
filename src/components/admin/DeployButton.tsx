@@ -23,6 +23,8 @@ interface IndexPreview {
  readyVersions: {url:string;changedAt:string}[];
  deferred: {id:string|number;reason:string}[];
  buildStartedAt: string;
+ page: number;
+ totalPages: number;
 }
 
 const DeployButton: React.FC = () => {
@@ -34,6 +36,7 @@ const DeployButton: React.FC = () => {
   const [pending, setPending] = useState<number | null>(null);
   const [indexPreview, setIndexPreview] = useState<IndexPreview | null>(null);
   const [indexBusy, setIndexBusy] = useState(false);
+  const [indexPage, setIndexPage] = useState(1);
 
   const refresh = useCallback(async () => {
     try {
@@ -54,13 +57,13 @@ const DeployButton: React.FC = () => {
     return () => clearInterval(id);
   }, [isAdmin, refresh]);
 
-  async function previewIndexNow() {
+  async function previewIndexNow(page = indexPage) {
     setIndexBusy(true); setIndexPreview(null);
     try {
       const res = await fetch('/api/seo/reconcile-indexnow', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirm: false }),
+        body: JSON.stringify({ confirm: false, page }),
       });
       const body = await res.json().catch(() => ({})) as Partial<IndexPreview> & {error?:string};
       if (!res.ok || !Array.isArray(body.ready) || !Array.isArray(body.readyVersions) ||
@@ -68,6 +71,7 @@ const DeployButton: React.FC = () => {
         throw new Error(body.error || 'Unable to verify deployed URLs.');
       }
       setIndexPreview(body as IndexPreview);
+      setIndexPage(page);
       toast.success('Verified preview ready. Nothing sent to IndexNow.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Preview failed.');
@@ -86,7 +90,7 @@ const DeployButton: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ confirm: true, approvedUrls: preview.ready,
           approvedVersions: preview.readyVersions,
-          approvedBuildStartedAt: preview.buildStartedAt }),
+          approvedBuildStartedAt: preview.buildStartedAt, page: preview.page || indexPage }),
       });
       const body = await res.json().catch(() => ({})) as { error?:string; acknowledged?:string[]; simulation?: boolean; message?: string };
       if (!res.ok) throw new Error(body.error || 'IndexNow rejected the submission.');
@@ -103,6 +107,7 @@ const DeployButton: React.FC = () => {
 
   const deploy = async () => {
     setIndexPreview(null);
+    setIndexPage(1);
     setBusy(true);
     // sonner (what @payloadcms/ui re-exports): toast.loading returns an id;
     // passing that same { id } to toast.success/error replaces the toast in place.
@@ -154,6 +159,15 @@ const DeployButton: React.FC = () => {
         </Button>
         {indexPreview && <div role="region" aria-label="IndexNow preview" style={{ fontSize: 12, overflowWrap: 'anywhere' }}>
           <p>{indexPreview.ready.length} verified URL(s), {indexPreview.deferred.length} deferred. No URLs submitted.</p>
+          <p>Queue page {indexPreview.page || indexPage} of {indexPreview.totalPages || 1}.</p>
+          <div>
+            <Button onClick={() => void previewIndexNow((indexPreview.page || indexPage) - 1)}
+              disabled={indexBusy || (indexPreview.page || indexPage) <= 1}
+              buttonStyle="secondary" size="small" aria-label="Previous IndexNow page">Previous</Button>
+            <Button onClick={() => void previewIndexNow((indexPreview.page || indexPage) + 1)}
+              disabled={indexBusy || (indexPreview.page || indexPage) >= (indexPreview.totalPages || 1)}
+              buttonStyle="secondary" size="small" aria-label="Next IndexNow page">Next</Button>
+          </div>
           <ul style={{ maxHeight: 160, overflowY: 'auto', paddingLeft: 18 }}>
             {indexPreview.ready.map(url => <li key={url}>{url}</li>)}
           </ul>
