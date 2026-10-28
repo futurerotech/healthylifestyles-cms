@@ -62,7 +62,7 @@ describe('DeployButton IndexNow preview-and-approve workflow', () => {
       const path = String(input);
       if (path.includes('/api/deploy/pending')) return json({ count: 2 });
       if (path.includes('/api/seo/reconcile-indexnow')) {
-        expect(JSON.parse(String(options?.body))).toEqual({ confirm: false });
+        expect(JSON.parse(String(options?.body))).toEqual({ confirm: false, page: 1 });
         return json(preview);
       }
       throw new Error('Unexpected network call ' + path);
@@ -109,6 +109,7 @@ describe('DeployButton IndexNow preview-and-approve workflow', () => {
       approvedUrls: preview.ready,
       approvedVersions: preview.readyVersions,
       approvedBuildStartedAt: preview.buildStartedAt,
+      page: 1,
     });
     await waitFor(() => expect(notices.success).toHaveBeenCalledWith(
       '1 URL(s) acknowledged by IndexNow. Indexing is not guaranteed.',
