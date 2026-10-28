@@ -112,7 +112,7 @@ const DeployButton: React.FC = () => {
       if (res.ok) {
         const n = data.pendingCount ?? 0;
         toast.success(
-          `Deployment started on Vercel${n ? ` — ${n} change${n === 1 ? '' : 's'} published` : ''}.`,
+          `Deployment started on Vercel${n ? ` — ${n} change${n === 1 ? '' : 's'} awaiting verification` : ''}.`,
           { id },
         );
       } else {
