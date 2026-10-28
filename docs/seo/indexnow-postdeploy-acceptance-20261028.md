@@ -35,3 +35,5 @@ Revert/disable this branch's feature safely through a reviewed follow-up PR; `IN
 - Before accepting each queued identity, the reconciliation preview now counts matching (collectionSlug, docId) entries across the full queue, not just the selected page. Historical duplicates are deferred for manual audit and are never automatically removed. This check cannot replace an operator's read-only legacy duplicate audit.
 
 - The admin pending deploy count is fail-closed: failed CMS queue reads return HTTP 503, not count zero. The UI displays an error and disables the deploy button until the count can be verified; never treat a database outage as site up-to-date.
+
+- POST /api/deploy now fails closed if either the five-minute deploy-log debounce query or pending queue count cannot be verified. No Vercel hook is called after a failed or malformed count. Shared count validator has unit regression tests. Operators should resolve database availability rather than bypass this gate.
