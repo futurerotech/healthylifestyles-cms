@@ -194,3 +194,25 @@ export function matchesIndexNowOwnershipProof(
   return response.status === 200 && response.url === requestedUrl &&
     response.body.trim() === key;
 }
+
+/** Reject offline, fixture, or foreign-CMS frontend build manifests. */
+export interface TrustedIndexNowManifest {
+  version: 1;
+  source: 'cms';
+  buildKind: 'cms';
+  cmsOrigin: string;
+  buildStartedAt: string;
+  records: DeployedRecord[];
+}
+export function isTrustedIndexNowManifest(
+  input: unknown,
+  expectedCmsOrigin: string,
+): input is TrustedIndexNowManifest {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return false;
+  const m = input as Record<string, unknown>;
+  return m.version === 1 && m.source === 'cms' && m.buildKind === 'cms' &&
+    m.cmsOrigin === expectedCmsOrigin &&
+    typeof m.buildStartedAt === 'string' && Number.isFinite(Date.parse(m.buildStartedAt)) &&
+    Array.isArray(m.records) && m.records.every((r) =>
+      !!r && typeof r === 'object' && !Array.isArray(r));
+}
