@@ -35,7 +35,11 @@ export async function GET(req: Request): Promise<NextResponse> {
     const result = await payload.find({ collection: 'pending-deploys', limit: 0 });
     return NextResponse.json({ count: result.totalDocs });
   } catch {
-    // Table might not exist
-    return NextResponse.json({ count: 0 });
+    // Never present an unavailable queue as empty: operators must not mistake
+    // a database or migration failure for a fully deployed site.
+    return NextResponse.json(
+      { error: 'Pending deployment queue unavailable; retry after checking the CMS database.' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 }
