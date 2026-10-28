@@ -3,6 +3,7 @@ import { getPayload } from 'payload';
 import type { PostgresAdapter } from '@payloadcms/db-postgres';
 import { acknowledgeIndexNowQueueRevision } from '../../src/lib/indexnow-queue-ack';
 import { recordPublishedPendingChange } from '../../src/lib/indexnow-pending-queue';
+import { reserveManualDeployAttempt } from '../../src/lib/manual-deploy-reservation';
 
 // The tests below write ONLY to CI's disposable local mock PostgreSQL service.
 // Fail before loading the CMS or opening a connection in every other environment.
@@ -45,6 +46,21 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
   });
 
   afterAll(async () => { await payload?.destroy(); });
+
+  it('reserves exactly one of two competing manual deploy triggers', async () => {
+    // Isolated CI database only. Test is independent of the provider hook.
+    await db.pool.query("DELETE FROM deploy_log WHERE triggered_by = 'ci-indexnow-reservation@example.invalid'");
+    const attempts = await Promise.all([
+      reserveManualDeployAttempt(db, 'ci-indexnow-reservation@example.invalid'),
+      reserveManualDeployAttempt(db, 'ci-indexnow-reservation@example.invalid'),
+    ]);
+    expect(attempts.filter(x => x.status === 'reserved')).toHaveLength(1);
+    expect(attempts.filter(x => x.status === 'cooldown')).toHaveLength(1);
+    const logs = await db.pool.query(
+      "SELECT id FROM deploy_log WHERE triggered_by = 'ci-indexnow-reservation@example.invalid'",
+    );
+    expect(logs.rows).toHaveLength(1);
+  });
 
   it('detects duplicate historical queue identities even when records are on different pages', async () => {
     const docId = 'historical-duplicate-' + Date.now() + '-' + Math.random();
