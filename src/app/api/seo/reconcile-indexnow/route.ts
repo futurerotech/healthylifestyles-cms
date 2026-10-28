@@ -22,7 +22,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (!user || (user as { role?: string }).role !== 'admin') {
     return NextResponse.json({ error: 'Admin login required' }, { status: 403 });
   }
-  const body = await req.json().catch(() => ({})) as { confirm?: boolean; approvedUrls?: unknown; approvedVersions?: unknown; approvedBuildStartedAt?: unknown };
+  const body = await req.json().catch(() => ({})) as { confirm?: boolean; page?: unknown; approvedUrls?: unknown; approvedVersions?: unknown; approvedBuildStartedAt?: unknown };
   const origin = new URL(SITE_BASE_URL);
   if (origin.protocol !== 'https:') return NextResponse.json({ error: 'HTTPS site required' }, { status: 503 });
   const publicOrigin = origin.origin;
@@ -47,8 +47,17 @@ export async function POST(req: Request): Promise<NextResponse> {
   } catch (e) {
     return NextResponse.json({ error: 'Cannot verify public Vercel build', detail: String(e) }, { status: 503 });
   }
-  // Bound each request; a later call processes the remaining queue.
-  const pending = await payload.find({ collection: 'pending-deploys', limit: 20, depth: 0, sort: 'changedAt' });
+  // Paginate explicitly: deferred or unpublishable entries must not permanently
+  // starve newer eligible URLs beyond the first 20. The same page is re-read
+  // at confirmation and the exact URL/revision/build approval still applies.
+  const requestedPage = body.page === undefined ? 1 : body.page;
+  if (typeof requestedPage !== 'number' || !Number.isInteger(requestedPage) ||
+      requestedPage < 1 || requestedPage > 1000) {
+    return NextResponse.json({ error: 'page must be an integer from 1 to 1000' }, { status: 400 });
+  }
+  const pending = await payload.find({
+    collection: 'pending-deploys', limit: 20, page: requestedPage, depth: 0, sort: 'changedAt',
+  });
   const ready: Array<{ id: number | string; path: string; changedAt: string }> = [];
   const deferred: Array<{ id: number | string; reason: string }> = [];
   for (const p of pending.docs) {
@@ -87,7 +96,9 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
   const readyVersions = ready.map(x => ({ url: publicOrigin + x.path, changedAt: x.changedAt }));
   const report = { dryRun: body.confirm !== true, ready: ready.map(x => publicOrigin + x.path), readyVersions,
-    deferred, queuedTotal: pending.totalDocs, buildStartedAt: manifest.buildStartedAt };
+    deferred, queuedTotal: pending.totalDocs, page: requestedPage,
+    totalPages: pending.totalPages, hasNextPage: pending.hasNextPage, hasPrevPage: pending.hasPrevPage,
+    buildStartedAt: manifest.buildStartedAt };
   if (!body.confirm || !ready.length) return NextResponse.json(report);
   // Require the admin to approve precisely the URL list returned by preview.
   if (!matchesApprovedIndexNowSnapshot(body, { ready: report.ready, readyVersions, buildStartedAt: manifest.buildStartedAt! })) {
