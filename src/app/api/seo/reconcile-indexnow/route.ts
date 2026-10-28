@@ -156,7 +156,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
   // payload.config.ts uses postgresAdapter. Narrow the generic Payload DB type
   // before executing this Postgres-only, revision-conditional SQL statement.
-  const postgresDb = payload.db as PostgresAdapter;
+  const postgresDb = payload.db as unknown as PostgresAdapter;
   const acknowledged: string[] = [];
   for (const item of ready) {
     try {
