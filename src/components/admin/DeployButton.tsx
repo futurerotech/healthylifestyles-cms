@@ -63,7 +63,6 @@ const DeployButton: React.FC = () => {
           `Deployment started on Vercel${n ? ` — ${n} change${n === 1 ? '' : 's'} published` : ''}.`,
           { id },
         );
-        setPending(0);
       } else {
         toast.error(data.error || `Deploy failed (${res.status}).`, { id });
       }
