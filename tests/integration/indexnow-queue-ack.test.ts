@@ -51,7 +51,7 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
     const older = '2026-10-28T10:00:00.000Z';
     const newer = '2026-10-28T11:00:00.000Z';
     await Promise.all(Array.from({length: 8}, (_, i) =>
-      recordPublishedPendingChange(db.pool, { collectionSlug: 'articles', docId, changedAt: i % 2 ? older : newer })
+      recordPublishedPendingChange(db, { collectionSlug: 'articles', docId, changedAt: i % 2 ? older : newer })
     ));
     const result = await db.pool.query(
       'SELECT id, changed_at FROM pending_deploys WHERE collection_slug = $1 AND doc_id = $2',
@@ -59,6 +59,24 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
     );
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].changed_at).toBe(newer);
+  });
+
+  it('rolls back a queued publication with its Payload parent transaction', async () => {
+    const docId = `rollback-${Date.now()}-${Math.random()}`;
+    const transactionID = await payload.db.beginTransaction();
+    expect(transactionID).toBeTruthy();
+    try {
+      await recordPublishedPendingChange(db, {
+        collectionSlug: 'articles', docId, changedAt: '2026-10-28T12:30:00.000Z',
+      }, transactionID!);
+    } finally {
+      await payload.db.rollbackTransaction(transactionID!);
+    }
+    const rows = await db.pool.query(
+      'SELECT id FROM pending_deploys WHERE collection_slug = $1 AND doc_id = $2',
+      ['articles', docId],
+    );
+    expect(rows.rows).toHaveLength(0);
   });
 
   it('rejects a stale revision and only deletes the exact revision', async () => {
