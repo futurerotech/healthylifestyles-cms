@@ -15,7 +15,7 @@ Status: REVIEW ONLY. PR #34 does not enable production delivery until explicitly
 
 ## Known limits and follow-up
 - This stage is **manual** post-deployment review, not a signed Vercel Ready webhook.
-- The first batch examines up to 20 oldest pending entries and subsequent previews process the rest. Requires operator-driven requests.
+- Each queue preview checks at most 20 entries with no more than 4 concurrent page checks, returning the original queue order despite differing network latency. Requires operator-driven requests; multiple slow/unreachable pages can still delay or defer a batch.
 - Pending deletions, slug changes and redirects are not yet modeled as separate IndexNow URL_DELETED/redirect events. Do not describe this as a complete change-data capture solution.
 - A generic CMS `updatedAt` may advance on a metadata-only edit; manifest and canonical checks remain essential. The sender should remain conservative.
 - Real production origin, service credentials and host keys cannot be validated from a GitHub CI run alone.
