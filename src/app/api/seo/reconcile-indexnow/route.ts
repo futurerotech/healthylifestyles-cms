@@ -5,7 +5,7 @@ import config from '@payload-config';
 import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
 import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency } from '@/lib/indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -132,9 +132,18 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ ...report, error: 'IndexNow key is missing or invalid; queue preserved' }, { status: 503 });
   }
 
-  // Key proof MUST be public on the same host. Do not disclose the key in logs.
-  const proof = await fetchPublic('/' + key + '.txt').catch(() => null);
-  if (!proof?.ok || (await proof.text()).trim() !== key) {
+  // A .txt proof must come from the exact canonical URL; do not follow
+  // redirects (including cross-origin redirects) when checking ownership.
+  // Never log or return the key or key-bearing URL.
+  const keyProofUrl = publicOrigin + '/' + key + '.txt';
+  const proof = await fetch(keyProofUrl, {
+    cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(10000),
+    headers: { Accept: 'text/plain' },
+  }).catch(() => null);
+  const proofBody = proof?.status === 200 ? await proof.text().catch(() => '') : '';
+  if (!proof || !matchesIndexNowOwnershipProof(
+    { status: proof.status, url: proof.url, body: proofBody }, keyProofUrl, key,
+  )) {
     return NextResponse.json({ ...report, error: 'IndexNow key proof unavailable or does not match' }, { status: 503 });
   }
   let response: Response;
