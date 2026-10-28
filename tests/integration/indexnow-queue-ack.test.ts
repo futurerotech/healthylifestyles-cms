@@ -58,7 +58,21 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
       ['articles', docId],
     );
     expect(result.rows).toHaveLength(1);
-    expect(result.rows[0].changed_at).toBe(newer);
+    expect(Date.parse(result.rows[0].changed_at)).toBeGreaterThanOrEqual(Date.parse(newer));
+  });
+
+  it('protects a newer publish with identical input millisecond from stale acknowledgement', async () => {
+    const docId = 'same-ms-' + Date.now() + '-' + Math.random();
+    const when = '2026-10-28T11:10:00.000Z';
+    await recordPublishedPendingChange(db, { collectionSlug: 'articles', docId, changedAt: when });
+    const first = await db.pool.query('SELECT id, changed_at FROM pending_deploys WHERE collection_slug=$1 AND doc_id=$2', ['articles', docId]);
+    await recordPublishedPendingChange(db, { collectionSlug: 'articles', docId, changedAt: when });
+    const second = await db.pool.query('SELECT id, changed_at FROM pending_deploys WHERE collection_slug=$1 AND doc_id=$2', ['articles', docId]);
+    expect(second.rows).toHaveLength(1);
+    expect(second.rows[0].id).toBe(first.rows[0].id);
+    expect(Date.parse(second.rows[0].changed_at)).toBeGreaterThan(Date.parse(first.rows[0].changed_at));
+    expect(await acknowledgeIndexNowQueueRevision(execute, { id: first.rows[0].id, changedAt: first.rows[0].changed_at })).toBe(false);
+    expect(await acknowledgeIndexNowQueueRevision(execute, { id: second.rows[0].id, changedAt: second.rows[0].changed_at })).toBe(true);
   });
 
   it('rolls back a queued publication with its Payload parent transaction', async () => {
