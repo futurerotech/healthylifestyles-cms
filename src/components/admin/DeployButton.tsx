@@ -88,9 +88,10 @@ const DeployButton: React.FC = () => {
           approvedVersions: preview.readyVersions,
           approvedBuildStartedAt: preview.buildStartedAt }),
       });
-      const body = await res.json().catch(() => ({})) as { error?:string; acknowledged?:string[] };
+      const body = await res.json().catch(() => ({})) as { error?:string; acknowledged?:string[]; simulation?: boolean; message?: string };
       if (!res.ok) throw new Error(body.error || 'IndexNow rejected the submission.');
-      toast.success((body.acknowledged?.length ?? 0) + ' URL(s) acknowledged by IndexNow. Indexing is not guaranteed.');
+      if (body.simulation) toast.success(body.message || 'IndexNow simulation only; no URLs submitted.');
+      else toast.success((body.acknowledged?.length ?? 0) + ' URL(s) acknowledged by IndexNow. Indexing is not guaranteed.');
       void refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Submission failed; queue preserved.');
