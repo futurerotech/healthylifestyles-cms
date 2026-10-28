@@ -3,7 +3,7 @@ import { getPayload } from 'payload';
 import config from '@payload-config';
 import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot } from '@/lib/indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,7 +22,12 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (!user || (user as { role?: string }).role !== 'admin') {
     return NextResponse.json({ error: 'Admin login required' }, { status: 403 });
   }
-  const body = await req.json().catch(() => ({})) as { confirm?: boolean; page?: unknown; approvedUrls?: unknown; approvedVersions?: unknown; approvedBuildStartedAt?: unknown };
+  const parsedBody: unknown = await req.json().catch(() => ({}));
+  if (parsedBody === null || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) {
+    return NextResponse.json({ error: 'Expected a JSON object' }, { status: 400 });
+  }
+  const body = parsedBody as { confirm?: unknown; page?: unknown; approvedUrls?: unknown; approvedVersions?: unknown; approvedBuildStartedAt?: unknown };
+  const explicitlyConfirmed = isExplicitIndexNowSubmitRequest(body);
   const origin = new URL(SITE_BASE_URL);
   if (origin.protocol !== 'https:') return NextResponse.json({ error: 'HTTPS site required' }, { status: 503 });
   const publicOrigin = origin.origin;
@@ -95,11 +100,11 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
   }
   const readyVersions = ready.map(x => ({ url: publicOrigin + x.path, changedAt: x.changedAt }));
-  const report = { dryRun: body.confirm !== true, ready: ready.map(x => publicOrigin + x.path), readyVersions,
+  const report = { dryRun: !explicitlyConfirmed, ready: ready.map(x => publicOrigin + x.path), readyVersions,
     deferred, queuedTotal: pending.totalDocs, page: requestedPage,
     totalPages: pending.totalPages, hasNextPage: pending.hasNextPage, hasPrevPage: pending.hasPrevPage,
     buildStartedAt: manifest.buildStartedAt };
-  if (!body.confirm || !ready.length) return NextResponse.json(report);
+  if (!explicitlyConfirmed || !ready.length) return NextResponse.json(report);
   // Require the admin to approve precisely the URL list returned by preview.
   if (!matchesApprovedIndexNowSnapshot(body, { ready: report.ready, readyVersions, buildStartedAt: manifest.buildStartedAt! })) {
     return NextResponse.json({ ...report, error: 'Preview URLs changed or not approved. Run a fresh dry-run before confirming.' }, { status: 409 });
