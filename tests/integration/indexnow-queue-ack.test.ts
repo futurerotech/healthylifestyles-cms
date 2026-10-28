@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getPayload } from 'payload';
 import type { PostgresAdapter } from '@payloadcms/db-postgres';
 import { acknowledgeIndexNowQueueRevision } from '../../src/lib/indexnow-queue-ack';
+import { recordPublishedPendingChange } from '../../src/lib/indexnow-pending-queue';
 
 // The tests below write ONLY to CI's disposable local mock PostgreSQL service.
 // Fail before loading the CMS or opening a connection in every other environment.
@@ -44,6 +45,21 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
   });
 
   afterAll(async () => { await payload?.destroy(); });
+
+  it('deduplicates simultaneous initial publishes in the actual PostgreSQL queue', async () => {
+    const docId = `indexnow-concurrent-${Date.now()}-${Math.random()}`;
+    const older = '2026-10-28T10:00:00.000Z';
+    const newer = '2026-10-28T11:00:00.000Z';
+    await Promise.all(Array.from({length: 8}, (_, i) =>
+      recordPublishedPendingChange(db.pool, { collectionSlug: 'articles', docId, changedAt: i % 2 ? older : newer })
+    ));
+    const result = await db.pool.query(
+      'SELECT id, changed_at FROM pending_deploys WHERE collection_slug = $1 AND doc_id = $2',
+      ['articles', docId],
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].changed_at).toBe(newer);
+  });
 
   it('rejects a stale revision and only deletes the exact revision', async () => {
     const old = '2026-10-28T10:00:00.000Z';
