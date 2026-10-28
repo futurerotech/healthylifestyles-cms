@@ -32,7 +32,6 @@ jobs:
     env:
       DATABASE_URI: postgres://mock:mock@127.0.0.1:5432/mock
       PAYLOAD_SECRET: ci-mock-payload-secret-not-production
-      INDEXNOW_DISABLE: 'true'
       INDEXNOW_LIVE_ENABLED: 'false'
       RUN_DATABASE_TESTS: '1'
     steps:
@@ -56,6 +55,7 @@ jobs:
       - name: PostgreSQL queue/deploy integration tests
         env:
           NODE_ENV: production
+          INDEXNOW_DISABLE: 'true'
         run: npx vitest run --config vitest.integration.config.ts tests/integration/indexnow-queue-ack.test.ts
       - name: Explicitly block release claims
         if: always()
