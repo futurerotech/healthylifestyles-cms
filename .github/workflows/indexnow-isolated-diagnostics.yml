@@ -34,7 +34,6 @@ jobs:
       PAYLOAD_SECRET: ci-mock-payload-secret-not-production
       INDEXNOW_DISABLE: 'true'
       INDEXNOW_LIVE_ENABLED: 'false'
-      NODE_ENV: production
       RUN_DATABASE_TESTS: '1'
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +54,8 @@ jobs:
       - name: Create disposable test schema
         run: npx payload migrate --force-accept-warning
       - name: PostgreSQL queue/deploy integration tests
+        env:
+          NODE_ENV: production
         run: npx vitest run --config vitest.integration.config.ts tests/integration/indexnow-queue-ack.test.ts
       - name: Explicitly block release claims
         if: always()
