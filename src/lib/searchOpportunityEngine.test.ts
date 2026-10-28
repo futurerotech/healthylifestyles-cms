@@ -13,7 +13,7 @@ describe('Search Intelligence read-only opportunity screener', () => {
     expect(v.opportunities[0].globalMonthlySearches).toBeNull();
     expect(v.opportunities[0].organicCompetition).toBe('unmeasured');
     expect(v.opportunities[0].nextStep).toBe('review-existing-page');
-    expect(v.caveats.some(x=>x.includes('does not measure global'))).toBe(true);
+    expect(v.caveats.some(x=>x.includes('do not measure global'))).toBe(true);
   });
   it('is deterministic, normalized, and dedupes duplicate query-page keys', () => {
     const q=row('  Sleep  Schedule  ',320,8);
