@@ -52,9 +52,13 @@ export async function recordPublishedPendingChange(
       const value = (row as { changed_at?: unknown }).changed_at;
       const parsed = typeof value === 'string' ? Date.parse(value) : NaN;
       return Number.isFinite(parsed) ? Math.max(max, parsed) : max;
-    }, changedMillis);
-    const changedAt = new Date(newestMillis).toISOString();
+    }, Number.NEGATIVE_INFINITY);
     const first = existing.rows[0] as { id?: number } | undefined;
+    const monotonicMillis = first ? Math.max(changedMillis, newestMillis + 1) : changedMillis;
+    if (!Number.isFinite(monotonicMillis) || Math.abs(monotonicMillis) > 8.64e15) {
+      throw new Error('Pending queue timestamp out of range');
+    }
+    const changedAt = new Date(monotonicMillis).toISOString();
     if (first) {
       await query(sql`
         UPDATE pending_deploys SET changed_at = ${changedAt}, updated_at = NOW()
