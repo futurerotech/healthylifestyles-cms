@@ -100,3 +100,16 @@ export function verifyDeployedHtml(
   }
   return { ok: true, reason: 'verified' };
 }
+
+/**
+ * A submission requires an explicit admin preview of the exact URL batch.
+ * Prevents a concurrent CMS publish from adding unseen URLs between preview
+ * and the subsequent confirmation request.
+ */
+export function matchesApprovedIndexNowPreview(expected: unknown, ready: readonly string[]): boolean {
+  if (!Array.isArray(expected) || expected.length === 0 || expected.length !== ready.length) return false;
+  if (!expected.every((u): u is string => typeof u === 'string' && u.length > 0)) return false;
+  if (new Set(expected).size !== expected.length || new Set(ready).size !== ready.length) return false;
+  const approved = new Set<string>(expected);
+  return ready.every((url) => approved.has(url));
+}
