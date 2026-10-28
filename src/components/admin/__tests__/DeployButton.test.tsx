@@ -140,6 +140,29 @@ describe('DeployButton IndexNow preview-and-approve workflow', () => {
     expect(screen.queryByRole('button', { name: 'Submit approved IndexNow URLs' })).not.toBeInTheDocument();
   });
 
+  it('labels dry-run simulation honestly and never claims URL acceptance', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      const path = String(input);
+      if (path.includes('/api/deploy/pending')) return json({ count: 1 });
+      if (path.includes('/api/seo/reconcile-indexnow')) {
+        const body = JSON.parse(String(options?.body)) as {confirm:boolean};
+        return body.confirm ? json({ simulation: true, dryRun: true,
+          message: 'IndexNow simulation: no provider request and no queue deletion.' }) : json(preview);
+      }
+      throw new Error('Unexpected request');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    render(<DeployButton />);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview IndexNow URLs' }));
+    await waitFor(() => expect(screen.getByText(URL)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Submit approved IndexNow URLs' }));
+    await waitFor(() => expect(notices.success).toHaveBeenCalledWith(
+      'IndexNow simulation: no provider request and no queue deletion.',
+    ));
+    expect(notices.success).not.toHaveBeenCalledWith(expect.stringContaining('acknowledged by IndexNow'));
+  });
+
   it('leaves send disabled when nothing was verified for deployment', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input).includes('/api/deploy/pending')) return json({ count: 0 });
