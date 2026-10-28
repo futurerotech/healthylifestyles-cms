@@ -3,6 +3,7 @@ import { getPayload } from 'payload';
 import config from '@payload-config';
 import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
+import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
 import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
@@ -155,10 +156,11 @@ export async function POST(req: Request): Promise<NextResponse> {
   const acknowledged: string[] = [];
   for (const item of ready) {
     try {
-      const latest = await payload.findByID({ collection: 'pending-deploys', id: item.id, depth: 0 }) as { changedAt?: string };
-      if (latest.changedAt !== item.changedAt) continue; // concurrent newer edits must remain pending
-      await payload.delete({ collection: 'pending-deploys', id: item.id });
-      acknowledged.push(publicOrigin + item.path);
+      const deleted = await acknowledgeIndexNowQueueRevision(
+        (statement) => payload.db.execute({ drizzle: payload.db.drizzle, sql: statement }),
+        { id: item.id, changedAt: item.changedAt },
+      );
+      if (deleted) acknowledged.push(publicOrigin + item.path);
     } catch { /* preserve unresolved entries for the next review */ }
   }
   return NextResponse.json({ ...report, dryRun: false, httpStatus: response.status, acknowledged });
