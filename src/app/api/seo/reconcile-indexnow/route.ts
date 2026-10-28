@@ -5,7 +5,7 @@ import config from '@payload-config';
 import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
 import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof } from '@/lib/indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,17 +40,18 @@ export async function POST(req: Request): Promise<NextResponse> {
     return response;
   };
   // Vercel's static manifest is a build proof; never use an old build against fresh CMS writes.
-  let manifest: { buildStartedAt?: string; source?: string; records?: Array<{
-    collection: string; docId: string; updatedAt?: string; path?: string | null; noIndex?: boolean;
-  }> };
+  let manifest: import('@/lib/indexnow-postdeploy').TrustedIndexNowManifest;
   try {
     const response = await fetchPublic('/content-manifest.json');
     if (!response.ok) throw new Error('manifest ' + response.status);
-    manifest = await response.json();
-    if (manifest.source !== 'cms' || !Array.isArray(manifest.records) ||
-        !manifest.buildStartedAt || !Number.isFinite(Date.parse(manifest.buildStartedAt))) {
-      throw new Error('invalid CMS-backed build manifest');
+    if (response.url !== publicOrigin + '/content-manifest.json') {
+      throw new Error('manifest redirect or host mismatch');
     }
+    const manifestJson: unknown = await response.json();
+    if (!isTrustedIndexNowManifest(manifestJson, CMS_ORIGIN)) {
+      throw new Error('invalid or untrusted CMS-backed build manifest');
+    }
+    manifest = manifestJson;
   } catch (e) {
     return NextResponse.json({ error: 'Cannot verify public Vercel build', detail: String(e) }, { status: 503 });
   }
