@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot } from './indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest } from './indexnow-postdeploy';
 
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
  updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
@@ -9,6 +9,15 @@ const build = '2026-10-28T11:30:00Z';
 const expected='https://www.healthylifesstyles.com/wellness-hub/example-guide';
 
 describe('post-deploy IndexNow safety gates', () => {
+ it('requires an actual boolean true before any provider submission', () => {
+  expect(isExplicitIndexNowSubmitRequest({confirm:true})).toBe(true);
+  for (const confirm of [false, 'true', 'false', 1, 0, null, undefined]) {
+   expect(isExplicitIndexNowSubmitRequest({confirm})).toBe(false);
+  }
+  for (const invalid of [null, [], 'true', true, 1]) {
+   expect(isExplicitIndexNowSubmitRequest(invalid)).toBe(false);
+  }
+ });
  it('accepts one published canonical record in a newer build', () => {
   expect(selectPublishedProof(build,records,queue,current).ok).toBe(true);
  });
