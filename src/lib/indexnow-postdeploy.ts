@@ -69,7 +69,7 @@ export function selectPublishedProof(
 
 function attribute(tag: string, name: string): string | null {
   // HTML attributes can be in either order. Reject missing or ambiguous URLs.
-  const re = new RegExp('(?:^|\s)' + name + '\s*=\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27)', 'i');
+  const re = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27)', 'i');
   const m = tag.match(re);
   return m ? (m[1] ?? m[2]) : null;
 }
