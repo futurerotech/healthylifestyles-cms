@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { acknowledgeIndexNowQueueRevision } from './indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof } from './indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest } from './indexnow-postdeploy';
 
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
  updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
@@ -10,6 +10,18 @@ const build = '2026-10-28T11:30:00Z';
 const expected='https://www.healthylifesstyles.com/wellness-hub/example-guide';
 
 describe('post-deploy IndexNow safety gates', () => {
+ it('accepts only a canonical production CMS manifest', () => {
+  const data = { version:1, source:'cms', buildKind:'cms',
+   cmsOrigin:'https://cms.healthylifesstyles.com', buildStartedAt:build, records };
+  const origin='https://cms.healthylifesstyles.com';
+  expect(isTrustedIndexNowManifest(data,origin)).toBe(true);
+  expect(isTrustedIndexNowManifest({...data,source:'local'},origin)).toBe(false);
+  expect(isTrustedIndexNowManifest({...data,buildKind:'fixture'},origin)).toBe(false);
+  expect(isTrustedIndexNowManifest({...data,cmsOrigin:'https://wrong.example'},origin)).toBe(false);
+  expect(isTrustedIndexNowManifest({...data,version:2},origin)).toBe(false);
+  expect(isTrustedIndexNowManifest({...data,buildStartedAt:'invalid'},origin)).toBe(false);
+  expect(isTrustedIndexNowManifest({...data,records:null},origin)).toBe(false);
+ });
  it('rejects redirect, wrong-host and mismatched IndexNow ownership files', () => {
   const url='https://www.healthylifesstyles.com/proof.txt';
   const key='abcdef0123456789abcdef0123456789';
