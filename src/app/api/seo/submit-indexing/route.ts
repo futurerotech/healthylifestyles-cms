@@ -30,6 +30,18 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
   const urls = rawUrls.filter((u): u is string => typeof u === 'string' && u.length > 0).slice(0, 100);
 
+  // Google Indexing API is limited to eligible JobPosting / BroadcastEvent pages.
+  // HealthyLifeStyles' ordinary wellness articles and calculators cannot use it.
+  // Preserve the existing endpoint and credentials for an independently verified eligible
+  // content type in the future, but reject ordinary requests before quota/API calls.
+  return NextResponse.json({
+    error: 'Google Indexing API is restricted to eligible JobPosting and BroadcastEvent pages. Use Google Search Console, sitemap and URL Inspection for health articles and calculators.',
+    code: 'GOOGLE_INDEXING_API_NOT_ELIGIBLE',
+    submitted: [],
+  }, { status: 422 });
+
+  /* Legacy eligible-content submission path retained for future audited implementation.
+
   // Quota guard — refuse the whole batch rather than silently dropping URLs.
   if (!canConsume('publish', urls.length)) {
     const q = getQuota('publish');
@@ -74,4 +86,5 @@ export async function POST(req: Request): Promise<NextResponse> {
     { submitted, failed, quota: { used: q.used, remaining: q.remaining } },
     { headers: { 'X-GSC-Quota-Remaining': String(q.remaining) } },
   );
+  */
 }
