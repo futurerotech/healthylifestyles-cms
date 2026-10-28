@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { acknowledgeIndexNowQueueRevision } from './indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency } from './indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof } from './indexnow-postdeploy';
 
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
  updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
@@ -10,6 +10,14 @@ const build = '2026-10-28T11:30:00Z';
 const expected='https://www.healthylifesstyles.com/wellness-hub/example-guide';
 
 describe('post-deploy IndexNow safety gates', () => {
+ it('rejects redirect, wrong-host and mismatched IndexNow ownership files', () => {
+  const url='https://www.healthylifesstyles.com/proof.txt';
+  const key='abcdef0123456789abcdef0123456789';
+  expect(matchesIndexNowOwnershipProof({status:200,url,body:key+'\\n'},url,key)).toBe(true);
+  expect(matchesIndexNowOwnershipProof({status:302,url,body:key},url,key)).toBe(false);
+  expect(matchesIndexNowOwnershipProof({status:200,url:'https://another.example/proof.txt',body:key},url,key)).toBe(false);
+  expect(matchesIndexNowOwnershipProof({status:200,url,body:'wrong'},url,key)).toBe(false);
+ });
  it('never acknowledges a newer queue revision or a missing row', async () => {
   const calls: unknown[] = [];
   const original = { id: 7, changedAt: '2026-10-28T12:00:00Z' };
