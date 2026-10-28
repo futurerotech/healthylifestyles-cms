@@ -37,13 +37,27 @@ export const trackPendingChange: CollectionAfterChangeHook = async ({
 
     if (existing.totalDocs > 0) {
       // Update timestamp on existing entry instead of creating a duplicate
-      await req.payload.update({
-        collection: 'pending-deploys',
-        id: (existing.docs[0] as any).id,
-        data: {
-          changedAt: new Date().toISOString(),
-        },
-      })
+      try {
+        await req.payload.update({
+          collection: 'pending-deploys',
+          id: (existing.docs[0] as any).id,
+          data: {
+            changedAt: new Date().toISOString(),
+          },
+        })
+      } catch (error) {
+        // A concurrent IndexNow acknowledgement may have deleted the row
+        // between our lookup and update. Preserve this new publish event.
+        if ((error as { status?: number })?.status !== 404) throw error
+        await req.payload.create({
+          collection: 'pending-deploys',
+          data: {
+            docId: String(doc.id),
+            collectionSlug: collection.slug || 'unknown',
+            changedAt: new Date().toISOString(),
+          },
+        })
+      }
     } else {
       // Create new pending entry
       await req.payload.create({
