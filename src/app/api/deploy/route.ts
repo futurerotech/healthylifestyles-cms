@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import config from '@payload-config';
-import { verifiedCollectionCount } from '@/lib/deploy-readiness';
+import type { PostgresAdapter } from '@payloadcms/db-postgres';
+import { reserveManualDeployAttempt } from '@/lib/manual-deploy-reservation';
 import { isAllowedOrigin } from '@/lib/allowedOrigins';
 
 export const runtime = 'nodejs';
@@ -45,42 +46,26 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Forbidden — admin only.' }, { status: 403 });
   }
 
-  // Debounce: check if a deploy was triggered < 5 minutes ago
-  const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
-  try {
-    const recent = await payload.find({
-      collection: 'deploy-log',
-      where: { createdAt: { greater_than: fiveMinAgo } },
-      limit: 1,
-    });
-    if (verifiedCollectionCount(recent) > 0) {
-      return NextResponse.json(
-        { error: 'A deploy was triggered in the last 5 minutes. Please wait before trying again.' },
-        { status: 429 },
-      );
-    }
-  } catch {
-    return NextResponse.json({ error: 'Cannot verify recent deploys; no deployment was triggered.' }, { status: 503 });
+  // A missing hook must not create a reservation.
+  const hookUrl = process.env.VERCEL_DEPLOY_HOOK_URL;
+  if (!hookUrl) {
+    return NextResponse.json({ error: 'VERCEL_DEPLOY_HOOK_URL is not configured.' }, { status: 503 });
   }
 
-  // Count pending changes before clearing
-  let pendingCount = 0;
+  let pendingCount: number;
   try {
-    const pending = await payload.find({ collection: 'pending-deploys', limit: 0 });
-    pendingCount = verifiedCollectionCount(pending);
+    const reservation = await reserveManualDeployAttempt(
+      payload.db as unknown as PostgresAdapter, user.email || null,
+    );
+    if (reservation.status === 'cooldown') {
+      return NextResponse.json({ error: 'A deploy was attempted in the last 5 minutes.' }, { status: 429 });
+    }
+    pendingCount = reservation.pendingCount;
   } catch {
-    return NextResponse.json({ error: 'Pending queue unavailable; no deployment was triggered.' }, { status: 503 });
+    return NextResponse.json({ error: 'Cannot reserve deploy attempt; no Vercel request sent.' }, { status: 503 });
   }
 
   // Call the Vercel deploy hook
-  const hookUrl = process.env.VERCEL_DEPLOY_HOOK_URL;
-  if (!hookUrl) {
-    return NextResponse.json(
-      { error: 'VERCEL_DEPLOY_HOOK_URL is not configured. Set it in the server environment.' },
-      { status: 503 },
-    );
-  }
-
   try {
     const res = await fetch(hookUrl, { method: 'POST' });
     if (!res.ok) {
@@ -96,22 +81,9 @@ export async function POST(req: Request): Promise<NextResponse> {
     );
   }
 
-  // Log the deploy
-  try {
-    await payload.create({
-      collection: 'deploy-log',
-      data: {
-        triggeredBy: user.email || 'unknown',
-        pendingCount,
-      },
-    });
-  } catch {
-    // non-fatal if deploy-log table is missing
-  }
-
   // Do NOT clear pending-deploys here: Vercel accepted a build request, not a successful deployment.
   // An authenticated post-deployment reconciliation explicitly confirms the content manifest
   // and public URLs before submitting any IndexNow notification.
 
-  return NextResponse.json({ ok: true, pendingCount });
+  return NextResponse.json({ ok: true, pendingCount, message: 'Vercel build request accepted; production readiness not yet verified.' });
 }
