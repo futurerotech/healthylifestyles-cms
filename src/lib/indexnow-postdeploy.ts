@@ -154,3 +154,9 @@ export function matchesApprovedIndexNowSnapshot(
     typeof changedAt === 'string' && Number.isFinite(Date.parse(changedAt)) &&
     approved.get(url) === changedAt);
 }
+
+/** A real provider submission requires the literal JSON boolean true, never a truthy string/number. */
+export function isExplicitIndexNowSubmitRequest(input: unknown): boolean {
+  return input !== null && typeof input === 'object' && !Array.isArray(input) &&
+    (input as Record<string, unknown>).confirm === true;
+}
