@@ -185,6 +185,14 @@ export async function mapWithBoundedConcurrency<T, R>(
   return results;
 }
 
+/** The owner must opt into live submission; missing env configuration fails closed. */
+export function isIndexNowLiveSubmissionEnabled(
+  enabled: unknown,
+  disabled: unknown,
+): boolean {
+  return enabled === 'true' && disabled !== 'true';
+}
+
 /** Verify public key ownership without accepting a redirect to another URL/host. */
 export function matchesIndexNowOwnershipProof(
   response: { status: number; url: string; body: string },
