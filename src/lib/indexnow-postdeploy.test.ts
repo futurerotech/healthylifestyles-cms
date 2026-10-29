@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { acknowledgeIndexNowQueueRevision } from './indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, fetchDirectIndexNowPublicResource } from './indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from './indexnow-postdeploy';
 
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
  updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
@@ -59,6 +59,23 @@ describe('post-deploy IndexNow safety gates', () => {
   await expect(fetchDirectIndexNowPublicResource(origin, '//evil.example/path', fake)).rejects.toThrow(/canonical origin/);
   await expect(fetchDirectIndexNowPublicResource(origin, '/a?next=evil', fake)).rejects.toThrow(/direct HTTPS path/);
   expect(calls).toHaveLength(2);
+ });
+ it('enforces proof byte limits even without Content-Length or with chunked transfer', async () => {
+  const body = (chunks: string[], headers: Record<string,string> = {}) =>
+    new Response(new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const part of chunks) controller.enqueue(new TextEncoder().encode(part));
+        controller.close();
+      },
+    }), { headers });
+  expect(await readBoundedIndexNowProofText(body(['hello',' world']), 11)).toBe('hello world');
+  await expect(readBoundedIndexNowProofText(body(['hello',' world']), 10)).rejects.toThrow(/byte limit/);
+  await expect(readBoundedIndexNowProofText(body(['ok'], {'content-length': '1000'}), 10)).rejects.toThrow(/length/);
+  await expect(readBoundedIndexNowProofText(body(['ok'], {'content-length': 'invalid'}), 10)).rejects.toThrow(/length/);
+  expect(await readBoundedIndexNowProofText(body(['😀']), 4)).toBe('😀');
+  await expect(readBoundedIndexNowProofText(body(['😀']), 3)).rejects.toThrow(/byte limit/);
+  await expect(readBoundedIndexNowProofText(new Response(new Uint8Array([255, 254])), 10)).rejects.toThrow();
+  await expect(readBoundedIndexNowProofText(body(['hi']), 0)).rejects.toThrow(/size limit/);
  });
  it('rejects redirect, wrong-host and mismatched IndexNow ownership files', () => {
   const url='https://www.healthylifesstyles.com/proof.txt';
