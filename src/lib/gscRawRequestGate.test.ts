@@ -37,6 +37,13 @@ describe('bounded raw GSC request/response gate',()=>{
   expect(()=>screenPaginatedRawGscBatches([a,{...b,request:{...b.request,startRow:2}}],[old,oldEnd])).toThrow();
   expect(()=>screenPaginatedRawGscBatches([a],[old,oldEnd])).toThrow();
  });
+ it('accepts genuine no-data responses without converting malformed rows to empty data',()=>{
+  const noData={...current(),response:{responseAggregationType:'auto'}};
+  expect(screenBoundedRawGscBatches(noData,previous()).acceptedRows).toBe(0);
+  expect(screenPaginatedRawGscBatches([noData],[previous()]).acceptedRows).toBe(0);
+  expect(()=>screenBoundedRawGscBatches({...noData,response:{rows:null} as unknown as RawGscBatch['response']},previous())).toThrow();
+  expect(()=>screenPaginatedRawGscBatches([{...noData,response:{rows:'bad'} as unknown as RawGscBatch['response']}],[previous()])).toThrow();
+ });
  it('rejects incomparable periods even for individually well-formed batches',()=>{
   expect(()=>screenBoundedRawGscBatches(batch('2026-08-31','2026-09-27'),previous())).toThrow();
  });
