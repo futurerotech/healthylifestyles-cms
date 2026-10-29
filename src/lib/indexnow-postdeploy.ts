@@ -68,16 +68,32 @@ export function selectPublishedProof(
 }
 
 function attribute(tag: string, name: string): string | null {
-  // HTML attributes can be in either order. Reject missing or ambiguous URLs.
-  const re = new RegExp('(?:^|\\s)' + name + '\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27)', 'i');
+  // HTML permits unquoted attributes. Ignoring those can miss real noindex
+  // directives even when browsers and crawlers recognize the meta element.
+  const re = new RegExp(
+    '(?:^|\\s)' + name + '\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27|([^\\s"\\x27\\x60=<>]+))',
+    'i',
+  );
   const m = tag.match(re);
-  return m ? (m[1] ?? m[2]) : null;
+  return m ? (m[1] ?? m[2] ?? m[3]) : null;
 }
 
-// "none" means noindex + nofollow. Keep directive token boundaries so
-// "noimageindex" and "nosnippet" do not disable otherwise indexable pages.
+/** Resolve HTML numeric character references in metadata before interpreting it. */
+function decodeNumericHtmlReferences(value: string): string {
+  return value.replace(/&#(?:x([0-9a-f]+)|([0-9]+));?/gi, (_match, hex: string | undefined, dec: string | undefined) => {
+    const number = Number.parseInt((hex ?? dec)!, hex ? 16 : 10);
+    return Number.isInteger(number) && number > 0 && number <= 0x10ffff &&
+      !(number >= 0xd800 && number <= 0xdfff)
+      ? String.fromCodePoint(number) : '\ufffd';
+  });
+}
+
+// "none" means noindex + nofollow. Decode numeric HTML entities before
+// searching directives, while keeping token boundaries so "noimageindex"
+// and "nosnippet" are not mistaken for a page-level noindex.
 function forbidsIndexing(directives: string): boolean {
-  return /(?:^|[\s,;:])(?:noindex|none)(?=$|[\s,;])/i.test(directives);
+  const normalized = decodeNumericHtmlReferences(directives);
+  return /(?:^|[\s,;:])(?:noindex|none)(?=$|[\s,;])/i.test(normalized);
 }
 
 const ROBOTS_META_AGENTS = new Set([
@@ -124,7 +140,7 @@ export function verifyDeployedHtml(
   const robotsHtml = uncommented
     .replace(/<(script|style|template|noscript|textarea)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
   const metas = robotsHtml.match(/<meta\b[^>]*>/gi) ?? [];
-  if (metas.some((tag) => ROBOTS_META_AGENTS.has((attribute(tag, 'name') ?? '').toLowerCase()) &&
+  if (metas.some((tag) => ROBOTS_META_AGENTS.has(decodeNumericHtmlReferences(attribute(tag, 'name') ?? '').toLowerCase()) &&
     forbidsIndexing(attribute(tag, 'content') ?? ''))) {
     return { ok: false, reason: 'meta robots forbids indexing' };
   }
