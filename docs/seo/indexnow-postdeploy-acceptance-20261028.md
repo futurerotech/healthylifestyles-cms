@@ -47,3 +47,5 @@ Revert/disable this branch's feature safely through a reviewed follow-up PR; `IN
 - PendingDeploys is machine-owned: API read requires admin, and API create/update/delete are denied for all roles. Reviewed server-side SQL exact-revision acknowledgement is the only normal deletion mechanism. A unit access regression protects this boundary.
 
 - A failed published-content queue write now propagates from the afterChange hook rather than silently reporting success; the active Payload transaction is expected to roll back. Unit regression covers draft exclusion, queue error propagation, and successful recording. Verify exact-head CI before treating this as accepted; this is not proof that all external callers use transactions.
+
+- Articles afterChange now runs trackPendingChange BEFORE afterPublishPushHook; Payload v3.91.0 executes these sequentially before committing the parent transaction. Queue failure therefore prevents an external push from being attempted by this hook. Full exactly-once/post-commit push delivery is NOT implemented and must be reviewed separately; a later push failure can still roll back publishing after partial external sends.
