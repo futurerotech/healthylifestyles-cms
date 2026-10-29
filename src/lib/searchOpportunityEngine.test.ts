@@ -84,6 +84,30 @@ describe('Search Intelligence read-only opportunity screener', () => {
       expect(result.duplicateCurrentKeys).toBe(1);
     }
   });
+  it('excludes a valid current row when an invalid measurement duplicate has the same identity', () => {
+    const valid = row('night shift sleep', 300, 9);
+    const invalid = { ...valid, keys: [' NIGHT SHIFT SLEEP ', page], ctr: 0.9 };
+    for (const entries of [[valid, invalid], [invalid, valid]]) {
+      const result = screenSearchOpportunities(entries);
+      expect(result.acceptedRows).toBe(0);
+      expect(result.rejectedRows).toBe(2);
+      expect(result.duplicateCurrentKeys).toBe(1);
+    }
+  });
+
+  it('does not invent baseline growth when one duplicate has an invalid measurement', () => {
+    const valid = row('sleep recovery', 300, 9);
+    const oldValid = row('sleep recovery', 100, 12);
+    const oldInvalid = { ...oldValid, keys: [' SLEEP RECOVERY ', page], position: 0.5 };
+    for (const baselines of [[oldValid, oldInvalid], [oldInvalid, oldValid]]) {
+      const result = screenSearchOpportunities([valid], baselines);
+      expect(result.acceptedRows).toBe(1);
+      expect(result.duplicateBaselineKeys).toBe(1);
+      expect(result.opportunities[0].observedChangePercent).toBeNull();
+      expect(result.opportunities[0].previousImpressions28d).toBeNull();
+    }
+  });
+
   it('rejects reserved section roots', () => {
     const paths = ['/tools/pseo', '/wellness-hub/tag'];
     const result = screenSearchOpportunities(paths.map(path => ({
