@@ -75,9 +75,19 @@ function validRow(row: GscQueryPageRow): row is GscQueryPageRow {
   const [query, page] = row.keys;
   if (typeof query !== 'string' || typeof page !== 'string' ||
       !normalizedQuery(query) || query.length > 300 || !safePage(page)) return false;
-  return [row.clicks, row.impressions, row.ctr, row.position].every(Number.isFinite) &&
-    row.impressions >= 0 && row.clicks >= 0 && row.clicks <= row.impressions &&
-    row.ctr >= 0 && row.ctr <= 1 && row.position > 0;
+  // API row counts are represented as numbers, but clicks/impressions
+  // count whole events. Reject malformed or contradictory data before
+  // labeling metrics as observed Search Console performance.
+  if (!Number.isSafeInteger(row.clicks) || !Number.isSafeInteger(row.impressions) ||
+      !Number.isFinite(row.ctr) || !Number.isFinite(row.position) ||
+      row.impressions < 0 || row.clicks < 0 || row.clicks > row.impressions ||
+      row.ctr < 0 || row.ctr > 1 || row.position < 1) return false;
+
+  // Search Analytics CTR is clicks / impressions, in the [0, 1] range.
+  // Permit minor floating-point/serialization rounding, not conflicting
+  // metrics from an incorrectly combined export or transformed source.
+  const expectedCtr = row.impressions === 0 ? 0 : row.clicks / row.impressions;
+  return Math.abs(row.ctr - expectedCtr) <= 0.000001;
 }
 
 /**
