@@ -3,7 +3,8 @@ import { getPayload } from 'payload';
 import config from '@payload-config';
 import type { PostgresAdapter } from '@payloadcms/db-postgres';
 import { reserveManualDeployAttempt } from '@/lib/manual-deploy-reservation';
-import { isAllowedOrigin } from '@/lib/allowedOrigins';
+import { isAllowedAdminMutationOrigin } from '@/lib/allowedOrigins';
+import { isValidVercelDeployHookUrl } from '@/lib/deploy-readiness';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,7 +24,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   // A MISSING Origin is rejected too: same-origin POSTs always send it, and
   // curl/server-to-server is not a supported path here. payload.auth below
   // stays the primary gate.
-  if (!isAllowedOrigin(req.headers.get('origin'))) {
+  if (!isAllowedAdminMutationOrigin(req.headers.get('origin'))) {
     return NextResponse.json({ error: 'Forbidden: Invalid Origin' }, { status: 403 });
   }
 
@@ -48,8 +49,8 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   // A missing hook must not create a reservation.
   const hookUrl = process.env.VERCEL_DEPLOY_HOOK_URL;
-  if (!hookUrl) {
-    return NextResponse.json({ error: 'VERCEL_DEPLOY_HOOK_URL is not configured.' }, { status: 503 });
+  if (!isValidVercelDeployHookUrl(hookUrl)) {
+    return NextResponse.json({ error: 'Vercel deploy hook is missing or invalid.' }, { status: 503 });
   }
 
   let pendingCount: number;
@@ -67,7 +68,7 @@ export async function POST(req: Request): Promise<NextResponse> {
 
   // Call the Vercel deploy hook
   try {
-    const res = await fetch(hookUrl, { method: 'POST' });
+    const res = await fetch(hookUrl, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15000) });
     if (!res.ok) {
       return NextResponse.json(
         { error: `Vercel hook failed (${res.status} ${res.statusText}).` },
@@ -76,7 +77,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
   } catch (err) {
     return NextResponse.json(
-      { error: `Failed to reach Vercel: ${(err as Error).message}` },
+      { error: 'Vercel deploy hook unavailable or timed out; attempt reserved for review.' },
       { status: 502 },
     );
   }
