@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { acknowledgeIndexNowQueueRevision } from './indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled } from './indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, fetchDirectIndexNowPublicResource } from './indexnow-postdeploy';
 
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
  updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
@@ -28,6 +28,30 @@ describe('post-deploy IndexNow safety gates', () => {
   expect(isTrustedIndexNowManifest({...data,version:2},origin)).toBe(false);
   expect(isTrustedIndexNowManifest({...data,buildStartedAt:'invalid'},origin)).toBe(false);
   expect(isTrustedIndexNowManifest({...data,records:null},origin)).toBe(false);
+ });
+ it('fetches public build proofs without following redirects or foreign URLs', async () => {
+  const origin = 'https://www.healthylifesstyles.com';
+  const url = origin + '/content-manifest.json';
+  const calls: Array<{url: string; init?: RequestInit}> = [];
+  const fake = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({url: String(input), init});
+    return new Response('{}', {status: 200});
+  }) as typeof fetch;
+  // A fetch mock with an empty response.url is rejected: the proof must be
+  // tied to its exact direct URL, not merely to a successful status.
+  await expect(fetchDirectIndexNowPublicResource(origin, '/content-manifest.json', fake)).rejects.toThrow(/redirected/);
+  expect(calls).toHaveLength(1);
+  expect(calls[0].url).toBe(url);
+  expect(calls[0].init?.redirect).toBe('manual');
+  const redirected = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({url: String(input), init});
+    return new Response(null, {status: 302, headers: {Location: 'http://127.0.0.1/private'}});
+  }) as typeof fetch;
+  await expect(fetchDirectIndexNowPublicResource(origin, '/content-manifest.json', redirected)).rejects.toThrow(/redirected/);
+  expect(calls[1].init?.redirect).toBe('manual');
+  await expect(fetchDirectIndexNowPublicResource(origin, '//evil.example/path', fake)).rejects.toThrow(/canonical origin/);
+  await expect(fetchDirectIndexNowPublicResource(origin, '/a?next=evil', fake)).rejects.toThrow(/direct HTTPS path/);
+  expect(calls).toHaveLength(2);
  });
  it('rejects redirect, wrong-host and mismatched IndexNow ownership files', () => {
   const url='https://www.healthylifesstyles.com/proof.txt';
