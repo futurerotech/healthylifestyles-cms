@@ -37,3 +37,8 @@ https://support.google.com/google-ads/answer/6325025
 https://trends.google.com/trends/
 https://developers.google.com/search/docs/fundamentals/creating-helpful-content
 https://developers.google.com/search/docs/essentials/spam-policies
+
+## 2026-10-29 data integrity review
+- The offline screener now accepts only one-segment, lower-case, canonical `/tools/{slug}` and `/wellness-hub/{slug}` URLs on the canonical origin. It refuses nested/tag/pSEO targets, encoded paths and trailing slash variations rather than proposing review of an unrelated page. This does not prove a given slug currently exists: live CMS verification remains a separate gate.
+- Duplicate previous-period query/page keys are explicitly flagged and the affected impression-change percentage is unknown rather than based on whichever duplicate appeared first. `duplicateBaselineKeys` exposes the condition for source-data correction; neither row is automatically added to the other.
+- No network, AI service, GSC connector, production database or publishing operation is added by this change.
