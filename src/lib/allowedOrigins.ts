@@ -38,3 +38,15 @@ const ALLOWED_SET = new Set(ALLOWED_ORIGINS);
  */
 export const isAllowedOrigin = (origin: string | null | undefined): boolean =>
   Boolean(origin) && ALLOWED_SET.has(stripSlash(origin as string));
+
+/**
+ * Privileged browser POSTs may originate ONLY from the CMS in production.
+ * The frontend is intentionally trusted for CORS/CSRF generally, but that
+ * must not grant it authority to initiate a Vercel deployment.
+ * Non-production keeps the established local development origin allowlist.
+ */
+export const isAllowedAdminMutationOrigin = (
+  origin: string | null | undefined,
+  isProduction = IS_PROD,
+): boolean =>
+  isAllowedOrigin(origin) && (!isProduction || origin === CMS_ORIGIN);
