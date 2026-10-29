@@ -89,9 +89,11 @@ export function screenPaginatedRawGscBatches(
       throw new RangeError('Invalid number of Search Analytics pages.');
     }
     const base = pages[0];
+    // Validate the request without falsifying response rows: a full page is
+    // valid only when a subsequent short terminal page proves pagination.
     const first = checkedBatch({
       ...base,
-      response: { ...base.response, rows: (base.response.rows ?? []).slice(0, Math.max(0, base.request.rowLimit - 1)) },
+      response: { ...base.response, rows: [] },
     });
     if (base.request.rowLimit < 1 || base.request.rowLimit > 25000) {
       throw new RangeError('Invalid Search Analytics row limit.');
