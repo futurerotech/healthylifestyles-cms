@@ -39,3 +39,5 @@ Revert/disable this branch's feature safely through a reviewed follow-up PR; `IN
 - POST /api/deploy now fails closed if either the five-minute deploy-log debounce query or pending queue count cannot be verified. No Vercel hook is called after a failed or malformed count. Shared count validator has unit regression tests. Operators should resolve database availability rather than bypass this gate.
 
 - Manual Vercel deploy triggers now use a transaction-scoped PostgreSQL advisory lock and insert an attempt reservation in deploy_log BEFORE calling the hook; competing admin requests cannot both pass the five-minute debounce. Failed or ambiguous hook calls keep the reservation and require manual review after cooldown. A reserved attempt does NOT prove Vercel Ready. Isolated PostgreSQL integration tests cover concurrent requests.
+
+- Legacy in-memory IndexNow sender (currently not attached to article/tool hooks) now also requires INDEXNOW_LIVE_ENABLED=true for any real HTTP request, and emergency INDEXNOW_DISABLE is rechecked at flush time. Dedicated unit regressions cover these fail-closed controls. This is defense-in-depth, not permission to enable live sends.
