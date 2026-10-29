@@ -181,6 +181,17 @@ describe('post-deploy IndexNow safety gates', () => {
   expect(verifyDeployedHtml(base('<!-- <meta name="robots" content="none"> -->'),expected,expected,'text/html',null).ok).toBe(true);
   expect(verifyDeployedHtml(base('<script><meta name="robots" content="none"></script>'),expected,expected,'text/html',null).ok).toBe(true);
  });
+ it('recognizes unquoted robots attributes and numeric HTML references', () => {
+  const canonical='<link rel=canonical href="'+expected+'">';
+  const html=(meta:string)=>'<html><head>'+canonical+meta+'</head><body></body></html>';
+  expect(verifyDeployedHtml(html(''),expected,expected,'text/html',null).ok).toBe(true);
+  expect(verifyDeployedHtml(html('<meta name=robots content=noindex>'),expected,expected,'text/html',null).ok).toBe(false);
+  expect(verifyDeployedHtml(html('<meta name=robots content=none>'),expected,expected,'text/html',null).ok).toBe(false);
+  expect(verifyDeployedHtml(html('<meta name="robots" content="n&#111;index">'),expected,expected,'text/html',null).ok).toBe(false);
+  expect(verifyDeployedHtml(html('<meta name="robots" content="n&#x6f;ne">'),expected,expected,'text/html',null).ok).toBe(false);
+  expect(verifyDeployedHtml(html('<meta name="rob&#111;ts" content="none">'),expected,expected,'text/html',null).ok).toBe(false);
+  expect(verifyDeployedHtml(html('<meta name=robots content=noimageindex>'),expected,expected,'text/html',null).ok).toBe(true);
+ });
  it('requires exact current URL preview approval before submission', () => {
   const urls=['https://www.healthylifesstyles.com/tools/one','https://www.healthylifesstyles.com/tools/two'];
   expect(matchesApprovedIndexNowPreview(urls,urls)).toBe(true);
