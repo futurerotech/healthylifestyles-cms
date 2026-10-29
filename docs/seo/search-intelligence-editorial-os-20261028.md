@@ -47,3 +47,7 @@ https://developers.google.com/search/docs/essentials/spam-policies
 - Any normalized current-period query/page identity appearing more than once is excluded in full rather than selecting the first GSC export row; this prevents export-order-dependent editorial scoring. `duplicateCurrentKeys` reports distinct affected identities, with a corrective caveat.
 - Section roots `/tools/pseo` and `/wellness-hub/tag` are excluded from review-as-detail-page recommendations. Canonical URL validation does not substitute for a real CMS lookup.
 - This read-only change does not access live Search Console, publish content or modify production data.
+
+## 2026-10-29 metric-consistency gate
+- Read-only GSC row validation now requires whole-number safe click/impression counts and an average position >=1, and checks that CTR matches clicks/impressions within a 0.000001 rounding tolerance; zero-impression rows must have zero CTR. Contradictory or transformed rows are rejected, not used for editorial prioritization.
+- This is a structural check of already exported data, not proof of source provenance or a connection to live Search Console.
