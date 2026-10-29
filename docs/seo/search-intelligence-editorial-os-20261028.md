@@ -51,3 +51,7 @@ https://developers.google.com/search/docs/essentials/spam-policies
 ## 2026-10-29 metric-consistency gate
 - Read-only GSC row validation now requires whole-number safe click/impression counts and an average position >=1, and checks that CTR matches clicks/impressions within a 0.000001 rounding tolerance; zero-impression rows must have zero CTR. Contradictory or transformed rows are rejected, not used for editorial prioritization.
 - This is a structural check of already exported data, not proof of source provenance or a connection to live Search Console.
+
+## 2026-10-29 medical-risk triage review
+- Expanded conservative keyword triggers for postpartum/prenatal, insulin/glucose, chest pain/stroke, anxiety/self-harm and children/newborn concerns. This is a triage hint only; a false flag does NOT mean medical content is safe or can bypass an appropriate qualified review.
+- No article creation, medical review claims, automatic publishing, live GSC query or production changes.
