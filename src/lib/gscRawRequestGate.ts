@@ -72,3 +72,57 @@ export function screenBoundedRawGscBatches(
 ): DeclaredComparableResult {
   return screenComparableGscExports(checkedBatch(current), checkedBatch(previous));
 }
+
+
+/**
+ * Validate captured pages before scoring. Offsets must be contiguous and the
+ * final page short, otherwise a partially exported result is not trustworthy.
+ * This does not claim Google returned every low-volume query.
+ */
+export function screenPaginatedRawGscBatches(
+  current: readonly RawGscBatch[],
+  previous: readonly RawGscBatch[],
+): DeclaredComparableResult {
+  const collect = (pages: readonly RawGscBatch[]): DeclaredGscExport => {
+    if (!Array.isArray(pages) || !pages.length || pages.length > 1000) {
+      throw new RangeError('Invalid number of Search Analytics pages.');
+    }
+    const base = pages[0];
+    const first = checkedBatch({
+      ...base,
+      response: { ...base.response, rows: (base.response.rows ?? []).slice(0, Math.max(0, base.request.rowLimit - 1)) },
+    });
+    if (base.request.rowLimit < 1 || base.request.rowLimit > 25000) {
+      throw new RangeError('Invalid Search Analytics row limit.');
+    }
+    const rows: GscQueryPageRow[] = [];
+    let offset = 0;
+    for (let i = 0; i < pages.length; i++) {
+      const page = pages[i];
+      const list = page?.response?.rows;
+      if (!Array.isArray(list) || page.siteUrl !== base.siteUrl ||
+          page.request.startDate !== base.request.startDate ||
+          page.request.endDate !== base.request.endDate ||
+          page.request.rowLimit !== base.request.rowLimit ||
+          page.request.startRow !== offset ||
+          page.request.type !== base.request.type ||
+          page.request.dataState !== base.request.dataState ||
+          page.request.aggregationType !== base.request.aggregationType ||
+          page.request.dimensionFilterGroups !== undefined ||
+          JSON.stringify(page.request.dimensions) !== JSON.stringify(base.request.dimensions) ||
+          (page.response.responseAggregationType ?? page.request.aggregationType) !== first.aggregationType) {
+        throw new RangeError('Mismatched GSC page or non-contiguous offset.');
+      }
+      if (list.length > base.request.rowLimit ||
+          (i < pages.length - 1 && list.length !== base.request.rowLimit) ||
+          (i === pages.length - 1 && list.length === base.request.rowLimit)) {
+        throw new RangeError('GSC pages must end with a short or empty terminal page.');
+      }
+      offset += list.length;
+      if (offset > 25000) throw new RangeError('Screening row limit exceeded.');
+      rows.push(...list);
+    }
+    return { ...first, rows };
+  };
+  return screenComparableGscExports(collect(current), collect(previous));
+}
