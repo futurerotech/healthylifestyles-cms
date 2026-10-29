@@ -58,6 +58,20 @@ describe('private offline GSC report', () => {
     expect(report.opportunities).toHaveLength(1);
     expect(report.totals.distinctCandidatePages).toBe(2);
   });
+  it('redacts cross-page query overlap details unless explicitly opted in', () => {
+    const c=current();
+    c[0].response.rows=[
+      { keys:['sleep timing',page],clicks:4,impressions:100,ctr:0.04,position:9 },
+      { keys:['sleep timing','https://www.healthylifesstyles.com/tools/sleep-score'],clicks:3,impressions:60,ctr:0.05,position:11 },
+    ];
+    const hidden=buildOfflineGscReport(c,previous());
+    expect(hidden.totals.observedMultiPageQueries).toBe(1);
+    expect(JSON.stringify(hidden)).not.toContain('sleep timing');
+    expect('crossPageReview' in hidden).toBe(false);
+    const shown=buildOfflineGscReport(c,previous(),{includeQueries:true,top:1});
+    expect(shown.crossPageReview).toHaveLength(1);
+    expect(shown.crossPageReview?.[0].observedPages).toHaveLength(2);
+  });
   it('refuses invalid limits and mismatched periods', () => {
     expect(() => buildOfflineGscReport(current(), previous(), {top: 0})).toThrow();
     expect(() => buildOfflineGscReport(current(), current())).toThrow();
