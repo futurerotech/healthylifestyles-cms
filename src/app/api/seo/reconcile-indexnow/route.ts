@@ -5,7 +5,7 @@ import config from '@payload-config';
 import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
 import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled } from '@/lib/indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, fetchDirectIndexNowPublicResource } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,12 +33,8 @@ export async function POST(req: Request): Promise<NextResponse> {
   const origin = new URL(SITE_BASE_URL);
   if (origin.protocol !== 'https:') return NextResponse.json({ error: 'HTTPS site required' }, { status: 503 });
   const publicOrigin = origin.origin;
-  const fetchPublic = async (pathname: string) => {
-    const response = await fetch(publicOrigin + pathname, {
-      cache: 'no-store', signal: AbortSignal.timeout(10000), headers: { 'Accept': pathname.endsWith('.json') ? 'application/json' : 'text/html' },
-    });
-    return response;
-  };
+  const fetchPublic = (pathname: string) =>
+    fetchDirectIndexNowPublicResource(publicOrigin, pathname);
   // Vercel's static manifest is a build proof; never use an old build against fresh CMS writes.
   let manifest: import('@/lib/indexnow-postdeploy').TrustedIndexNowManifest;
   try {
