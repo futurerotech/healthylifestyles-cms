@@ -77,7 +77,7 @@ const DeployButton: React.FC = () => {
       }
       setIndexPreview(body as IndexPreview);
       setIndexPage(page);
-      toast.success('Verified preview ready. Nothing sent to IndexNow.');
+      toast.success('IndexNow preview complete. Nothing sent to IndexNow.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Preview failed.');
     } finally { setIndexBusy(false); }
@@ -99,8 +99,24 @@ const DeployButton: React.FC = () => {
       });
       const body = await res.json().catch(() => ({})) as { error?:string; acknowledged?:string[]; simulation?: boolean; message?: string };
       if (!res.ok) throw new Error(body.error || 'IndexNow rejected the submission.');
-      if (body.simulation) toast.success(body.message || 'IndexNow simulation only; no URLs submitted.');
-      else toast.success((body.acknowledged?.length ?? 0) + ' URL(s) acknowledged by IndexNow. Indexing is not guaranteed.');
+      if (body.simulation) {
+        toast.success(body.message || 'IndexNow simulation only; no URLs submitted.');
+      } else {
+        // Provider acceptance and our local queue acknowledgement are separate
+        // operations. A missing/partial acknowledgement needs operator review,
+        // never a misleading success toast or an automatic retry.
+        const acknowledged = body.acknowledged;
+        if (!Array.isArray(acknowledged) ||
+            acknowledged.some(url => typeof url !== 'string' || !preview.ready.includes(url)) ||
+            new Set(acknowledged).size !== acknowledged.length) {
+          toast.error('IndexNow acknowledgement could not be verified. Inspect the queue before another submission.');
+        } else if (acknowledged.length !== preview.ready.length) {
+          toast.error('IndexNow accepted the request, but only ' + acknowledged.length +
+            ' of ' + preview.ready.length + ' queue entry/entries were cleared. Review pending changes.');
+        } else {
+          toast.success(acknowledged.length + ' URL(s) acknowledged by IndexNow. Indexing is not guaranteed.');
+        }
+      }
       void refresh();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Submission failed; queue preserved.');
@@ -179,6 +195,18 @@ const DeployButton: React.FC = () => {
           <ul style={{ maxHeight: 160, overflowY: 'auto', paddingLeft: 18 }}>
             {indexPreview.ready.map(url => <li key={url}>{url}</li>)}
           </ul>
+          {indexPreview.deferred.length > 0 && (
+            <details aria-label="Deferred IndexNow queue entries">
+              <summary>Review {indexPreview.deferred.length} deferred queue item(s) and reasons</summary>
+              <ul style={{ maxHeight: 200, overflowY: 'auto', paddingLeft: 18 }}>
+                {indexPreview.deferred.map((item, i) => (
+                  <li key={String(item.id) + ':' + i}>
+                    Queue entry {String(item.id)}: {item.reason}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
           {indexPreview.ready.length > 0 && <Button onClick={() => void submitIndexNow()}
             disabled={indexBusy} buttonStyle="primary" size="small" aria-label="Submit approved IndexNow URLs">
             Submit verified URLs to IndexNow
