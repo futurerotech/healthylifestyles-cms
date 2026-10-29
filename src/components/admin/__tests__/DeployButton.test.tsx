@@ -172,6 +172,32 @@ describe('DeployButton IndexNow preview-and-approve workflow', () => {
     expect(notices.success).not.toHaveBeenCalledWith(expect.stringContaining('acknowledged by IndexNow'));
   });
 
+  it('shows deferred queue reasons to the operator without sending them', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
+      String(input).includes('/api/deploy/pending') ? json({ count: 2 }) : json(preview)));
+    render(<DeployButton />);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview IndexNow URLs' }));
+    await waitFor(() => expect(screen.getByText(URL)).toBeInTheDocument());
+    expect(screen.getByText('Queue entry 2: Vercel build older than content')).toBeInTheDocument();
+  });
+
+  it('does not report successful clearing when IndexNow acknowledgement is partial', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      if (String(input).includes('/api/deploy/pending')) return json({ count: 1 });
+      const submitted = JSON.parse(String(options?.body)) as {confirm:boolean};
+      return submitted.confirm ? json({ acknowledged: [] }) : json(preview);
+    }));
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    render(<DeployButton />);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview IndexNow URLs' }));
+    await waitFor(() => expect(screen.getByText(URL)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Submit approved IndexNow URLs' }));
+    await waitFor(() => expect(notices.error).toHaveBeenCalledWith(
+      'IndexNow accepted the request, but only 0 of 1 queue entry/entries were cleared. Review pending changes.',
+    ));
+    expect(notices.success).not.toHaveBeenCalledWith(expect.stringContaining('acknowledged by IndexNow'));
+  });
+
   it('leaves send disabled when nothing was verified for deployment', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input).includes('/api/deploy/pending')) return json({ count: 0 });
