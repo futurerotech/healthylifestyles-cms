@@ -19,9 +19,12 @@ export const trackPendingChange: CollectionAfterChangeHook = async ({ req, doc, 
       changedAt: new Date().toISOString(),
     }, req.transactionID)
   } catch (err) {
-    // Preserve publishing behavior on queue failure, but report the failure.
-    // Operator must inspect missing queued changes before IndexNow acceptance.
-    console.error('[trackPendingChange] Failed to record pending change:', (err as Error).message)
+    // A published revision without a queued change may never be reconciled
+    // after Vercel deployment. Fail the content transaction rather than
+    // silently lose the notification; Payload can roll back an active save.
+    // Never print the document or database connection details in logs.
+    req.payload.logger?.error?.('[trackPendingChange] Pending queue write failed; publication aborted')
+    throw err
   }
   return doc
 }
