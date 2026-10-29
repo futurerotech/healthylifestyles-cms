@@ -13,3 +13,19 @@ export function verifiedCollectionCount(result: unknown): number {
   }
   return count;
 }
+
+/** Accept only HTTPS Vercel deploy-hook endpoints. Never expose this URL. */
+export function isValidVercelDeployHookUrl(raw: unknown): raw is string {
+  if (typeof raw !== 'string' || !raw || raw.trim() !== raw) return false;
+  try {
+    const url = new URL(raw);
+    return url.protocol === 'https:' &&
+      url.hostname === 'api.vercel.com' &&
+      url.port === '' &&
+      !url.username && !url.password &&
+      !url.hash &&
+      /^\/v1\/integrations\/deploy\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+$/.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
