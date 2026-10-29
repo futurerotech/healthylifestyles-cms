@@ -87,13 +87,27 @@ export function verifyDeployedHtml(
     return { ok: false, reason: 'non-HTML response' };
   }
   if (/\bnoindex\b/i.test(xRobotsTag ?? '')) return { ok: false, reason: 'X-Robots-Tag noindex' };
-  const links = html.match(/<link\b[^>]*>/gi) ?? [];
+  // Only real document-head directives are proof of canonical/indexability.
+  // Do not accept a canonical tag injected into body content, HTML comments,
+  // inline scripts, templates, or styles as if it were a head directive.
+  const uncommented = html.replace(/<!--[\s\S]*?-->/g, '');
+  const heads = [...uncommented.matchAll(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/gi)];
+  if (heads.length !== 1) {
+    return { ok: false, reason: 'missing or ambiguous document head' };
+  }
+  const bodyTag = /<body\b/i.exec(uncommented);
+  if (bodyTag && bodyTag.index < heads[0].index!) {
+    return { ok: false, reason: 'document head follows body' };
+  }
+  const headHtml = heads[0][1]
+    .replace(/<(script|style|template|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+  const links = headHtml.match(/<link\b[^>]*>/gi) ?? [];
   const canonicals = links.filter((tag) => /(?:^|\s)rel\s*=/.test(tag.toLowerCase()) &&
     (attribute(tag, 'rel') ?? '').toLowerCase().split(/\s+/).includes('canonical'));
   if (canonicals.length !== 1 || attribute(canonicals[0], 'href') !== expectedUrl) {
     return { ok: false, reason: 'missing, duplicate, or mismatched canonical link' };
   }
-  const metas = html.match(/<meta\b[^>]*>/gi) ?? [];
+  const metas = headHtml.match(/<meta\b[^>]*>/gi) ?? [];
   if (metas.some((tag) => ['robots', 'googlebot', 'bingbot'].includes((attribute(tag, 'name') ?? '').toLowerCase()) &&
     /\bnoindex\b/i.test(attribute(tag, 'content') ?? ''))) {
     return { ok: false, reason: 'meta robots noindex' };
