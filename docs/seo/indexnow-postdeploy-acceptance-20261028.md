@@ -45,3 +45,5 @@ Revert/disable this branch's feature safely through a reviewed follow-up PR; `IN
 - Native Node ESM and CommonJS GraphQL scalar smoke tests now run in mandatory CI and isolated diagnostics (`scripts/ci/graphql-scalars-compat.mjs`), independent of Vitest module realms. They validate the patched DateTime/EmailAddress types and introspection; they do NOT verify the hosted Payload HTTP GraphQL endpoint. PostgreSQL transaction/concurrency tests remain separate.
 
 - PendingDeploys is machine-owned: API read requires admin, and API create/update/delete are denied for all roles. Reviewed server-side SQL exact-revision acknowledgement is the only normal deletion mechanism. A unit access regression protects this boundary.
+
+- A failed published-content queue write now propagates from the afterChange hook rather than silently reporting success; the active Payload transaction is expected to roll back. Unit regression covers draft exclusion, queue error propagation, and successful recording. Verify exact-head CI before treating this as accepted; this is not proof that all external callers use transactions.
