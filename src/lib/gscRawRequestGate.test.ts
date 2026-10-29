@@ -21,7 +21,7 @@ describe('bounded raw GSC request/response gate',()=>{
    {request:{...current().request,startRow:1}},
    {request:{...current().request,rowLimit:25001}},
    {request:{...current().request,dimensionFilterGroups:[]}},
-   {response:{rows:[row],responseAggregationType:'byPage'}},
+   {response:{rows:[row],responseAggregationType:'byProperty'}},
   ];
   for(const change of changes)expect(()=>screenBoundedRawGscBatches({...current(),...change},previous())).toThrow();
  });
