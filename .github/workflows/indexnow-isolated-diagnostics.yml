@@ -46,6 +46,9 @@ jobs:
         run: npm ci --include=dev
       - name: Unit tests
         run: npm test
+      - name: Native GraphQL scalar ESM and CJS compatibility
+        run: node scripts/ci/graphql-scalars-compat.mjs
+
       - name: TypeScript
         run: npx tsc --noEmit
       - name: Migration safety lint
