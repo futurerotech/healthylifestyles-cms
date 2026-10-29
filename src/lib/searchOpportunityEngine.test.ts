@@ -48,6 +48,31 @@ describe('Search Intelligence read-only opportunity screener', () => {
     expect(v.opportunities[0].observedChangePercent).toBe(100);
     expect(v.opportunities[0].previousImpressions28d).toBe(120);
   });
+  it('rejects nested, encoded, trailing slash, and pSEO targets as noncanonical', () => {
+    const bad = [
+      '/tools/valid-slug/child', '/wellness-hub/tag/sleep', '/tools/pseo/duplicate',
+      '/tools/a%2Fb', '/wellness-hub/article/', '/tools/UPPER',
+    ];
+    const result = screenSearchOpportunities(bad.map(path => ({
+      ...row('sleep schedule', 100, 8),
+      keys: ['sleep schedule', 'https://www.healthylifesstyles.com' + path],
+    })));
+    expect(result.acceptedRows).toBe(0);
+    expect(result.rejectedRows).toBe(bad.length);
+  });
+
+  it('refuses conflicting duplicate baseline observations when estimating growth', () => {
+    const current = row('night shift sleep', 300, 9);
+    const result = screenSearchOpportunities([current], [
+      row('night shift sleep', 100, 11), row(' NIGHT SHIFT SLEEP ', 250, 12),
+    ]);
+    expect(result.acceptedRows).toBe(1);
+    expect(result.duplicateBaselineKeys).toBe(1);
+    expect(result.opportunities[0].previousImpressions28d).toBeNull();
+    expect(result.opportunities[0].observedChangePercent).toBeNull();
+    expect(result.caveats.some(c => c.includes('Duplicate previous-period'))).toBe(true);
+  });
+
   it('rejects oversized batches rather than silently truncating', () => {
     expect(()=>screenSearchOpportunities(new Array(25001).fill(row('sleep schedule',120,12)))).toThrow(RangeError);
   });
