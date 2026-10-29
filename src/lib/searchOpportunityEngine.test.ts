@@ -93,6 +93,27 @@ describe('Search Intelligence read-only opportunity screener', () => {
     expect(result.acceptedRows).toBe(0);
     expect(result.rejectedRows).toBe(2);
   });
+  it('rejects contradictory CTR, fractional counts, and impossible average positions', () => {
+    const base = row('how to sleep better', 100, 8, 4);
+    const bad = [
+      { ...base, ctr: 0.9 },
+      { ...base, clicks: 4.5 },
+      { ...base, impressions: 100.2 },
+      { ...base, position: 0.5 },
+      { ...base, ctr: NaN },
+    ];
+    const result = screenSearchOpportunities(bad.map((item, i) => ({
+      ...item,
+      keys: ['unique sleep intent ' + i, page],
+    })));
+    expect(result.acceptedRows).toBe(0);
+    expect(result.rejectedRows).toBe(bad.length);
+  });
+  it('accepts a normally rounded CTR from a trustworthy row', () => {
+    const item = row('sleep research', 300, 10, 7);
+    const result = screenSearchOpportunities([{ ...item, ctr: Number((7 / 300).toFixed(7)) }]);
+    expect(result.acceptedRows).toBe(1);
+  });
   it('rejects oversized batches rather than silently truncating', () => {
     expect(()=>screenSearchOpportunities(new Array(25001).fill(row('sleep schedule',120,12)))).toThrow(RangeError);
   });
