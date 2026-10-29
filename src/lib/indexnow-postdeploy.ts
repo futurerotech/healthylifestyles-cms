@@ -74,6 +74,17 @@ function attribute(tag: string, name: string): string | null {
   return m ? (m[1] ?? m[2]) : null;
 }
 
+// "none" means noindex + nofollow. Keep directive token boundaries so
+// "noimageindex" and "nosnippet" do not disable otherwise indexable pages.
+function forbidsIndexing(directives: string): boolean {
+  return /(?:^|[\s,;:])(?:noindex|none)(?=$|[\s,;])/i.test(directives);
+}
+
+const ROBOTS_META_AGENTS = new Set([
+  'robots', 'googlebot', 'googlebot-news', 'bingbot', 'msnbot',
+  'yandex', 'yandexbot', 'naverbot', 'seznambot', 'yepbot',
+]);
+
 /** Canonical + robots verification is independent of browser/rendering engines. */
 export function verifyDeployedHtml(
   html: string,
@@ -86,7 +97,7 @@ export function verifyDeployedHtml(
   if (!contentType?.toLowerCase().startsWith('text/html')) {
     return { ok: false, reason: 'non-HTML response' };
   }
-  if (/\bnoindex\b/i.test(xRobotsTag ?? '')) return { ok: false, reason: 'X-Robots-Tag noindex' };
+  if (forbidsIndexing(xRobotsTag ?? '')) return { ok: false, reason: 'X-Robots-Tag forbids indexing' };
   // Only real document-head directives are proof of canonical/indexability.
   // Do not accept a canonical tag injected into body content, HTML comments,
   // inline scripts, templates, or styles as if it were a head directive.
@@ -107,10 +118,15 @@ export function verifyDeployedHtml(
   if (canonicals.length !== 1 || attribute(canonicals[0], 'href') !== expectedUrl) {
     return { ok: false, reason: 'missing, duplicate, or mismatched canonical link' };
   }
-  const metas = headHtml.match(/<meta\b[^>]*>/gi) ?? [];
-  if (metas.some((tag) => ['robots', 'googlebot', 'bingbot'].includes((attribute(tag, 'name') ?? '').toLowerCase()) &&
-    /\bnoindex\b/i.test(attribute(tag, 'content') ?? ''))) {
-    return { ok: false, reason: 'meta robots noindex' };
+  // Canonical belongs in the document head, but indexing directives may be
+  // honored in the body by search crawlers. Scan both while ignoring inert
+  // comment, script, style, template, textarea and noscript contents.
+  const robotsHtml = uncommented
+    .replace(/<(script|style|template|noscript|textarea)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+  const metas = robotsHtml.match(/<meta\b[^>]*>/gi) ?? [];
+  if (metas.some((tag) => ROBOTS_META_AGENTS.has((attribute(tag, 'name') ?? '').toLowerCase()) &&
+    forbidsIndexing(attribute(tag, 'content') ?? ''))) {
+    return { ok: false, reason: 'meta robots forbids indexing' };
   }
   return { ok: true, reason: 'verified' };
 }
