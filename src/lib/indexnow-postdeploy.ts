@@ -162,6 +162,41 @@ export function isExplicitIndexNowSubmitRequest(input: unknown): boolean {
 }
 
 /**
+ * Fetch a deployed public proof directly, without following HTTP redirects.
+ * The CMS must not fetch redirected destinations (including private hosts)
+ * just to discover that the final URL did not match the public proof URL.
+ * Tests inject a fake fetcher; production always uses native fetch.
+ */
+export async function fetchDirectIndexNowPublicResource(
+  publicOrigin: string,
+  pathname: string,
+  fetcher: typeof fetch = fetch,
+): Promise<Response> {
+  if (typeof publicOrigin !== 'string' || typeof pathname !== 'string' ||
+      !pathname.startsWith('/')) {
+    throw new RangeError('Invalid public proof URL');
+  }
+  const origin = new URL(publicOrigin);
+  const target = new URL(pathname, origin);
+  if (origin.protocol !== 'https:' || origin.origin !== publicOrigin ||
+      target.origin !== publicOrigin || target.pathname !== pathname ||
+      target.search !== '' || target.hash !== '') {
+    throw new RangeError('Public proof must use a direct HTTPS path on the canonical origin');
+  }
+  const response = await fetcher(target.href, {
+    cache: 'no-store',
+    redirect: 'manual',
+    signal: AbortSignal.timeout(10_000),
+    headers: { Accept: pathname.endsWith('.json') ? 'application/json' : 'text/html' },
+  });
+  if (response.redirected || response.url !== target.href ||
+      (response.status >= 300 && response.status < 400)) {
+    throw new Error('Public proof redirected or final URL differed');
+  }
+  return response;
+}
+
+/**
  * Bound remote HTML checks so one slow page does not serialize an entire queue
  * preview. Results preserve the original queue order used for admin approval.
  */
