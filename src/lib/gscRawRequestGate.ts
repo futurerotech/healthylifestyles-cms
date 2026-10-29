@@ -44,8 +44,9 @@ function checkedBatch(batch: RawGscBatch): DeclaredGscExport {
   // Google's auto aggregation may resolve to byPage for query+page data.
   // The actual response aggregation is what must match across periods.
   const actualAggregation = batch.response.responseAggregationType ?? req.aggregationType;
-  if (actualAggregation !== 'byPage' ||
-      !['auto', 'byPage'].includes(req.aggregationType)) {
+  if (!['auto', 'byPage'].includes(actualAggregation) ||
+      !['auto', 'byPage'].includes(req.aggregationType) ||
+      (req.aggregationType === 'byPage' && actualAggregation !== 'byPage')) {
     throw new RangeError('GSC query+page export must use page-level aggregation.');
   }
   if (req.dimensionFilterGroups !== undefined) {
