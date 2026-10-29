@@ -19,9 +19,10 @@ describe('Search Intelligence read-only opportunity screener', () => {
     const q=row('  Sleep  Schedule  ',320,8);
     const same=row('sleep schedule',320,8);
     const v=screenSearchOpportunities([q,same,row('other intent',200,20)]);
-    expect(v.acceptedRows).toBe(2);
-    expect(v.rejectedRows).toBe(1);
-    expect(v.opportunities.find(x=>x.query==='sleep schedule')).toBeDefined();
+    expect(v.acceptedRows).toBe(1);
+    expect(v.rejectedRows).toBe(2);
+    expect(v.duplicateCurrentKeys).toBe(1);
+    expect(v.opportunities.find(x=>x.query==='sleep schedule')).toBeUndefined();
     expect(v.opportunities.map(x=>x.priorityScore)).toEqual([...v.opportunities.map(x=>x.priorityScore)].sort((a,b)=>b-a));
   });
   it('refuses invalid, unrelated or private pages', () => {
@@ -73,6 +74,25 @@ describe('Search Intelligence read-only opportunity screener', () => {
     expect(result.caveats.some(c => c.includes('Duplicate previous-period'))).toBe(true);
   });
 
+  it('rejects duplicate current keys regardless of export ordering', () => {
+    const low = row('sleep schedule', 50, 8);
+    const high = row(' SLEEP SCHEDULE ', 1500, 8);
+    for (const entries of [[low, high], [high, low]]) {
+      const result = screenSearchOpportunities(entries);
+      expect(result.acceptedRows).toBe(0);
+      expect(result.rejectedRows).toBe(2);
+      expect(result.duplicateCurrentKeys).toBe(1);
+    }
+  });
+  it('rejects reserved section roots', () => {
+    const paths = ['/tools/pseo', '/wellness-hub/tag'];
+    const result = screenSearchOpportunities(paths.map(path => ({
+      ...row('sleep schedule', 150, 8),
+      keys: ['sleep schedule', 'https://www.healthylifesstyles.com' + path],
+    })));
+    expect(result.acceptedRows).toBe(0);
+    expect(result.rejectedRows).toBe(2);
+  });
   it('rejects oversized batches rather than silently truncating', () => {
     expect(()=>screenSearchOpportunities(new Array(25001).fill(row('sleep schedule',120,12)))).toThrow(RangeError);
   });
