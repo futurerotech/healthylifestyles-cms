@@ -43,3 +43,5 @@ Revert/disable this branch's feature safely through a reviewed follow-up PR; `IN
 - Legacy in-memory IndexNow sender (currently not attached to article/tool hooks) now also requires INDEXNOW_LIVE_ENABLED=true for any real HTTP request, and emergency INDEXNOW_DISABLE is rechecked at flush time. Dedicated unit regressions cover these fail-closed controls. This is defense-in-depth, not permission to enable live sends.
 
 - Native Node ESM and CommonJS GraphQL scalar smoke tests now run in mandatory CI and isolated diagnostics (`scripts/ci/graphql-scalars-compat.mjs`), independent of Vitest module realms. They validate the patched DateTime/EmailAddress types and introspection; they do NOT verify the hosted Payload HTTP GraphQL endpoint. PostgreSQL transaction/concurrency tests remain separate.
+
+- PendingDeploys is machine-owned: API read requires admin, and API create/update/delete are denied for all roles. Reviewed server-side SQL exact-revision acknowledgement is the only normal deletion mechanism. A unit access regression protects this boundary.
