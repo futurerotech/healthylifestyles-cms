@@ -36,6 +36,8 @@ export interface ScreeningResult {
   opportunities: Opportunity[];
   acceptedRows: number;
   rejectedRows: number;
+  /** Distinct query/page identities duplicated in previous-period exports. */
+  duplicateBaselineKeys: number;
   caveats: string[];
 }
 
@@ -55,8 +57,11 @@ function rowKey(query: string, page: string): string {
 function safePage(value: string): boolean {
   try {
     const url = new URL(value);
-    return url.origin === ORIGIN && url.search === '' && url.hash === '' &&
-      url.pathname !== '/' && (url.pathname.startsWith('/tools/') || url.pathname.startsWith('/wellness-hub/'));
+    // Only the exact canonical tool/article detail URL is an eligible review
+    // target. Do not propose category, tag, pSEO, nested, encoded, or redirected
+    // URLs as if they were an existing canonical article/tool page.
+    return value === ORIGIN + url.pathname &&
+      /^\/(?:tools|wellness-hub)\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(url.pathname);
   } catch {
     return false;
   }
@@ -84,10 +89,14 @@ export function screenSearchOpportunities(
     throw new RangeError('GSC batch is larger than 25,000 rows; paginate and analyze separately.');
   }
   const previous = new Map<string, GscQueryPageRow>();
+  const duplicateBaselines = new Set<string>();
   for (const row of previous28d) {
     if (!validRow(row)) continue;
     const key = rowKey(normalizedQuery(row.keys[0]), row.keys[1]);
-    if (!previous.has(key)) previous.set(key, row);
+    // Overlapping GSC export pages can yield contradictory baseline counts.
+    // Never arbitrarily accept the first (or last) copy and invent growth.
+    if (previous.has(key)) duplicateBaselines.add(key);
+    else previous.set(key, row);
   }
 
   let rejectedRows = 0;
@@ -107,7 +116,7 @@ export function screenSearchOpportunities(
       continue;
     }
     seen.add(key);
-    const prior = previous.get(key);
+    const prior = duplicateBaselines.has(key) ? undefined : previous.get(key);
     const priorImpressions = prior?.impressions ?? null;
     const change = priorImpressions !== null && priorImpressions > 0 ?
       (row.impressions - priorImpressions) / priorImpressions * 100 : null;
@@ -138,7 +147,10 @@ export function screenSearchOpportunities(
 
   return {
     opportunities, acceptedRows: opportunities.length, rejectedRows,
+    duplicateBaselineKeys: duplicateBaselines.size,
     caveats: [
+      ...(duplicateBaselines.size > 0 ?
+        ['Duplicate previous-period query/page keys make affected growth comparisons unavailable; re-export non-overlapping data.'] : []),
       'First-party Search Console impressions do not measure global keyword search volume.',
       'Google Ads advertising competition is not organic SEO ranking difficulty.',
       'Search Console omits some queries and does not guarantee a complete inventory.',
