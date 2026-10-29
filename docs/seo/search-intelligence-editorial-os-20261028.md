@@ -71,3 +71,7 @@ https://developers.google.com/search/docs/essentials/spam-policies
 
 ## 2026-10-29 zero-row GSC export correctness
 - A completed, otherwise valid Search Analytics response can omit `rows` when no data matched. The offline request and pagination gates now treat that exact omission as an empty result, including an empty terminal page; explicit null, strings and other malformed `rows` remain rejected. Added targeted regressions. This does not imply complete Google query coverage or live API authorization.
+
+## 2026-10-29 existing-page review grouping
+- Offline GSC report supports deterministic grouping by exact canonical existing page, with up to three representative screened queries per page. Counts and click/impression sums represent only accepted query/page sample rows, not total page traffic; no semantic intent clustering is claimed. The group flags high-risk keyword rows for independent editorial review.
+- The grouped URLs and search queries appear only when a caller explicitly sets `includeQueries:true`; default serialized reports remain redacted. `top` bounds displayed page groups and individual rows independently. No live GSC access, paid API, CMS publication, or production data changes.
