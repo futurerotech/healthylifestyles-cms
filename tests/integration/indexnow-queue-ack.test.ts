@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getPayload } from 'payload';
+import { graphql, validateSchema } from 'graphql';
+import { DateTimeResolver, EmailAddressResolver } from 'graphql-scalars';
 import type { PostgresAdapter } from '@payloadcms/db-postgres';
 import { acknowledgeIndexNowQueueRevision } from '../../src/lib/indexnow-queue-ack';
 import { recordPublishedPendingChange } from '../../src/lib/indexnow-pending-queue';
@@ -46,6 +48,25 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
   });
 
   afterAll(async () => { await payload?.destroy(); });
+
+  it('keeps Payload GraphQL schema valid with the patched graphql-scalars dependency', async () => {
+    // Actual CMS schema generated on the isolated, migrated database. A package
+    // override must preserve Payload's DateTime/EmailAddress scalar API.
+    expect(DateTimeResolver.name).toBe('DateTime');
+    expect(EmailAddressResolver.name).toBe('EmailAddress');
+    expect(typeof DateTimeResolver.parseValue).toBe('function');
+    expect(typeof EmailAddressResolver.parseValue).toBe('function');
+    expect(validateSchema(payload.schema)).toEqual([]);
+
+    const result = await graphql({
+      schema: payload.schema,
+      source: '{ __schema { queryType { name } } dateType: __type(name: "DateTime") { name kind } emailType: __type(name: "EmailAddress") { name kind } }',
+    });
+    expect(result.errors).toBeUndefined();
+    expect(result.data?.__schema).toBeDefined();
+    expect(result.data?.dateType).toEqual({ name: 'DateTime', kind: 'SCALAR' });
+    expect(result.data?.emailType).toEqual({ name: 'EmailAddress', kind: 'SCALAR' });
+  });
 
   it('reserves exactly one of two competing manual deploy triggers', async () => {
     // Isolated CI database only. Test is independent of the provider hook.
