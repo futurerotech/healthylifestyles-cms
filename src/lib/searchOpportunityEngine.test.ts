@@ -114,6 +114,16 @@ describe('Search Intelligence read-only opportunity screener', () => {
     const result = screenSearchOpportunities([{ ...item, ctr: Number((7 / 300).toFixed(7)) }]);
     expect(result.acceptedRows).toBe(1);
   });
+  it('flags additional sensitive medical search intents for editorial review', () => {
+    for (const query of ['postpartum recovery', 'chest pain during exercise', 'insulin dose',
+      'newborn sleep', 'stroke warning signs', 'self-harm prevention', 'hypertension diet']) {
+      const result = screenSearchOpportunities([row(query, 200, 8)]);
+      expect(result.opportunities[0].medicalReviewRequired, query).toBe(true);
+    }
+    const ordinary = screenSearchOpportunities([row('walking pace calculator', 200, 8)]);
+    expect(ordinary.opportunities[0].medicalReviewRequired).toBe(false);
+    expect(ordinary.caveats.some(x => x.includes('keyword detection is incomplete'))).toBe(true);
+  });
   it('rejects oversized batches rather than silently truncating', () => {
     expect(()=>screenSearchOpportunities(new Array(25001).fill(row('sleep schedule',120,12)))).toThrow(RangeError);
   });
