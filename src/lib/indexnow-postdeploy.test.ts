@@ -170,6 +170,17 @@ describe('post-deploy IndexNow safety gates', () => {
   const noindex='<html><head>'+canonical+'<meta name="robots" content="noindex"></head></html>';
   expect(verifyDeployedHtml(noindex,expected,expected,'text/html',null).ok).toBe(false);
  });
+ it('rejects robots none and body noindex while ignoring inert markup', () => {
+  const canonical='<link rel="canonical" href="'+expected+'">';
+  const base=(extra:string)=>'<html><head>'+canonical+'</head><body>'+extra+'</body></html>';
+  expect(verifyDeployedHtml(base(''),expected,expected,'text/html','none').ok).toBe(false);
+  expect(verifyDeployedHtml(base(''),expected,expected,'text/html','googlebot: none').ok).toBe(false);
+  expect(verifyDeployedHtml(base('<meta name="robots" content="none">'),expected,expected,'text/html',null).ok).toBe(false);
+  expect(verifyDeployedHtml(base('<meta name="bingbot" content="noindex,follow">'),expected,expected,'text/html',null).ok).toBe(false);
+  expect(verifyDeployedHtml(base('<meta name="robots" content="noimageindex">'),expected,expected,'text/html',null).ok).toBe(true);
+  expect(verifyDeployedHtml(base('<!-- <meta name="robots" content="none"> -->'),expected,expected,'text/html',null).ok).toBe(true);
+  expect(verifyDeployedHtml(base('<script><meta name="robots" content="none"></script>'),expected,expected,'text/html',null).ok).toBe(true);
+ });
  it('requires exact current URL preview approval before submission', () => {
   const urls=['https://www.healthylifesstyles.com/tools/one','https://www.healthylifesstyles.com/tools/two'];
   expect(matchesApprovedIndexNowPreview(urls,urls)).toBe(true);
