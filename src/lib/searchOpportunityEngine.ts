@@ -46,7 +46,9 @@ export interface ScreeningResult {
 const ORIGIN = 'https://www.healthylifesstyles.com';
 const MIN_IMPRESSIONS = 20;
 const MAX_ROWS = 25000;
-const HIGH_RISK_TERMS = /\b(pregnan(?:t|cy)|diabet(?:es|ic)|depress(?:ion|ed)|suicid(?:e|al)|cancer|heart disease|blood pressure|medicat(?:ion|ions)|drug interaction|treat(?:ment)?|diagnos(?:is|e)|eating disorder|anorexia|child|infant)\b/i;
+// Conservative keywords signal medical triage. A false result only means
+// these words did not match; it never certifies content as medically safe.
+const HIGH_RISK_TERMS = /\b(?:pregnan(?:t|cy)|prenatal|postpartum|miscarriage|breastfeed(?:ing)?|lactation|diabet(?:es|ic)|blood sugar|insulin|hypertension|hypotension|heart disease|heart attack|chest pain|stroke|blood pressure|depress(?:ion|ed)|anxiety|panic attack|suicid(?:e|al)|self[ -]harm|cancer|medicat(?:ion|ions)|prescription|antidepressants?|antibiotics?|dosage|overdose|drug interaction|treat(?:ment)?|diagnos(?:is|e|ed)|eating disorder|anorexia|child(?:ren)?|infants?|newborns?|toddlers?|pediatric|teenagers?)\b/i;
 
 function normalizedQuery(q: string): string {
   return q.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -181,6 +183,7 @@ export function screenSearchOpportunities(
       'Google Ads advertising competition is not organic SEO ranking difficulty.',
       'Search Console omits some queries and does not guarantee a complete inventory.',
       'Opportunities suggest reviewing existing pages; new articles need distinct human-verified search intent and editorial approval.',
+      'Medical-risk keyword detection is incomplete: a false flag never removes editorial or qualified-clinician review duties for health claims.',
       'High-risk medical queries require qualified review; no tool auto-publishes content.',
     ],
   };
