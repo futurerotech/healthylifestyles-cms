@@ -1,0 +1,14 @@
+{
+  "name": "healthylifestyles-chatgpt-drafts",
+  "main": "src/index.mts",
+  "compatibility_date": "2026-10-25",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "kv_namespaces": [
+    { "binding": "OAUTH_KV", "id": "REPLACE_WITH_YOUR_OAUTH_KV_ID" }
+  ],
+  "vars": {
+    "CMS_BASE_URL": "https://cms.healthylifesstyles.com",
+    "MCP_ISSUER": "https://REPLACE_WITH_YOUR_WORKER_HOST",
+    "MCP_RESOURCE_URL": "https://REPLACE_WITH_YOUR_WORKER_HOST/mcp"
+  }
+}
