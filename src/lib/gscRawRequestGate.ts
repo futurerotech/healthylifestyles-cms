@@ -31,12 +31,17 @@ function canonicalFilters(filters: unknown): string {
 }
 
 function checkedBatch(batch: RawGscBatch): DeclaredGscExport {
-  if (!batch || !batch.request || !batch.response || !Array.isArray(batch.response.rows)) {
-    throw new TypeError('A declared raw GSC request and response rows are required.');
+  // Search Analytics can omit rows altogether when a completed query has no
+  // matches. Accept only that omission, not a malformed or null rows payload.
+  if (!batch || !batch.request || !batch.response ||
+      typeof batch.response !== 'object' || Array.isArray(batch.response) ||
+      (batch.response.rows !== undefined && !Array.isArray(batch.response.rows))) {
+    throw new TypeError('A declared raw GSC request and valid response are required.');
   }
+  const rows = batch.response.rows ?? [];
   const req = batch.request;
   if (!Number.isSafeInteger(req.rowLimit) || req.rowLimit < 1 || req.rowLimit > 25000 ||
-      req.startRow !== 0 || batch.response.rows.length >= req.rowLimit) {
+      req.startRow !== 0 || rows.length >= req.rowLimit) {
     throw new RangeError('Only first-page, bounded, non-full GSC exports are supported; a full page may be incomplete.');
   }
   // A response may advertise its actual aggregation type; disagreeing
@@ -54,7 +59,7 @@ function checkedBatch(batch: RawGscBatch): DeclaredGscExport {
   }
   return {
     siteUrl: batch.siteUrl,
-    rows: batch.response.rows,
+    rows,
     startDate: req.startDate,
     endDate: req.endDate,
     dimensions: req.dimensions,
@@ -89,6 +94,11 @@ export function screenPaginatedRawGscBatches(
       throw new RangeError('Invalid number of Search Analytics pages.');
     }
     const base = pages[0];
+    if (!base?.response || typeof base.response !== 'object' ||
+        Array.isArray(base.response) ||
+        (base.response.rows !== undefined && !Array.isArray(base.response.rows))) {
+      throw new TypeError('A valid Search Analytics response is required for each period.');
+    }
     // Validate the request without falsifying response rows: a full page is
     // valid only when a subsequent short terminal page proves pagination.
     const first = checkedBatch({
@@ -102,8 +112,13 @@ export function screenPaginatedRawGscBatches(
     let offset = 0;
     for (let i = 0; i < pages.length; i++) {
       const page = pages[i];
-      const list = page?.response?.rows;
-      if (!Array.isArray(list) || page.siteUrl !== base.siteUrl ||
+      if (!page?.response || typeof page.response !== 'object' ||
+          Array.isArray(page.response) ||
+          (page.response.rows !== undefined && !Array.isArray(page.response.rows))) {
+        throw new TypeError('A valid Search Analytics response is required for every page.');
+      }
+      const list = page.response.rows ?? [];
+      if (page.siteUrl !== base.siteUrl ||
           page.request.startDate !== base.request.startDate ||
           page.request.endDate !== base.request.endDate ||
           page.request.rowLimit !== base.request.rowLimit ||
