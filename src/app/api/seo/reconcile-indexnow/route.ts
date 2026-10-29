@@ -5,7 +5,7 @@ import config from '@payload-config';
 import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
 import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, fetchDirectIndexNowPublicResource } from '@/lib/indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,7 +43,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     if (response.url !== publicOrigin + '/content-manifest.json') {
       throw new Error('manifest redirect or host mismatch');
     }
-    const manifestJson: unknown = await response.json();
+    const manifestJson: unknown = JSON.parse(await readBoundedIndexNowProofText(response, 2 * 1024 * 1024));
     if (!isTrustedIndexNowManifest(manifestJson, CMS_ORIGIN)) {
       throw new Error('invalid or untrusted CMS-backed build manifest');
     }
@@ -97,7 +97,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       if (!deployedPath) return defer('missing deployed path');
       const page = await fetchPublic(deployedPath);
       if (page.status !== 200) return defer('public page status ' + page.status);
-      const html = await page.text();
+      const html = await readBoundedIndexNowProofText(page, 4 * 1024 * 1024);
       const canonicalUrl = publicOrigin + deployedPath;
       const verification = verifyDeployedHtml(html, canonicalUrl, page.url,
         page.headers.get('content-type'), page.headers.get('x-robots-tag'));
@@ -149,7 +149,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(10000),
     headers: { Accept: 'text/plain' },
   }).catch(() => null);
-  const proofBody = proof?.status === 200 ? await proof.text().catch(() => '') : '';
+  const proofBody = proof?.status === 200 ? await readBoundedIndexNowProofText(proof, 256).catch(() => '') : '';
   if (!proof || !matchesIndexNowOwnershipProof(
     { status: proof.status, url: proof.url, body: proofBody }, keyProofUrl, key,
   )) {
