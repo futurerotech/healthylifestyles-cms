@@ -75,3 +75,7 @@ https://developers.google.com/search/docs/essentials/spam-policies
 ## 2026-10-29 existing-page review grouping
 - Offline GSC report supports deterministic grouping by exact canonical existing page, with up to three representative screened queries per page. Counts and click/impression sums represent only accepted query/page sample rows, not total page traffic; no semantic intent clustering is claimed. The group flags high-risk keyword rows for independent editorial review.
 - The grouped URLs and search queries appear only when a caller explicitly sets `includeQueries:true`; default serialized reports remain redacted. `top` bounds displayed page groups and individual rows independently. No live GSC access, paid API, CMS publication, or production data changes.
+
+## 2026-10-29 multi-page query review
+- Added pure `src/lib/gscCrossPageOverlap.ts` to identify the exact normalized query observed on two or more different canonical pages in already screened data. Reports affected page counts and medical review flags, with sampled metrics only. This is not proof of cannibalization, intent overlap or lost traffic; human SERP, on-page and CMS validation remain required.
+- Query and page details appear only with `includeQueries:true`; redacted default contains aggregate counts. Tests cover duplicate exclusion, medical flagging and privacy. No network, live CMS access, publication or provider submission.
