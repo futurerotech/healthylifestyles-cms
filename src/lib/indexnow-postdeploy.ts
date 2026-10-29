@@ -197,6 +197,48 @@ export async function fetchDirectIndexNowPublicResource(
 }
 
 /**
+ * Limit the UNCOMPRESSED bytes consumed from a remote public proof. A valid
+ * Content-Length is checked early, but the actual streamed bytes are always
+ * counted: HTTP compression, chunked transfer and missing length must never
+ * bypass the cap. Oversized/malformed proofs fail closed before parsing.
+ */
+export async function readBoundedIndexNowProofText(
+  response: Response,
+  maxBytes: number,
+): Promise<string> {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 ||
+      maxBytes > 16 * 1024 * 1024) {
+    throw new RangeError('Invalid public proof size limit');
+  }
+  const length = response.headers.get('content-length');
+  if (length !== null &&
+      (!/^[0-9]+$/.test(length) || Number(length) > maxBytes)) {
+    throw new Error('Public proof length invalid or exceeds limit');
+  }
+  if (!response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  let bytes = 0;
+  let text = '';
+  let completed = false;
+  try {
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      bytes += chunk.value.byteLength;
+      if (bytes > maxBytes) throw new Error('Public proof exceeds byte limit');
+      text += decoder.decode(chunk.value, { stream: true });
+    }
+    text += decoder.decode();
+    completed = true;
+    return text;
+  } finally {
+    if (!completed) await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
+}
+
+/**
  * Bound remote HTML checks so one slow page does not serialize an entire queue
  * preview. Results preserve the original queue order used for admin approval.
  */
