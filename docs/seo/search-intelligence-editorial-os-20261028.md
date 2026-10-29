@@ -60,3 +60,7 @@ https://developers.google.com/search/docs/essentials/spam-policies
 - Added pure offline `src/lib/gscExportIntegrity.ts`, requiring two adjacent 28-day inclusive PT periods, exact query/page dimension order, finalized web-search data and identical property, aggregation, country, device and declared additional-filter fingerprints before growth screening.
 - This validation checks **caller-declared metadata only**; it does not authenticate Google Search Console ownership, prove request provenance or confirm complete query coverage. The existing scorer remains available for low-level testing, while production GSC ingestion must require the stricter envelope.
 - No GSC account connection, paid API call, production write, publishing or deployment.
+
+## 2026-10-29 bounded raw request gate
+- Added `src/lib/gscRawRequestGate.ts` for offline inspection of one Search Analytics request and response from each period. Only first-page, non-full (rows < rowLimit) finalized web/query+page batches with no dimension filters are eligible for the existing 28-day scope comparison. Reject offset pagination, full pages that might be truncated, unexpected aggregation and unaudited filter groups.
+- This is **not** a complete Search Console ingestion pipeline. Even a short page does not guarantee exhaustive GSC data; authenticated provenance and top-row selection limitations remain. No API calls or production writes occur.
