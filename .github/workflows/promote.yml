@@ -76,6 +76,9 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Native GraphQL scalar ESM and CJS compatibility
+        run: node scripts/ci/graphql-scalars-compat.mjs
+
       - name: Security release gate
         run: npm run security:check
 
