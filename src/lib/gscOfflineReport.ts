@@ -1,6 +1,7 @@
 import { screenPaginatedRawGscBatches, type RawGscBatch } from './gscRawRequestGate';
 
 import type { Opportunity } from './searchOpportunityEngine';
+import { analyzeCrossPageQueryObservations } from './gscCrossPageOverlap';
 
 /**
  * Group observed, individually screened query/page observations by the
@@ -85,6 +86,7 @@ export function buildOfflineGscReport(
   const result = screenPaginatedRawGscBatches(current, previous);
   const items = result.opportunities;
   const high = items.filter(x => x.priorityScore >= 70).length;
+  const overlap = analyzeCrossPageQueryObservations(items);
   return {
     reportKind: 'offline-gsc-existing-page-review' as const,
     status: 'human-review-required' as const,
@@ -98,6 +100,9 @@ export function buildOfflineGscReport(
       medicalReviewFlags: items.filter(x => x.medicalReviewRequired).length,
       distinctCandidatePages: new Set(items.map(x => x.page)).size,
       highPriorityRows: high,
+      observedMultiPageQueries: overlap.observedMultiPageQueries,
+      distinctOverlapPages: overlap.distinctAffectedPages,
+      medicalFlaggedOverlapQueries: overlap.medicalFlaggedOverlapQueries,
     },
     scoreBands: {
       low: items.filter(x => x.priorityScore < 40).length,
@@ -106,6 +111,7 @@ export function buildOfflineGscReport(
     },
     ...(options.includeQueries === true ? {
       pageGroups: groupExistingPageCandidates(items).slice(0, top),
+      crossPageReview: overlap.observations.slice(0, top),
       opportunities: items.slice(0, top).map(x => ({
         query: x.query, page: x.page, priorityScore: x.priorityScore,
         clicks28d: x.clicks28d, impressions28d: x.impressions28d,
@@ -119,6 +125,7 @@ export function buildOfflineGscReport(
       'Query/page rows may be incomplete; this is NOT the full site traffic or global search demand.',
       'Scores are editorial heuristics only, never keyword difficulty, ranking probability or an instruction to publish.',
       'Page groups are grouped by exact existing URL, NOT semantic search intent; sampled query-row totals omit unreported queries and are NOT whole-page metrics.',
+      'Same-query observations across pages are review signals, NOT proof of cannibalization or lost traffic.',
       ...result.caveats,
     ],
   };
