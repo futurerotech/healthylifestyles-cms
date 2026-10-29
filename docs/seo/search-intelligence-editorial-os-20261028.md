@@ -55,3 +55,8 @@ https://developers.google.com/search/docs/essentials/spam-policies
 ## 2026-10-29 medical-risk triage review
 - Expanded conservative keyword triggers for postpartum/prenatal, insulin/glucose, chest pain/stroke, anxiety/self-harm and children/newborn concerns. This is a triage hint only; a false flag does NOT mean medical content is safe or can bypass an appropriate qualified review.
 - No article creation, medical review claims, automatic publishing, live GSC query or production changes.
+
+## 2026-10-29 declared export comparability gate
+- Added pure offline `src/lib/gscExportIntegrity.ts`, requiring two adjacent 28-day inclusive PT periods, exact query/page dimension order, finalized web-search data and identical property, aggregation, country, device and declared additional-filter fingerprints before growth screening.
+- This validation checks **caller-declared metadata only**; it does not authenticate Google Search Console ownership, prove request provenance or confirm complete query coverage. The existing scorer remains available for low-level testing, while production GSC ingestion must require the stricter envelope.
+- No GSC account connection, paid API call, production write, publishing or deployment.
