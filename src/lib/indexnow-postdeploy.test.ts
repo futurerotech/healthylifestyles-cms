@@ -155,6 +155,21 @@ describe('post-deploy IndexNow safety gates', () => {
   expect(verifyDeployedHtml(html,expected,expected+'/redirect','text/html',null).ok).toBe(false);
   expect(verifyDeployedHtml(html,expected,expected,'application/json',null).ok).toBe(false);
  });
+ it('accepts only document-head canonical evidence, not body or embedded markup', () => {
+  const canonical='<link rel="canonical" href="'+expected+'">';
+  const good='<html><head>'+canonical+'<meta name="robots" content="index,follow"></head><body>content</body></html>';
+  expect(verifyDeployedHtml(good,expected,expected,'text/html',null).ok).toBe(true);
+  for (const html of [
+    '<html><body>'+canonical+'</body></html>',
+    '<html><head></head><body>'+canonical+'</body></html>',
+    '<html><head><!-- '+canonical+' --></head><body></body></html>',
+    '<html><head><script type="application/json">'+canonical+'</script></head><body></body></html>',
+    '<html><head>'+canonical+'</head><head>'+canonical+'</head></html>',
+    '<html><body></body><head>'+canonical+'</head></html>',
+  ]) expect(verifyDeployedHtml(html,expected,expected,'text/html',null).ok).toBe(false);
+  const noindex='<html><head>'+canonical+'<meta name="robots" content="noindex"></head></html>';
+  expect(verifyDeployedHtml(noindex,expected,expected,'text/html',null).ok).toBe(false);
+ });
  it('requires exact current URL preview approval before submission', () => {
   const urls=['https://www.healthylifesstyles.com/tools/one','https://www.healthylifesstyles.com/tools/two'];
   expect(matchesApprovedIndexNowPreview(urls,urls)).toBe(true);
