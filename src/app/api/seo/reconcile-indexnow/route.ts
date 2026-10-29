@@ -159,6 +159,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   try {
     response = await fetch('https://api.indexnow.org/indexnow', {
       method: 'POST',
+      redirect: 'error',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       signal: AbortSignal.timeout(12000),
       body: JSON.stringify({ host: origin.hostname, key, keyLocation: publicOrigin + '/' + key + '.txt',
