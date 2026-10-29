@@ -41,9 +41,12 @@ function checkedBatch(batch: RawGscBatch): DeclaredGscExport {
   }
   // A response may advertise its actual aggregation type; disagreeing
   // response/request values cannot be compared as equivalent exports.
-  if (batch.response.responseAggregationType &&
-      batch.response.responseAggregationType !== req.aggregationType) {
-    throw new RangeError('GSC response aggregation differs from the requested aggregation.');
+  // Google's auto aggregation may resolve to byPage for query+page data.
+  // The actual response aggregation is what must match across periods.
+  const actualAggregation = batch.response.responseAggregationType ?? req.aggregationType;
+  if (actualAggregation !== 'byPage' ||
+      !['auto', 'byPage'].includes(req.aggregationType)) {
+    throw new RangeError('GSC query+page export must use page-level aggregation.');
   }
   if (req.dimensionFilterGroups !== undefined) {
     throw new RangeError('Dimension filters require an authenticated, reviewed ingestion adapter.');
@@ -56,7 +59,7 @@ function checkedBatch(batch: RawGscBatch): DeclaredGscExport {
     dimensions: req.dimensions,
     searchType: req.type,
     dataState: req.dataState,
-    aggregationType: req.aggregationType,
+    aggregationType: actualAggregation,
     country: null,
     device: null,
     additionalFiltersFingerprint: canonicalFilters(undefined),
