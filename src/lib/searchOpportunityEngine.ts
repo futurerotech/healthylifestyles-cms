@@ -38,6 +38,8 @@ export interface ScreeningResult {
   rejectedRows: number;
   /** Distinct query/page identities duplicated in previous-period exports. */
   duplicateBaselineKeys: number;
+  /** Distinct current-period query/page identities present more than once. */
+  duplicateCurrentKeys: number;
   caveats: string[];
 }
 
@@ -60,6 +62,7 @@ function safePage(value: string): boolean {
     // Only the exact canonical tool/article detail URL is an eligible review
     // target. Do not propose category, tag, pSEO, nested, encoded, or redirected
     // URLs as if they were an existing canonical article/tool page.
+    if (url.pathname === '/tools/pseo' || url.pathname === '/wellness-hub/tag') return false;
     return value === ORIGIN + url.pathname &&
       /^\/(?:tools|wellness-hub)\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(url.pathname);
   } catch {
@@ -99,8 +102,18 @@ export function screenSearchOpportunities(
     else previous.set(key, row);
   }
 
+  // Detect overlapping exports before assigning scores; otherwise the first
+  // of two conflicting observations wins and source ordering changes rankings.
+  const seenCurrent = new Set<string>();
+  const duplicateCurrent = new Set<string>();
+  for (const row of current28d) {
+    if (!validRow(row)) continue;
+    const key = rowKey(normalizedQuery(row.keys[0]), row.keys[1]);
+    if (seenCurrent.has(key)) duplicateCurrent.add(key);
+    else seenCurrent.add(key);
+  }
+
   let rejectedRows = 0;
-  const seen = new Set<string>();
   const opportunities: Opportunity[] = [];
 
   for (const row of current28d) {
@@ -111,11 +124,11 @@ export function screenSearchOpportunities(
     const query = normalizedQuery(row.keys[0]);
     const page = row.keys[1];
     const key = rowKey(query, page);
-    if (seen.has(key)) {
+    // Exclude every copy, not merely second and subsequent copies.
+    if (duplicateCurrent.has(key)) {
       rejectedRows++;
       continue;
     }
-    seen.add(key);
     const prior = duplicateBaselines.has(key) ? undefined : previous.get(key);
     const priorImpressions = prior?.impressions ?? null;
     const change = priorImpressions !== null && priorImpressions > 0 ?
@@ -148,7 +161,10 @@ export function screenSearchOpportunities(
   return {
     opportunities, acceptedRows: opportunities.length, rejectedRows,
     duplicateBaselineKeys: duplicateBaselines.size,
+    duplicateCurrentKeys: duplicateCurrent.size,
     caveats: [
+      ...(duplicateCurrent.size > 0 ?
+        ['Duplicate current-period query/page keys are excluded from scoring; re-export non-overlapping data.'] : []),
       ...(duplicateBaselines.size > 0 ?
         ['Duplicate previous-period query/page keys make affected growth comparisons unavailable; re-export non-overlapping data.'] : []),
       'First-party Search Console impressions do not measure global keyword search volume.',
