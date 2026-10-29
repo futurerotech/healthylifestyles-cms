@@ -43,6 +43,13 @@ describe('post-deploy IndexNow safety gates', () => {
   expect(calls).toHaveLength(1);
   expect(calls[0].url).toBe(url);
   expect(calls[0].init?.redirect).toBe('manual');
+  const direct = (async (_input: RequestInfo | URL) => {
+    const response = new Response('{}', {status: 200});
+    Object.defineProperty(response, 'url', {value: url});
+    return response;
+  }) as typeof fetch;
+  const accepted = await fetchDirectIndexNowPublicResource(origin, '/content-manifest.json', direct);
+  expect(accepted.status).toBe(200);
   const redirected = (async (input: RequestInfo | URL, init?: RequestInit) => {
     calls.push({url: String(input), init});
     return new Response(null, {status: 302, headers: {Location: 'http://127.0.0.1/private'}});
