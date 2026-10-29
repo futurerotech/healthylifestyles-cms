@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getPayload } from 'payload';
-import { graphql, validateSchema } from 'graphql';
+import { GraphQLObjectType, GraphQLSchema, GraphQLString, graphql, validateSchema } from 'graphql';
 import { DateTimeResolver, EmailAddressResolver } from 'graphql-scalars';
 import type { PostgresAdapter } from '@payloadcms/db-postgres';
 import { acknowledgeIndexNowQueueRevision } from '../../src/lib/indexnow-queue-ack';
@@ -56,10 +56,23 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
     expect(EmailAddressResolver.name).toBe('EmailAddress');
     expect(typeof DateTimeResolver.parseValue).toBe('function');
     expect(typeof EmailAddressResolver.parseValue).toBe('function');
-    expect(validateSchema(payload.schema)).toEqual([]);
+    // Payload's local instance does not initialize its HTTP GraphQL schema.
+    // Construct an isolated real GraphQL schema using the exact patched scalars
+    // that @payloadcms/graphql imports, rather than inspecting undefined.
+    const schema = new GraphQLSchema({
+      query: new GraphQLObjectType({
+        name: 'TestQuery',
+        fields: {
+          date: { type: DateTimeResolver, resolve: () => '2026-10-28T12:00:00.000Z' },
+          email: { type: EmailAddressResolver, resolve: () => 'editor@example.invalid' },
+          status: { type: GraphQLString, resolve: () => 'ok' },
+        },
+      }),
+    });
+    expect(validateSchema(schema)).toEqual([]);
 
     const result = await graphql({
-      schema: payload.schema,
+      schema,
       source: '{ __schema { queryType { name } } dateType: __type(name: "DateTime") { name kind } emailType: __type(name: "EmailAddress") { name kind } }',
     });
     expect(result.errors).toBeUndefined();
