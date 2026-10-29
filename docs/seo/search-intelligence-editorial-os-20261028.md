@@ -42,3 +42,8 @@ https://developers.google.com/search/docs/essentials/spam-policies
 - The offline screener now accepts only one-segment, lower-case, canonical `/tools/{slug}` and `/wellness-hub/{slug}` URLs on the canonical origin. It refuses nested/tag/pSEO targets, encoded paths and trailing slash variations rather than proposing review of an unrelated page. This does not prove a given slug currently exists: live CMS verification remains a separate gate.
 - Duplicate previous-period query/page keys are explicitly flagged and the affected impression-change percentage is unknown rather than based on whichever duplicate appeared first. `duplicateBaselineKeys` exposes the condition for source-data correction; neither row is automatically added to the other.
 - No network, AI service, GSC connector, production database or publishing operation is added by this change.
+
+## 2026-10-29 current-period deduplication gate
+- Any normalized current-period query/page identity appearing more than once is excluded in full rather than selecting the first GSC export row; this prevents export-order-dependent editorial scoring. `duplicateCurrentKeys` reports distinct affected identities, with a corrective caveat.
+- Section roots `/tools/pseo` and `/wellness-hub/tag` are excluded from review-as-detail-page recommendations. Canonical URL validation does not substitute for a real CMS lookup.
+- This read-only change does not access live Search Console, publish content or modify production data.
