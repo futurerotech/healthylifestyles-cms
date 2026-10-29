@@ -64,3 +64,7 @@ https://developers.google.com/search/docs/essentials/spam-policies
 ## 2026-10-29 bounded raw request gate
 - Added `src/lib/gscRawRequestGate.ts` for offline inspection of one Search Analytics request and response from each period. Only first-page, non-full (rows < rowLimit) finalized web/query+page batches with no dimension filters are eligible for the existing 28-day scope comparison. Reject offset pagination, full pages that might be truncated, unexpected aggregation and unaudited filter groups.
 - This is **not** a complete Search Console ingestion pipeline. Even a short page does not guarantee exhaustive GSC data; authenticated provenance and top-row selection limitations remain. No API calls or production writes occur.
+
+## 2026-10-29 offline report implementation
+- `src/lib/gscOfflineReport.ts` converts previously validated captured request/response pages into a deterministic human-review report. Default output excludes search query text and per-page URLs; the caller must explicitly pass `includeQueries: true` to reveal detailed opportunities. Score distribution, duplicate counts, medical review flags and caveats remain visible.
+- This is a library-only implementation, NOT a production Google Search Console connection, CLI or authenticated data ingest. No paid API, CMS write, automated publication or live external request.
