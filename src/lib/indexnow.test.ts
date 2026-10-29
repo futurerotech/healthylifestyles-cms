@@ -43,6 +43,22 @@ describe('queueIndexNowPing / flushIndexNowQueue', () => {
     expect((payloadLogs[0].match(/bmi-calculator/g) || []).length).toBe(1); // deduped
   });
 
+  it('never sends from legacy path without explicit live enablement', async () => {
+    vi.stubEnv('INDEXNOW_DRY_RUN', 'false');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    queueIndexNowPing(['/tools/x']);
+    await flushIndexNowQueue();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('emergency disable applies to already queued URLs', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    queueIndexNowPing(['/tools/x']);
+    vi.stubEnv('INDEXNOW_DISABLE', 'true');
+    await flushIndexNowQueue();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('missing key: no-op, no crash, no send', async () => {
     vi.stubEnv('INDEXNOW_API_KEY', '');
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
@@ -60,6 +76,7 @@ describe('queueIndexNowPing / flushIndexNowQueue', () => {
   });
 
   it('CHAOS: endpoint unreachable → resolves without throwing, graceful structured log', async () => {
+    vi.stubEnv('INDEXNOW_LIVE_ENABLED', 'true');
     vi.stubEnv('INDEXNOW_DRY_RUN', 'false');
     vi.stubEnv('INDEXNOW_ENDPOINT', 'http://127.0.0.1:9/indexnow'); // nothing listens
     vi.stubEnv('INDEXNOW_RETRY_DELAY_MS', '10');
