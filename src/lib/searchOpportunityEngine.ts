@@ -72,6 +72,20 @@ function safePage(value: string): boolean {
   }
 }
 
+/**
+ * Identify a query/page observation independently of its metrics.
+ * Malformed metrics must not let one copy of a duplicated export row
+ * escape duplicate exclusion and acquire an artificial growth score.
+ */
+function identifiableRowKey(row: GscQueryPageRow): string | null {
+  if (!row || !Array.isArray(row.keys) || row.keys.length !== 2) return null;
+  const [query, page] = row.keys;
+  if (typeof query !== 'string' || typeof page !== 'string' ||
+      query.length > 300 || !safePage(page)) return null;
+  const normalized = normalizedQuery(query);
+  return normalized ? rowKey(normalized, page) : null;
+}
+
 function validRow(row: GscQueryPageRow): row is GscQueryPageRow {
   if (!row || !Array.isArray(row.keys) || row.keys.length !== 2) return false;
   const [query, page] = row.keys;
@@ -104,23 +118,25 @@ export function screenSearchOpportunities(
     throw new RangeError('GSC batch is larger than 25,000 rows; paginate and analyze separately.');
   }
   const previous = new Map<string, GscQueryPageRow>();
+  const seenBaseline = new Set<string>();
   const duplicateBaselines = new Set<string>();
   for (const row of previous28d) {
-    if (!validRow(row)) continue;
-    const key = rowKey(normalizedQuery(row.keys[0]), row.keys[1]);
-    // Overlapping GSC export pages can yield contradictory baseline counts.
-    // Never arbitrarily accept the first (or last) copy and invent growth.
-    if (previous.has(key)) duplicateBaselines.add(key);
-    else previous.set(key, row);
+    const key = identifiableRowKey(row);
+    if (key === null) continue;
+    // An invalid measurement with the same canonical query/page identity
+    // still makes the baseline ambiguous. Do not prefer the valid copy.
+    if (seenBaseline.has(key)) duplicateBaselines.add(key);
+    else seenBaseline.add(key);
+    if (validRow(row) && !previous.has(key)) previous.set(key, row);
   }
 
-  // Detect overlapping exports before assigning scores; otherwise the first
-  // of two conflicting observations wins and source ordering changes rankings.
+  // Detect duplicate raw identities BEFORE metric validation. Otherwise a
+  // corrupt copy would be discarded and its valid twin incorrectly scored.
   const seenCurrent = new Set<string>();
   const duplicateCurrent = new Set<string>();
   for (const row of current28d) {
-    if (!validRow(row)) continue;
-    const key = rowKey(normalizedQuery(row.keys[0]), row.keys[1]);
+    const key = identifiableRowKey(row);
+    if (key === null) continue;
     if (seenCurrent.has(key)) duplicateCurrent.add(key);
     else seenCurrent.add(key);
   }
