@@ -122,8 +122,8 @@ export async function checkHostingerStagingReadOnly(input, fetcher = fetch) {
   if (articles.status === 200) {
     const body = await jsonWithin(articles, 'Article visibility');
     if (!body || !Array.isArray(body.docs) ||
-        body.docs.some(doc => !doc || doc._status === 'draft')) {
-      throw new Error('Article visibility: draft exposed or malformed response');
+        body.docs.some(doc => !doc || doc._status !== 'published')) {
+      throw new Error('Article visibility: draft exposed, status unknown, or malformed response');
     }
   } else if (![401, 403].includes(articles.status)) {
     throw new Error('Article visibility: unexpected HTTP ' + articles.status);
