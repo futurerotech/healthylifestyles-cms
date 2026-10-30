@@ -138,6 +138,15 @@ jobs:
           INDEXNOW_DISABLE: 'true'
         run: npm run build
 
+      - name: Smoke-test running Hostinger-equivalent CMS (disposable DB only)
+        env:
+          CI_CMS_RUNTIME_SMOKE: '1'
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          INDEXNOW_DISABLE: 'true'
+          INDEXNOW_LIVE_ENABLED: 'false'
+        run: node scripts/ci/cms-runtime-smoke.mjs
+
       # D4/SD2 guard #2: the produced bundle must not embed real-looking secrets.
       # HOST-AWARE by design (P17 fix): the old any-URI pattern false-positived
       # on documentation placeholders that legitimately ship in bundles — our
