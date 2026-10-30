@@ -64,3 +64,16 @@ Do not enable live IndexNow, clear pending queue entries, use Google's unsupport
 | Owner sign-off for actual IndexNow notification | **NOT GRANTED** |
 
 **Current action:** keep PR #34, PR #35 and PR #36 as drafts. Freeze unrelated features. Release PR #34 ahead of PR #35 only after its own Hostinger staging and owner gates. PR #36 is an integration QA record and is **not** the production merge vehicle. Rerun exact-head CI if any candidate file changes.
+
+## Operator-initiated anonymous staging preflight
+
+File: `scripts/ci/hostinger-staging-preflight.mjs`. This is a **GET-only** probe with zero credentials, disabled by default and gated by `HLS_STAGING_READ_ONLY_APPROVED=yes`. The operator must explicitly set `HLS_STAGING_ORIGIN` to the actual authorized HTTPS STAGING origin. It rejects the known live CMS and public site, localhost and IP targets before making any requests.
+
+Example invocation (substitute a real, approved staging hostname; this is NOT an existing deployed URL):
+```sh
+HLS_STAGING_ORIGIN=https://cms-qa.example.org HLS_STAGING_READ_ONLY_APPROVED=yes node scripts/ci/hostinger-staging-preflight.mjs
+```
+
+The six checks cover admin login reachability, anonymous queue and user-directory denial, anonymous `/api/users/me` session, and *sampled* anonymous article and pSEO draft visibility. They log only names/statuses, not response bodies. This probe does not authenticate as a real user, prove revision SHA, test backups/rollback, cover all drafts or constitute a staging GO decision. On the actual isolated staging system, the existing authenticated CI role/release tests and manual rollback verification are **still mandatory**.
+
+The GitHub workflow runs the *mocked unit tests for this probe only*; it never contacts Hostinger automatically or receives staging credentials.
