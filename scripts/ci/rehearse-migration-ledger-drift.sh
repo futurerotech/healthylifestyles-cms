@@ -21,8 +21,12 @@ docker exec "$POSTGRES_CONTAINER" createdb -U mock -T mock_restore "$DB"
 
 AUTH=20261008_190423_add_reset_password_requested_at
 MEDIA=20261008_225200_add_media_object_key
-[[ "$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')" == 16 ]] ||
-  { echo 'NO-GO: expected 16 fresh-CI registered migrations'; exit 1; }
+# The Payload CLI scans migrationDir and also discovers seo-audit-fix.ts,
+# whose inert up/down exports make it a registered no-op on the empty mock DB.
+[[ "$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')" == 17 ]] ||
+  { echo 'NO-GO: expected 16 indexed migrations plus inert seo-audit-fix'; exit 1; }
+[[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] ||
+  { echo 'NO-GO: expected the inert manual script to be recorded on fresh mock'; exit 1; }
 [[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name IN ('$AUTH','$MEDIA')")" == 2 ]] ||
   { echo 'NO-GO: mock database has no two October migrations'; exit 1; }
 [[ "$(query "$DB" "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND ((table_name='users' AND column_name='reset_password_requested_at') OR (table_name='media' AND column_name='_objectkey'))")" == 2 ]] ||
@@ -34,8 +38,6 @@ BEGIN;
 DELETE FROM payload_migrations
 WHERE name IN ('20261008_190423_add_reset_password_requested_at',
                '20261008_225200_add_media_object_key');
-INSERT INTO payload_migrations (name, batch)
-VALUES ('seo-audit-fix', (SELECT coalesce(max(batch),0)+1 FROM payload_migrations));
 COMMIT;
 SQL
 [[ "$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')" == 15 ]] || exit 1
