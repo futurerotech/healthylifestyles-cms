@@ -76,6 +76,10 @@ jobs:
       - name: Verify read-only Hostinger staging preflight (no network)
         run: node --test scripts/ci/hostinger-staging-preflight.test.mjs
 
+      # Offline-only migration ledger comparator: no database credentials or I/O.
+      - name: Verify migration ledger preflight (synthetic fixtures only)
+        run: node --test scripts/ci/migration-ledger-audit.test.mjs
+
       - run: npm ci
 
       - name: Unit and access-control regression tests

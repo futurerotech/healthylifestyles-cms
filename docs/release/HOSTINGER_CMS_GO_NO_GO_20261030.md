@@ -82,3 +82,33 @@ The GitHub workflow runs the *mocked unit tests for this probe only*; it never c
 The final PR release-candidate CI job validates the **source head** against the GitHub PR merge checkout and event SHA before running tests; after building the Hostinger-equivalent CMS against disposable Postgres, it emits a short-lived, hash-only `cms-source-provenance-<run-id>` artifact. It includes source/tested SHAs, SHA-256 digests for the committed lockfile, code, workflow, and Next build ID. This mechanism was first verified on QA-only PR #36 (run 41127083051), but a **new green run on the final PR #34 head is mandatory** and cannot be inherited from PR #36.
 
 To avoid source identity confusion: GitHub PR workflows typically test a synthetic merge; the SHA recorded in `testedCommitSha` is not necessarily `sourceHeadSha`. This is a release *traceability* check, not Hostinger staging, a signed artifact, proof of production installation, data backup/rollback, or authorization to deploy or send IndexNow. Keep IndexNow disabled and PR #34 draft until the separate owner/staging GO gate.
+
+## Verified production migration ledger discrepancy (read-only; 2026-10-30)
+
+A read-only inspection of Neon production and the archived October 16 branch
+found the same 15 recorded Payload migration names in both branches. The checked-in
+`src/migrations/index.ts` on **main** and PR #34 lists **16** migrations.
+The database contains an additional `seo-audit-fix` entry absent from that
+index, and does not record the two October 8 migrations
+`20261008_190423_add_reset_password_requested_at` and
+`20261008_225200_add_media_object_key`. Both referenced columns were
+confirmed to exist already as nullable columns on the examined branches.
+Their committed migration SQL uses `ADD COLUMN IF NOT EXISTS`, but no
+production migration was run and idempotency alone is **not** a staging rehearsal.
+The standalone `seo-audit-fix.ts` source is a separate opt-in editorial data
+remediation script and is not in the migration index. This ledger mismatch
+predates PR #34, which did not change the migration index.
+
+Safe operator procedure: on an *authorized isolated staging copy*, first inspect
+`SELECT name FROM payload_migrations ORDER BY id`; export ONLY the list
+of migration names (no credentials or content) as JSON and run
+`node scripts/ci/migration-ledger-audit.mjs --applied-file /secure/path/names.json`.
+A mismatch exits with REVIEW_REQUIRED (exit code 2), **never modifies data**.
+Then review `payload migrate:status` and rehearse required changes on the
+staging-only database with tested recovery BEFORE requesting production approval.
+Do not manually backfill `payload_migrations`, run a production migration,
+or treat the old backup as a fresh restore point.
+
+GitHub CI runs only synthetic offline unit tests for the checker; it never
+contacts production Neon and cannot certify the live ledger. The exact release
+commit still requires a green new CI run after this documentation/test change.
