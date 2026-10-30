@@ -87,3 +87,6 @@ https://developers.google.com/search/docs/essentials/spam-policies
 
 ## 2026-10-30 tool enablement review gate
 - Editorial Review Queue now treats an existing tool as merely declared indexable only if the caller-declared record says published, noIndex:false AND enabled:true. Missing, null or false enabled values are explicitly human-review conditions, never assumed enabled. Articles are unaffected because they do not use that tool-specific enablement rule. This remains offline metadata, not proof of public reachability or actual CMS status. Targeted tests cover true, false, unknown and malformed enabled data.
+
+## 2026-10-30 read-only Payload projection adapter and canonical override gate
+- Verified existing `src/collections/Tools.ts`, `src/collections/Articles.ts` and `src/fields/seo.ts` on main: publication state uses `_status`, indexability override `seo.noIndex`, canonical `seo.canonical`, and tools carry `enabled`. Added `gscPayloadSnapshotAdapter.ts` to normalize only caller-provided bounded CMS projections. Absent fields remain unknown, never implicitly published/indexable. The editorial queue flags mismatched explicit canonical overrides for human review, retains valid declared record IDs, and never attempts a CMS lookup/write. Tests cover canonical redirects and malformed projections. No online verification of a given record is claimed.
