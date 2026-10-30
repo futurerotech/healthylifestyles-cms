@@ -112,3 +112,17 @@ or treat the old backup as a fresh restore point.
 GitHub CI runs only synthetic offline unit tests for the checker; it never
 contacts production Neon and cannot certify the live ledger. The exact release
 commit still requires a green new CI run after this documentation/test change.
+
+## Synthetic production-like migration ledger rehearsal
+
+CI now runs a *real Payload migration command against a cloned disposable mock
+PostgreSQL database*. The mock clone first gets the same **migration names** as
+the Neon production ledger observed by read-only inspection (15 entries,
+`seo-audit-fix` present, two Oct 8 names absent). Both October target columns
+already exist. It takes a synthetic backup, invokes the Payload migration CLI,
+checks resulting ledger entries, schema and synthetic pSEO fixtures, then restores
+the pre-migration backup into a different mock database to check rollback.
+
+This does NOT use production data, real Hostinger staging, or Neon credentials,
+so it cannot certify their deploy/restore path. A separate authorized staging
+rehearsal, current recovery point and owner production approval remain mandatory.

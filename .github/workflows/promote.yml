@@ -141,6 +141,16 @@ jobs:
           DATABASE_URI: postgres://mock:mock@localhost:5432/mock
         run: bash scripts/ci/rehearse-backup.sh
 
+      - name: Rehearse Oct migration ledger drift and rollback (synthetic DBs only)
+        env:
+          RUN_DATABASE_TESTS: '1'
+          CI_MIGRATION_DRIFT_REHEARSAL: '1'
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          INDEXNOW_DISABLE: 'true'
+        run: bash scripts/ci/rehearse-migration-ledger-drift.sh
+
       # D4: exercise the actual Hostinger build command against the mock DB.
       # Database migrations are a separate, explicit operation after a backup;
       # never mutate production data as a side effect of a deployment build.
