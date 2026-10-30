@@ -16,7 +16,7 @@ const batch = (startDate: string, endDate: string): RawGscBatch => ({
 const current=()=>[batch('2026-08-29','2026-09-25')];
 const previous=()=>[batch('2026-08-01','2026-08-28')];
 const catalog=()=>[
-  {page:a,collection:'tools' as const,slug:'sleep-score',status:'published' as const,noIndex:false},
+  {page:a,collection:'tools' as const,slug:'sleep-score',status:'published' as const,noIndex:false,enabled:true},
   {page:b,collection:'articles' as const,slug:'sleep-science',status:'unknown' as const,noIndex:null},
 ];
 
