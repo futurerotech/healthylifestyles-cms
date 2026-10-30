@@ -27,7 +27,9 @@ export function validateStagingOrigin(input) {
       url.username || url.password || url.search || url.hash ||
       url.pathname !== '/' || url.port || LIVE_HOSTS.has(host) ||
       host === 'localhost' || host.endsWith('.localhost') ||
-      host.endsWith('.local') || isIP(host) !== 0) {
+      host.endsWith('.local') ||
+      // WHATWG URL.hostname wraps IPv6 in [] but net.isIP requires bare input.
+      (host.startsWith('[') && host.endsWith(']')) || isIP(host) !== 0) {
     throw new Error('Staging target must be an explicit non-production HTTPS domain origin');
   }
   return url.origin;
