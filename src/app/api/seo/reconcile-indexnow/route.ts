@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import type { PostgresAdapter } from '@payloadcms/db-postgres';
 import config from '@payload-config';
-import { isAllowedOrigin, CMS_ORIGIN } from '@/lib/allowedOrigins';
+import { isAllowedIndexNowPreviewOrigin, ISOLATED_STAGING_CMS_ORIGIN, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
 import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
 import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from '@/lib/indexnow-postdeploy';
@@ -15,8 +15,7 @@ export const dynamic = 'force-dynamic';
 // For the first release the operator must opt into actual submission (confirm=true).
 // No new secrets, schema changes, background jobs, or automatic production writes.
 export async function POST(req: Request): Promise<NextResponse> {
-  if (!isAllowedOrigin(req.headers.get('origin')) ||
-      (process.env.NODE_ENV === 'production' && req.headers.get('origin') !== CMS_ORIGIN)) {
+  if (!isAllowedIndexNowPreviewOrigin(req.headers.get('origin'))) {
     return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
   }
   const payload = await getPayload({ config });
@@ -30,6 +29,13 @@ export async function POST(req: Request): Promise<NextResponse> {
   }
   const body = parsedBody as { confirm?: unknown; page?: unknown; approvedUrls?: unknown; approvedVersions?: unknown; approvedBuildStartedAt?: unknown };
   const explicitlyConfirmed = isExplicitIndexNowSubmitRequest(body);
+  // No queue acknowledgement, public proof or provider request can occur
+  // after a confirmed submit in the deliberately isolated staging mode.
+  if (ISOLATED_STAGING_CMS_ORIGIN && explicitlyConfirmed) {
+    return NextResponse.json({
+      error: 'Isolated staging permits admin preview only; IndexNow submission is disabled.',
+    }, { status: 403 });
+  }
   const origin = new URL(SITE_BASE_URL);
   if (origin.protocol !== 'https:') return NextResponse.json({ error: 'HTTPS site required' }, { status: 503 });
   const publicOrigin = origin.origin;

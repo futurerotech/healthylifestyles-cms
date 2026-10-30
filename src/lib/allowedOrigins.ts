@@ -103,3 +103,17 @@ export const isAllowedAdminMutationOrigin = (
   isProduction = IS_PROD,
 ): boolean =>
   isAllowedOrigin(origin) && (!isProduction || origin === CMS_ORIGIN);
+
+/**
+ * Staging can make an admin-authenticated, READ-ONLY IndexNow preview request,
+ * without allowing privileged Vercel deploys or confirmed IndexNow submits.
+ */
+export const isAllowedIndexNowPreviewOrigin = (
+  origin: string | null | undefined,
+  isProduction = IS_PROD,
+): boolean =>
+  isAllowedOrigin(origin) &&
+  (ISOLATED_STAGING_CMS_ORIGIN
+    ? origin === ISOLATED_STAGING_CMS_ORIGIN
+    : !isProduction || origin === CMS_ORIGIN);
+

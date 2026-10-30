@@ -25,6 +25,9 @@ describe('Isolated staging CORS/CSRF configuration', () => {
     expect(mod.ALLOWED_ORIGINS).not.toContain(STAGE);
     expect(mod.isAllowedAdminMutationOrigin(LIVE)).toBe(true);
     expect(mod.isAllowedAdminMutationOrigin(STAGE)).toBe(false);
+    expect(mod.isAllowedIndexNowPreviewOrigin(LIVE)).toBe(true);
+    expect(mod.isAllowedIndexNowPreviewOrigin(STAGE)).toBe(false);
+    expect(mod.isAllowedIndexNowPreviewOrigin('https://www.healthylifesstyles.com')).toBe(false);
   });
 
   it('only trusts the isolated staging origin for browser CORS/CSRF', async () => {
@@ -38,6 +41,10 @@ describe('Isolated staging CORS/CSRF configuration', () => {
     expect(mod.isAllowedOrigin(LIVE)).toBe(false);
     // Staging must NEVER be able to initiate the live Vercel deploy route.
     expect(mod.isAllowedAdminMutationOrigin(STAGE)).toBe(false);
+    expect(mod.isAllowedIndexNowPreviewOrigin(STAGE)).toBe(true);
+    expect(mod.isAllowedIndexNowPreviewOrigin(LIVE)).toBe(false);
+    expect(mod.isAllowedIndexNowPreviewOrigin('https://www.healthylifesstyles.com')).toBe(false);
+    expect(mod.isAllowedIndexNowPreviewOrigin(undefined)).toBe(false);
   });
 
   it('fails startup on missing disable flag, mismatched URL or live deploy hook', async () => {

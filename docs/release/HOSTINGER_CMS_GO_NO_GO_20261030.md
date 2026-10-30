@@ -65,6 +65,21 @@ Do not enable live IndexNow, clear pending queue entries, use Google's unsupport
 
 **Current action:** keep PR #34, PR #35 and PR #36 as drafts. Freeze unrelated features. Release PR #34 ahead of PR #35 only after its own Hostinger staging and owner gates. PR #36 is an integration QA record and is **not** the production merge vehicle. Rerun exact-head CI if any candidate file changes.
 
+## Isolated staging: admin IndexNow preview without live submission
+
+Production-mode `/api/seo/reconcile-indexnow` previously required the live CMS
+Origin even with `HLS_ISOLATED_STAGING=true`, blocking manual preview from
+the isolated staging admin. The staging origin is now accepted for authenticated
+**preview requests only**. Any JSON object with `confirm:true` is rejected
+with HTTP 403 **before external page proof requests, provider calls or queue
+acknowledgement**. Privileged Vercel deploy POST remains blocked in staging.
+Non-staging production behavior and IndexNow owner controls remain unchanged.
+
+The staging preview may read the *current public Astro manifest* but is **not
+proof** of the staging dataset being deployed to Vercel, not an E2E deployment
+test, and not approval for production indexing. `INDEXNOW_DISABLE=true`
+and an unset deploy hook remain mandatory on staging.
+
 ## Hostinger production-mode isolated CMS staging origins (opt-in)
 
 A Payload CMS staging app normally builds with `NODE_ENV=production`. The
