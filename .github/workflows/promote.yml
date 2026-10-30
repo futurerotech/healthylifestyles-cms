@@ -65,6 +65,10 @@ jobs:
           fi
           echo 'Workflows clean: no real-provider credentials present.'
 
+      # Safety-test the opt-in external staging probe using mocks only.
+      - name: Verify read-only Hostinger staging preflight (no network)
+        run: node --test scripts/ci/hostinger-staging-preflight.test.mjs
+
       - run: npm ci
 
       - name: Unit and access-control regression tests
