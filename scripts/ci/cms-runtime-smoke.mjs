@@ -108,7 +108,7 @@ try {
   const tokens = JSON.parse(await readFile(fixturePath, 'utf8'));
   await unlink(fixturePath);
   for (const role of ['admin', 'editor']) {
-    assert.match(tokens[role + 'Token'], /^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/);
+    assert.equal(tokens[role + 'Token'].split('.').length, 3, 'Expected a JWT with three segments');
   }
   const editorQueue = await request('/api/deploy/pending', {
     headers: { Authorization: 'JWT ' + tokens.editorToken },
