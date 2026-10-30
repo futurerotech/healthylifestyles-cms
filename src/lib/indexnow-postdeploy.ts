@@ -57,7 +57,10 @@ export function selectPublishedProof(
   if (record.noIndex === true || current.seo?.noIndex === true) {
     return { ok: false, reason: 'content is marked noindex' };
   }
-  if (current._status !== 'published' || current.enabled === false) {
+  // Tools require a positive enabled flag; an absent/unknown value is not
+  // proof of public availability. Articles do not have this tool-only field.
+  if (current._status !== 'published' || current.enabled === false ||
+      (collection === 'tools' && current.enabled !== true)) {
     return { ok: false, reason: 'current CMS content is not published and enabled' };
   }
   const deployed = validMillis(record.updatedAt);

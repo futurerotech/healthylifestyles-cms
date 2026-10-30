@@ -128,6 +128,16 @@ describe('post-deploy IndexNow safety gates', () => {
  it('accepts one published canonical record in a newer build', () => {
   expect(selectPublishedProof(build,records,queue,current).ok).toBe(true);
  });
+ it('requires explicit enabled true for tools, without imposing a tool field on articles', () => {
+  const toolRecords = records.map(r => ({...r, collection:'tools', path:'/tools/example-guide'}));
+  const toolQueue = {...queue, collectionSlug:'tools'};
+  expect(selectPublishedProof(build, toolRecords, toolQueue, {...current, enabled:true}).ok).toBe(true);
+  for (const enabled of [undefined, false]) {
+    expect(selectPublishedProof(build, toolRecords, toolQueue, {...current, enabled}).ok).toBe(false);
+  }
+  expect(selectPublishedProof(build, toolRecords, toolQueue, current).ok).toBe(false);
+  expect(selectPublishedProof(build, records, queue, current).ok).toBe(true);
+ });
  it('rejects older Vercel builds and newer CMS revisions', () => {
   expect(selectPublishedProof('2026-10-28T10:00:00Z',records,queue,current).ok).toBe(false);
   expect(selectPublishedProof(build,records,queue,{...current,updatedAt:'2026-10-28T12:30:00Z'}).ok).toBe(false);
