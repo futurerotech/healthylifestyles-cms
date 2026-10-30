@@ -21,6 +21,10 @@ export interface DeclaredCmsPageReference {
   noIndex: boolean | null;
   /** Tools require a declared enabled:true for an indexability candidate. Missing is unknown. */
   enabled?: boolean | null;
+  /** Canonical override read from seo.canonical; null/empty means auto-derived. */
+  canonicalOverride?: string | null;
+  /** Payload record ID from an explicitly supplied snapshot, if available. */
+  recordId?: string | number | null;
 }
 
 export type EditorialReviewAction =
@@ -55,7 +59,14 @@ function validateCatalog(
         !['articles', 'tools'].includes(ref.collection) ||
         !['published', 'draft', 'unknown'].includes(ref.status) ||
         (ref.noIndex !== null && typeof ref.noIndex !== 'boolean') ||
-        (ref.enabled !== undefined && ref.enabled !== null && typeof ref.enabled !== 'boolean')) {
+        (ref.enabled !== undefined && ref.enabled !== null && typeof ref.enabled !== 'boolean') ||
+        (ref.canonicalOverride !== undefined && ref.canonicalOverride !== null &&
+          typeof ref.canonicalOverride !== 'string') ||
+        (ref.recordId !== undefined && ref.recordId !== null &&
+          !(typeof ref.recordId === 'string' && ref.recordId.length > 0 &&
+            ref.recordId.length <= 128 && ref.recordId === ref.recordId.trim()) &&
+          !(typeof ref.recordId === 'number' && Number.isSafeInteger(ref.recordId) &&
+            ref.recordId > 0))) {
       throw new TypeError('Malformed caller-declared CMS page reference.');
     }
     const match = /^(\/(tools|wellness-hub)\/([a-z0-9]+(?:-[a-z0-9]+)*))$/.exec(
@@ -104,7 +115,12 @@ export function buildOfflineEditorialReviewQueue(
       records[0].status !== 'published' || records[0].noIndex !== false ||
       // Disabled tools and tools whose enabled flag was not captured must
       // never be represented as indexable, even in a caller-declared snapshot.
-      (records[0].collection === 'tools' && records[0].enabled !== true)
+      (records[0].collection === 'tools' && records[0].enabled !== true) ||
+      // The stored SEO override may point somewhere else. The requested
+      // canonical must match the observed page, not merely its slug.
+      (typeof records[0].canonicalOverride === 'string' &&
+        records[0].canonicalOverride.trim().length > 0 &&
+        records[0].canonicalOverride !== group.page)
         ? 'declared-needs-indexability-review' : 'declared-published-indexable';
 
     const overlapCount = overlaps.pageOverlapCounts.get(group.page) ?? 0;
@@ -137,6 +153,8 @@ export function buildOfflineEditorialReviewQueue(
       declaredNoIndex: records.length === 1 ? records[0].noIndex : null,
       declaredToolEnabled: records.length === 1 && records[0].collection === 'tools'
         ? records[0].enabled ?? null : null,
+      declaredCmsRecordId: records.length === 1 ? records[0].recordId ?? null : null,
+      declaredCanonicalOverride: records.length === 1 ? records[0].canonicalOverride ?? null : null,
       reviewActions: actions,
       sampleQueries: group.querySamples.map(sample => sample.query),
       recommendedCmsMutation: null,
@@ -166,6 +184,7 @@ export function buildOfflineEditorialReviewQueue(
       'GSC batches and CMS snapshot are caller-declared offline data, not authenticated current production state.',
       'Missing catalog entries are missing only from the supplied snapshot; do not infer an absent, unpublished or redirected live page.',
       'Tool indexability requires an explicit declared enabled:true; disabled or unknown tools require manual review.',
+      'A declared canonical override different from the observed URL requires review; an absent override is NOT proof that the live canonical matches.',
       'Sampled query rows do not represent all search traffic or establish keyword cannibalization.',
       'Medical keyword checks are incomplete; all health content changes need appropriate evidence review.',
       'All actions are human review tasks. No CMS mutation, automatic article creation, submission or publication is authorized.',
