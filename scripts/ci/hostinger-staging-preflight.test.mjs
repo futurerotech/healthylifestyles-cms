@@ -68,6 +68,8 @@ test('rejects non-null public user session', async () => {
 test('rejects anonymous article/pSEO draft exposure', async () => {
   for (const overrides of [
     { '/api/articles': [200, { docs: [{ _status: 'draft' }] }] },
+    { '/api/articles': [200, { docs: [{ slug: 'missing-status' }] }] },
+    { '/api/articles': [200, { docs: [{ _status: null }] }] },
     { '/api/pseo-pages': [200, { docs: [{ status: 'draft' }] }] },
   ]) {
     const client = mock(overrides);
