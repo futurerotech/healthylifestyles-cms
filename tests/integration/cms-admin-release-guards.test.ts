@@ -109,6 +109,66 @@ describe('real Payload staff permissions on Hostinger CMS release endpoints (iso
     expect((await payload.count({ collection: 'deploy-log' })).totalDocs).toBe(before);
   });
 
+  it('keeps editor-created article drafts inaccessible to anonymous visitors and off the deployment queue', async () => {
+    // Real REST endpoint + real editor login, using ONLY the CI disposable DB.
+    const { REST_POST, REST_GET } = await import('@payloadcms/next/routes');
+    const config = (await import('../../payload.config')).default;
+    const unique = Date.now() + '-' + Math.random().toString(36).slice(2);
+    const slug = 'ci-private-article-' + unique;
+    const queueBefore = (await payload.count({ collection: 'pending-deploys' })).totalDocs;
+    const route = (method: 'GET' | 'POST', path: string, token?: string, body?: unknown) =>
+      new Request('http://localhost:3000/api/' + path, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: 'JWT ' + token } : {}),
+        },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    const context = (segments: string[]) => ({ params: Promise.resolve({ slug: segments }) });
+    const created = await REST_POST(config)(
+      route('POST', 'articles?draft=true', editorToken, {
+        title: 'Private QA Article ' + unique,
+        slug,
+        excerpt: 'Unpublished draft acceptance test in disposable CI only.',
+        _status: 'draft',
+        reviewedByHuman: false,
+      }),
+      context(['articles']),
+    );
+    expect([200, 201]).toContain(created.status);
+    const result = await created.json() as { doc?: { id?: number | string; _status?: string }; id?: number | string };
+    const id = result.doc?.id ?? result.id;
+    expect(id).toBeDefined();
+    expect(result.doc?._status).toBe('draft');
+
+    const anonymousList = await REST_GET(config)(
+      route('GET', 'articles?where[slug][equals]=' + slug + '&limit=10'),
+      context(['articles']),
+    );
+    expect(anonymousList.status).toBe(200);
+    const listed = await anonymousList.json() as { docs: { id: number | string }[] };
+    expect(listed.docs.some(doc => String(doc.id) === String(id))).toBe(false);
+
+    const anonymousById = await REST_GET(config)(
+      route('GET', 'articles/' + id + '?draft=true'),
+      context(['articles', String(id)]),
+    );
+    expect([403, 404]).toContain(anonymousById.status);
+
+    const editorById = await REST_GET(config)(
+      route('GET', 'articles/' + id + '?draft=true', editorToken),
+      context(['articles', String(id)]),
+    );
+    expect(editorById.status).toBe(200);
+    const editorDoc = await editorById.json() as { id: number | string; _status?: string };
+    expect(String(editorDoc.id)).toBe(String(id));
+    expect(editorDoc._status).toBe('draft');
+
+    const queueAfter = (await payload.count({ collection: 'pending-deploys' })).totalDocs;
+    expect(queueAfter).toBe(queueBefore);
+  });
+
   it('blocks an authenticated editor and wrong origin before IndexNow network access', async () => {
     const external = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
       throw new Error('Unexpected external network during mock IndexNow gate');
