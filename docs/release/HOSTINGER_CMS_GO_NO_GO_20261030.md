@@ -77,3 +77,9 @@ HLS_STAGING_ORIGIN=https://cms-qa.example.org HLS_STAGING_READ_ONLY_APPROVED=yes
 The six checks cover admin login reachability, anonymous queue and user-directory denial, anonymous `/api/users/me` session, and *sampled* anonymous article and pSEO draft visibility. They log only names/statuses, not response bodies. This probe does not authenticate as a real user, prove revision SHA, test backups/rollback, cover all drafts or constitute a staging GO decision. On the actual isolated staging system, the existing authenticated CI role/release tests and manual rollback verification are **still mandatory**.
 
 The GitHub workflow runs the *mocked unit tests for this probe only*; it never contacts Hostinger automatically or receives staging credentials.
+
+## Source provenance and Hostinger staging handoff
+
+GitHub's `pull_request` workflow may test a synthetic merge commit, not the PR's source head. The no-secret `scripts/ci/release-provenance.mjs` gate verifies both the actual checkout SHA and the second PR merge parent, rejecting a mismatch. After the successful mock build, it writes a hash-only `release-provenance.json` and uploads it as `cms-source-provenance-<run-id>` (short retention). The record distinguishes **sourceHeadSha** (candidate source) from **testedCommitSha** (CI checkout/merge), and includes hashes for package lockfile, workflow, release provenance code, IndexNow implementation and Next BUILD_ID.
+
+This record is **not** a signed supply-chain attestation, downloadable production build, green-light for Hostinger, or permission to publish. A staging operator must verify the separately approved staging checkout and runtime against the intended source commit and package lockfile, then perform real staging role, privacy, backup/rollback tests. **Production rollout stays NO-GO** without owner authorization. PR #36 remains a QA-only integration branch; release PR #34 is a separate decision.
