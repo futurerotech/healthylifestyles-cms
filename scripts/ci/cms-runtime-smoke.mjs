@@ -4,6 +4,8 @@
  * No real service tokens, production databases, CMS writes or IndexNow sends.
  */
 import assert from 'node:assert/strict';
+import { readFile, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 
@@ -98,6 +100,49 @@ try {
   assert.ok([401, 403].includes(pending.status),
     `Unauthenticated admin queue must be hidden (HTTP ${pending.status})`);
   console.log(`PASS: unauthenticated pending deploy queue denied (HTTP ${pending.status})`);
+
+  // These disposable JWTs were minted by the real Payload login API against
+  // this same CI-only database. Never echo or commit their contents.
+  assert.ok(process.env.RUNNER_TEMP?.startsWith('/'), 'CI runner temp is required');
+  const fixturePath = join(process.env.RUNNER_TEMP, 'hls-cms-role-fixture.json');
+  const tokens = JSON.parse(await readFile(fixturePath, 'utf8'));
+  await unlink(fixturePath);
+  for (const role of ['admin', 'editor']) {
+    assert.match(tokens[role + 'Token'], /^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$/);
+  }
+  const editorQueue = await request('/api/deploy/pending', {
+    headers: { Authorization: 'JWT ' + tokens.editorToken },
+  });
+  assert.equal(editorQueue.status, 403,
+    'An authenticated editor must not read admin deployment queue');
+  const adminQueue = await request('/api/deploy/pending', {
+    headers: { Authorization: 'JWT ' + tokens.adminToken },
+  });
+  assert.equal(adminQueue.status, 200,
+    'An authenticated admin must read the queue on built CMS runtime');
+  const editorDeploy = await request('/api/deploy', {
+    method: 'POST',
+    headers: {
+      Authorization: 'JWT ' + tokens.editorToken,
+      Origin: 'https://cms.healthylifesstyles.com',
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  });
+  assert.equal(editorDeploy.status, 403,
+    'Editor must not trigger deploy on the real HTTP boundary');
+  const editorIndexNow = await request('/api/seo/reconcile-indexnow', {
+    method: 'POST',
+    headers: {
+      Authorization: 'JWT ' + tokens.editorToken,
+      Origin: 'https://cms.healthylifesstyles.com',
+      'Content-Type': 'application/json',
+    },
+    body: '{"confirm":false}',
+  });
+  assert.equal(editorIndexNow.status, 403,
+    'Editor must not access IndexNow reconciliation on real HTTP boundary');
+  console.log('PASS: real JWT roles enforced over built CMS HTTP runtime');
 
   const admin = await request('/admin');
   assert.ok([200, 302, 303, 307, 308].includes(admin.status),
