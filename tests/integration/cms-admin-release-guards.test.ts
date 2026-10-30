@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Payload } from 'payload';
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 // No import of Payload configuration or a route handler until the CI-only
 // database and provider boundaries have been verified.
@@ -61,6 +63,15 @@ describe('real Payload staff permissions on Hostinger CMS release endpoints (iso
     deploy = (await import('../../src/app/api/deploy/route')).POST;
     pending = (await import('../../src/app/api/deploy/pending/route')).GET;
     indexnow = (await import('../../src/app/api/seo/reconcile-indexnow/route')).POST;
+    // Pass mock-only role JWTs to the later isolated HTTP smoke test without
+    // logging credentials or saving anything into the repository/artifacts.
+    if (!process.env.RUNNER_TEMP || !process.env.RUNNER_TEMP.startsWith('/')) {
+      throw new Error('GitHub runner temporary directory is required.');
+    }
+    const fixtureFile = join(process.env.RUNNER_TEMP, 'hls-cms-role-fixture.json');
+    await writeFile(fixtureFile, JSON.stringify({ adminToken, editorToken }), {
+      encoding: 'utf8', mode: 0o600, flag: 'w',
+    });
   }, 120000);
 
   afterAll(async () => { await payload?.destroy(); });
