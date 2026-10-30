@@ -79,3 +79,8 @@ https://developers.google.com/search/docs/essentials/spam-policies
 ## 2026-10-29 multi-page query review
 - Added pure `src/lib/gscCrossPageOverlap.ts` to identify the exact normalized query observed on two or more different canonical pages in already screened data. Reports affected page counts and medical review flags, with sampled metrics only. This is not proof of cannibalization, intent overlap or lost traffic; human SERP, on-page and CMS validation remain required.
 - Query and page details appear only with `includeQueries:true`; redacted default contains aggregate counts. Tests cover duplicate exclusion, medical flagging and privacy. No network, live CMS access, publication or provider submission.
+
+## 2026-10-30 offline editorial review queue
+- Added `src/lib/gscEditorialReviewQueue.ts` and focused tests. The pure library requires structurally validated 28-day GSC request/response pairs and a caller-declared bounded CMS reference snapshot. It emits page-level human-only review actions: verify current record/canonical, resolve missing/ambiguous snapshot, inspect indexability, compare observed multi-page queries, verify sensitive medical evidence, and review existing content/tool experience.
+- Publication/indexability are NOT independently verified; ambiguous or missing records are not interpreted as live 404s. The module never calls Google, CMS, AI services, IndexNow or paid APIs, does not propose CMS mutations, and hides page/query details unless `includeDetails:true` is explicitly set. All decisions remain manual; no automated editing, draft creation, merging or publication.
+- Exact-head CI and production/preview deployment are separate gates; passing offline tests does not authenticate search exports or CMS status.
