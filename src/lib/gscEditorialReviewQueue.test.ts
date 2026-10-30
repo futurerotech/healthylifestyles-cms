@@ -47,6 +47,25 @@ describe('offline editorial review queue',()=>{
     expect(missing.tasks?.every(t=>t.cmsSnapshotState==='not-in-supplied-snapshot')).toBe(true);
     expect(missing.tasks?.[0].reviewActions).toContain('locate-page-in-authoritative-cms');
   });
+  it('never treats disabled or unspecified tools as declared indexable',()=>{
+    const base=catalog()[0];
+    for (const enabled of [false,null,undefined]) {
+      const entry={...base,enabled};
+      const result=buildOfflineEditorialReviewQueue(current(),previous(),[entry],{includeDetails:true});
+      const tool=result.tasks?.find(t=>t.page===a);
+      expect(tool?.cmsSnapshotState).toBe('declared-needs-indexability-review');
+      expect(tool?.reviewActions).toContain('review-publication-and-indexability');
+      expect(tool?.reviewActions).not.toContain('review-existing-content-and-tool-experience');
+    }
+    const verified={...base,enabled:true};
+    const result=buildOfflineEditorialReviewQueue(current(),previous(),[verified],{includeDetails:true});
+    const tool=result.tasks?.find(t=>t.page===a);
+    expect(tool?.cmsSnapshotState).toBe('declared-published-indexable');
+    expect(tool?.declaredToolEnabled).toBe(true);
+    expect(()=>buildOfflineEditorialReviewQueue(current(),previous(),[
+      {...base,enabled:'yes' as unknown as boolean},
+    ])).toThrow();
+  });
   it('fails closed for malformed, inconsistent or duplicated catalog evidence',()=>{
     const duplicated=[...catalog(),catalog()[0]];
     const report=buildOfflineEditorialReviewQueue(current(),previous(),duplicated,{includeDetails:true});
