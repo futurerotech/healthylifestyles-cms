@@ -65,6 +65,30 @@ Do not enable live IndexNow, clear pending queue entries, use Google's unsupport
 
 **Current action:** keep PR #34, PR #35 and PR #36 as drafts. Freeze unrelated features. Release PR #34 ahead of PR #35 only after its own Hostinger staging and owner gates. PR #36 is an integration QA record and is **not** the production merge vehicle. Rerun exact-head CI if any candidate file changes.
 
+## Hostinger production-mode isolated CMS staging origins (opt-in)
+
+A Payload CMS staging app normally builds with `NODE_ENV=production`. The
+legacy CORS/CSRF allowlist trusts only the real production CMS/frontend origins,
+even if Payload `SERVER_URL` points to an alternate staging hostname. This
+can prevent staging admin browser authentication or draft testing.
+
+Release candidate PR #34 adds a fail-closed, **explicitly opted-in** staging
+configuration. On an **authorized, separately deployed** Hostinger staging CMS,
+set `HLS_ISOLATED_STAGING=true`, `HLS_STAGING_CMS_ORIGIN` to the owned
+HTTPS staging subdomain of `healthylifesstyles.com`, and `SERVER_URL`
+to that same exact origin. Require `INDEXNOW_DISABLE=true`, disable
+`INDEXNOW_LIVE_ENABLED`, and REMOVE `VERCEL_DEPLOY_HOOK_URL`. Starting
+staging with missing/mismatched settings fails fast. In that mode, Payload
+CORS/CSRF trusts **only the staging CMS origin**, never the live frontend or
+production CMS; the privileged Vercel deploy POST still rejects the staging
+origin. Unconfigured production behavior stays unchanged.
+
+**This does not create a Hostinger staging app or isolate its database.** The
+owner must supply a staging-only database, confirm the exact deployed release
+SHA, and explicitly authorize staging before running admin tests. Never reuse
+Neon production credentials. No IndexNow or Vercel provider call is intended
+or permitted in the staging acceptance procedure.
+
 ## Operator-initiated anonymous staging preflight
 
 File: `scripts/ci/hostinger-staging-preflight.mjs`. This is a **GET-only** probe with zero credentials, disabled by default and gated by `HLS_STAGING_READ_ONLY_APPROVED=yes`. The operator must explicitly set `HLS_STAGING_ORIGIN` to the actual authorized HTTPS STAGING origin. It rejects the known live CMS and public site, localhost and IP targets before making any requests.

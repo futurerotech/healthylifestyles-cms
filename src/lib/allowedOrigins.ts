@@ -16,15 +16,68 @@ export const CMS_ORIGIN = 'https://cms.healthylifesstyles.com';
 /** The Astro frontend that consumes this CMS at build/runtime. */
 export const FRONTEND_ORIGIN = 'https://www.healthylifesstyles.com';
 
+
+/**
+ * Isolated Hostinger staging must be opt-in. Its production-mode browser
+ * requests should be same-origin to the staging CMS, NOT trusted to use the
+ * live admin's CORS/CSRF origins. This does not attest database isolation.
+ *
+ * External deploy and IndexNow sends stay separately disabled.
+ */
+export function resolveIsolatedStagingCmsOrigin(env: {
+  mode?: string;
+  cmsOrigin?: string;
+  serverURL?: string;
+  indexNowDisabled?: string;
+  indexNowLiveEnabled?: string;
+  deployHook?: string;
+}): string | null {
+  if (env.mode !== 'true') return null;
+  const requested = env.cmsOrigin;
+  if (typeof requested !== 'string' || requested.length > 253) {
+    throw new Error('Isolated staging requires an explicit CMS HTTPS origin');
+  }
+  let url: URL;
+  try { url = new URL(requested); }
+  catch { throw new Error('Invalid isolated staging CMS URL'); }
+
+  const host = url.hostname.toLowerCase();
+  const validSubdomain = host.endsWith('.healthylifesstyles.com') &&
+    host !== 'cms.healthylifesstyles.com' &&
+    host !== 'www.healthylifesstyles.com';
+  if (url.protocol !== 'https:' || url.origin !== requested ||
+      url.username || url.password || url.search || url.hash ||
+      url.pathname !== '/' || url.port || !validSubdomain ||
+      env.serverURL !== requested ||
+      env.indexNowDisabled !== 'true' ||
+      env.indexNowLiveEnabled === 'true' ||
+      Boolean(env.deployHook?.trim())) {
+    throw new Error('Isolated staging cannot start with unsafe origin or live-provider configuration');
+  }
+  return requested;
+}
+
+/** Production defaults are unchanged when isolated staging is not opted into. */
+export const ISOLATED_STAGING_CMS_ORIGIN = resolveIsolatedStagingCmsOrigin({
+  mode: process.env.HLS_ISOLATED_STAGING,
+  cmsOrigin: process.env.HLS_STAGING_CMS_ORIGIN,
+  serverURL: process.env.SERVER_URL,
+  indexNowDisabled: process.env.INDEXNOW_DISABLE,
+  indexNowLiveEnabled: process.env.INDEXNOW_LIVE_ENABLED,
+  deployHook: process.env.VERCEL_DEPLOY_HOOK_URL,
+});
+
 const stripSlash = (v: string): string => v.replace(/\/+$/, '');
 
 /** Normalized (no trailing slash) + deduped whitelist, for cors/csrf and route checks. */
-export const ALLOWED_ORIGINS: string[] = [
-  CMS_ORIGIN,
-  FRONTEND_ORIGIN,
-  process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:4321',
-  ...(IS_PROD ? [] : ['http://localhost:4321', 'http://localhost:3000']),
-]
+export const ALLOWED_ORIGINS: string[] = ISOLATED_STAGING_CMS_ORIGIN
+  ? [ISOLATED_STAGING_CMS_ORIGIN]
+  : [
+      CMS_ORIGIN,
+      FRONTEND_ORIGIN,
+      process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:4321',
+      ...(IS_PROD ? [] : ['http://localhost:4321', 'http://localhost:3000']),
+    ]
   .map(stripSlash)
   .filter((v, i, arr) => Boolean(v) && arr.indexOf(v) === i);
 
