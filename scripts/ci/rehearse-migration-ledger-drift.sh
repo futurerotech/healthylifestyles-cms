@@ -72,10 +72,60 @@ FROM columns,indexes,constraints,sequences;
 SQL
 }
 
+
+# This checksum excludes only the intentionally changing migration ledger and
+# its ID sequence. It covers the contents of EVERY other public table and the
+# current values of all other public sequences. No raw row data is logged.
+data_fingerprint() {
+  docker exec -i "$POSTGRES_CONTAINER" psql -X -q -v ON_ERROR_STOP=1 -U mock -d "$1" -At <<'SQL' | tr -d '\r'
+CREATE TEMP TABLE ci_data_fingerprint (
+  table_name text PRIMARY KEY,
+  row_count bigint NOT NULL,
+  row_digest text NOT NULL
+);
+DO $body$
+DECLARE item record; n bigint; digest text;
+BEGIN
+  FOR item IN
+    SELECT tablename FROM pg_tables
+    WHERE schemaname = 'public' AND tablename <> 'payload_migrations'
+    ORDER BY tablename
+  LOOP
+    EXECUTE format($stmt$
+      SELECT count(*)::bigint,
+             md5(coalesce(string_agg(value, chr(10) ORDER BY value), ''))
+      FROM (
+        SELECT row_to_json(t)::text AS value FROM public.%I t
+      ) AS all_rows
+    $stmt$, item.tablename)
+      INTO n, digest;
+    INSERT INTO ci_data_fingerprint VALUES (item.tablename, n, digest);
+  END LOOP;
+END $body$;
+WITH rows AS (
+  SELECT md5(coalesce(string_agg(
+    table_name || ':' || row_count::text || ':' || row_digest,
+    chr(10) ORDER BY table_name), '')) AS digest
+  FROM ci_data_fingerprint
+), sequences AS (
+  SELECT md5(coalesce(string_agg(
+    sequencename || ':' || coalesce(last_value::text, 'null'),
+    chr(10) ORDER BY sequencename), '')) AS digest
+  FROM pg_sequences
+  WHERE schemaname = 'public'
+    AND sequencename <> 'payload_migrations_id_seq'
+)
+SELECT md5(rows.digest || sequences.digest) FROM rows, sequences;
+SQL
+}
+
 # Capture the exact pre-migration synthetic clone for rollback rehearsal.
 docker exec "$POSTGRES_CONTAINER" pg_dump -U mock -d "$DB" -Fc --no-owner --no-acl > "$SNAPSHOT"
 [[ -s "$SNAPSHOT" ]] || exit 1
 BEFORE_SCHEMA="$(schema_fingerprint "$DB")"
+BEFORE_DATA="$(data_fingerprint "$DB")"
+[[ "$BEFORE_DATA" =~ ^[a-f0-9]{32}$ ]] ||
+  { echo 'NO-GO: invalid baseline synthetic data fingerprint'; exit 1; }
 
 # Exercise the actual Payload migration runner only against this mock clone.
 DATABASE_URI="postgres://mock:mock@localhost:5432/$DB" \
@@ -90,6 +140,9 @@ INDEXNOW_DISABLE=true NODE_ENV=production \
 [[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] ||
   { echo 'NO-GO: historical ledger entry disappeared'; exit 1; }
 AFTER_SCHEMA="$(schema_fingerprint "$DB")"
+AFTER_DATA="$(data_fingerprint "$DB")"
+[[ "$BEFORE_DATA" == "$AFTER_DATA" ]] ||
+  { echo 'NO-GO: synthetic non-migration table rows or sequences changed'; exit 1; }
 [[ "$BEFORE_SCHEMA" == "$AFTER_SCHEMA" ]] ||
   { echo 'NO-GO: October migrations altered existing schema'; exit 1; }
 [[ "$(query "$DB" 'SELECT COUNT(*) FROM pseo_pages')" == "$BEFORE_PSEO" ]] ||
@@ -104,8 +157,12 @@ docker exec -i "$POSTGRES_CONTAINER" pg_restore -U mock -d "$ROLLBACK" \
 [[ "$(query "$ROLLBACK" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] || exit 1
 [[ "$(query "$ROLLBACK" 'SELECT COUNT(*) FROM pseo_pages')" == "$BEFORE_PSEO" ]] || exit 1
 ROLLBACK_SCHEMA="$(schema_fingerprint "$ROLLBACK")"
+ROLLBACK_DATA="$(data_fingerprint "$ROLLBACK")"
+[[ "$ROLLBACK_DATA" == "$BEFORE_DATA" ]] ||
+  { echo 'NO-GO: synthetic data rows or sequences were not restored'; exit 1; }
 [[ "$ROLLBACK_SCHEMA" == "$BEFORE_SCHEMA" ]] || exit 1
 echo 'PASS: synthetic production-like ledger (15 -> 17) rehearsed on mock clone.'
 echo 'PASS: October migrations idempotent; schema and synthetic pSEO stable.'
 echo 'PASS: synthetic pre-migration backup restored original 15-name ledger.'
+echo 'PASS: full synthetic non-migration data/sequence fingerprints were preserved and restored.'
 echo 'NO CLAIM: this is NOT a Hostinger staging deployment or Neon restore.'

@@ -123,6 +123,8 @@ already exist. It takes a synthetic backup, invokes the Payload migration CLI,
 checks resulting ledger entries, schema and synthetic pSEO fixtures, then restores
 the pre-migration backup into a different mock database to check rollback.
 
+Before/after and rollback also compare fingerprints of **every synthetic public table's row content** (excluding only the expected-changing Payload migration ledger) and of non-ledger sequence values; the check logs no row data or production secrets. A mismatch fails CI rather than reporting a successful rollback.
+
 This does NOT use production data, real Hostinger staging, or Neon credentials,
 so it cannot certify their deploy/restore path. A separate authorized staging
 rehearsal, current recovery point and owner production approval remain mandatory.
