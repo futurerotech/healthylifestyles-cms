@@ -3,10 +3,8 @@ import { isAdminOrEditor, publishedPublicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { pageBlocks } from '../blocks';
-import { afterChangeIndexingHook } from '../lib/indexing';
 import { afterPublishPushHook } from '../lib/push';
 import { trackPendingChange } from '../hooks/trackPendingChange';
-import { notifyIndexNow } from '../hooks/notifyIndexNow';
 import { publishGateHook } from '../hooks/publishGateHook';
 
 /** Which AI model generates this article (read per-request by the generator). */
@@ -242,6 +240,9 @@ export const Articles: CollectionConfig = {
     // Quality Gate P2 — blocks publish only on the narrow deterministic set
     // (title, noindex, broken internal links); warnings surface in the sidebar.
     beforeValidate: [publishGateHook],
-    afterChange: [afterChangeIndexingHook, afterPublishPushHook, trackPendingChange, notifyIndexNow],
+    // Payload executes these sequentially BEFORE the transaction commits.
+    // Record the required queue event first: on failure, never send push.
+    // External push still requires a later post-commit design for full atomicity.
+    afterChange: [trackPendingChange, afterPublishPushHook],
   },
 };

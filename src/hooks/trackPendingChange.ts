@@ -1,62 +1,30 @@
 import type { CollectionAfterChangeHook } from 'payload'
+import type { PostgresAdapter } from '@payloadcms/db-postgres'
+import { recordPublishedPendingChange } from '../lib/indexnow-pending-queue'
 
 /**
- * AI SEO Autopilot — track pending changes (§7.1).
- *
- * Replaces the auto-deploy Vercel hook. Creates a pending-deploys entry
- * only when a document is PUBLISHED (not on every 800ms autosave draft).
- * Mirrors the old triggerVercelDeploy publish-only behavior.
- *
- * Dedupes by doc id: if a pending entry already exists for this doc,
- * it updates the timestamp instead of creating a duplicate.
+ * Publish-only queue, serialized by document identity on PostgreSQL.
+ * Never queue an autosaved draft or silently remove historical entries.
  */
-export const trackPendingChange: CollectionAfterChangeHook = async ({
-  req,
-  doc,
-  collection,
-  operation,
-}) => {
-  // Only queue on publish — skip autosave/draft saves
-  // doc._status is 'published' when the doc is live, 'draft' when it's not
-  // operation is 'create' or 'update'
-  const status = (doc as any)?._status
-  if (status !== 'published') return doc
+export const trackPendingChange: CollectionAfterChangeHook = async ({ req, doc, collection }) => {
+  if ((doc as { _status?: string })?._status !== 'published') return doc
+  const slug = collection.slug
+  if (slug !== 'articles' && slug !== 'tools') return doc
 
   try {
-    // Check if a pending entry already exists for this doc (dedupe)
-    const existing = await req.payload.find({
-      collection: 'pending-deploys',
-      where: {
-        and: [
-          { docId: { equals: String(doc.id) } },
-          { collectionSlug: { equals: collection.slug || 'unknown' } },
-        ],
-      },
-      limit: 1,
-    })
-
-    if (existing.totalDocs > 0) {
-      // Update timestamp on existing entry instead of creating a duplicate
-      await req.payload.update({
-        collection: 'pending-deploys',
-        id: (existing.docs[0] as any).id,
-        data: {
-          changedAt: new Date().toISOString(),
-        },
-      })
-    } else {
-      // Create new pending entry
-      await req.payload.create({
-        collection: 'pending-deploys',
-        data: {
-          docId: String(doc.id),
-          collectionSlug: collection.slug || 'unknown',
-          changedAt: new Date().toISOString(),
-        },
-      })
-    }
+    const db = req.payload.db as unknown as PostgresAdapter
+    await recordPublishedPendingChange(db, {
+      collectionSlug: slug,
+      docId: String(doc.id),
+      changedAt: new Date().toISOString(),
+    }, req.transactionID)
   } catch (err) {
-    console.error('[trackPendingChange] Failed to log pending change:', (err as Error).message)
+    // A published revision without a queued change may never be reconciled
+    // after Vercel deployment. Fail the content transaction rather than
+    // silently lose the notification; Payload can roll back an active save.
+    // Never print the document or database connection details in logs.
+    req.payload.logger?.error?.('[trackPendingChange] Pending queue write failed; publication aborted')
+    throw err
   }
   return doc
 }

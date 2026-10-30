@@ -48,6 +48,13 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Test source-provenance validator and bind CI merge to PR head
+        env:
+          HLS_EXPECTED_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node --test scripts/ci/release-provenance.test.mjs
+          node scripts/ci/release-provenance.mjs --verify
+
       # D4/SD2 guard #1: no real-credential fingerprints may live in workflows.
       # HOST-AWARE (P17): a real leaked credential necessarily carries its real
       # provider host, so postgres URIs trip only on actual infra domains —
@@ -65,6 +72,10 @@ jobs:
           fi
           echo 'Workflows clean: no real-provider credentials present.'
 
+      # Safety-test the opt-in external staging probe using mocks only.
+      - name: Verify read-only Hostinger staging preflight (no network)
+        run: node --test scripts/ci/hostinger-staging-preflight.test.mjs
+
       - run: npm ci
 
       - name: Unit and access-control regression tests
@@ -75,6 +86,9 @@ jobs:
 
       - name: Type check
         run: npx tsc --noEmit
+
+      - name: Native GraphQL scalar ESM and CJS compatibility
+        run: node scripts/ci/graphql-scalars-compat.mjs
 
       - name: Security release gate
         run: npm run security:check
@@ -135,6 +149,15 @@ jobs:
           INDEXNOW_DISABLE: 'true'
         run: npm run build
 
+      - name: Smoke-test running Hostinger-equivalent CMS (disposable DB only)
+        env:
+          CI_CMS_RUNTIME_SMOKE: '1'
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          INDEXNOW_DISABLE: 'true'
+          INDEXNOW_LIVE_ENABLED: 'false'
+        run: node scripts/ci/cms-runtime-smoke.mjs
+
       # D4/SD2 guard #2: the produced bundle must not embed real-looking secrets.
       # HOST-AWARE by design (P17 fix): the old any-URI pattern false-positived
       # on documentation placeholders that legitimately ship in bundles — our
@@ -157,3 +180,16 @@ jobs:
             exit 1
           fi
           echo 'Build artifacts clean.'
+
+      - name: Generate hash-only release traceability evidence (not a deploy)
+        env:
+          HLS_EXPECTED_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci/release-provenance.mjs --write
+
+      - name: Archive non-production provenance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cms-source-provenance-${{ github.run_id }}
+          path: .ci-artifacts/release-provenance.json
+          if-no-files-found: error
+          retention-days: 14
