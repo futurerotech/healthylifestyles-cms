@@ -45,11 +45,37 @@ SQL
 BEFORE_PSEO="$(query "$DB" 'SELECT COUNT(*) FROM pseo_pages')"
 [[ "$BEFORE_PSEO" == 3 ]] || { echo 'NO-GO: expected synthetic pSEO data'; exit 1; }
 
+schema_fingerprint() {
+  # A stable fingerprint of relevant PostgreSQL DDL, excluding pg_dump output
+  # formatting and mutable migration-ledger/sequence values.
+  docker exec -i "$POSTGRES_CONTAINER" psql -X -v ON_ERROR_STOP=1 -U mock -d "$1" -At <<'SQL' | tr -d '\r'
+WITH columns AS (
+  SELECT md5(coalesce(string_agg(table_name||'.'||column_name||':'||ordinal_position||':'||data_type||':'||is_nullable||':'||coalesce(column_default,''),
+    E'\n' ORDER BY table_name,ordinal_position),'')) AS hash
+  FROM information_schema.columns WHERE table_schema='public'
+), indexes AS (
+  SELECT md5(coalesce(string_agg(tablename||'.'||indexname||':'||indexdef,
+    E'\n' ORDER BY tablename,indexname),'')) AS hash
+  FROM pg_indexes WHERE schemaname='public'
+), constraints AS (
+  SELECT md5(coalesce(string_agg(c.conname||':'||pg_get_constraintdef(c.oid,true),
+    E'\n' ORDER BY n.nspname,t.relname,c.conname),'')) AS hash
+  FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid
+  JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public'
+), sequences AS (
+  SELECT md5(coalesce(string_agg(sequencename||':'||data_type||':'||increment_by||':'||start_value,
+    E'\n' ORDER BY sequencename),'')) AS hash
+  FROM pg_sequences WHERE schemaname='public'
+)
+SELECT md5(columns.hash||indexes.hash||constraints.hash||sequences.hash)
+FROM columns,indexes,constraints,sequences;
+SQL
+}
+
 # Capture the exact pre-migration synthetic clone for rollback rehearsal.
 docker exec "$POSTGRES_CONTAINER" pg_dump -U mock -d "$DB" -Fc --no-owner --no-acl > "$SNAPSHOT"
 [[ -s "$SNAPSHOT" ]] || exit 1
-BEFORE_SCHEMA="$(docker exec "$POSTGRES_CONTAINER" pg_dump -U mock -d "$DB" \
-  --schema-only --no-owner --no-acl | sha256sum | cut -d ' ' -f 1)"
+BEFORE_SCHEMA="$(schema_fingerprint "$DB")"
 
 # Exercise the actual Payload migration runner only against this mock clone.
 DATABASE_URI="postgres://mock:mock@localhost:5432/$DB" \
@@ -63,8 +89,7 @@ INDEXNOW_DISABLE=true NODE_ENV=production \
   { echo 'NO-GO: October migrations were not recorded'; exit 1; }
 [[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] ||
   { echo 'NO-GO: historical ledger entry disappeared'; exit 1; }
-AFTER_SCHEMA="$(docker exec "$POSTGRES_CONTAINER" pg_dump -U mock -d "$DB" \
-  --schema-only --no-owner --no-acl | sha256sum | cut -d ' ' -f 1)"
+AFTER_SCHEMA="$(schema_fingerprint "$DB")"
 [[ "$BEFORE_SCHEMA" == "$AFTER_SCHEMA" ]] ||
   { echo 'NO-GO: October migrations altered existing schema'; exit 1; }
 [[ "$(query "$DB" 'SELECT COUNT(*) FROM pseo_pages')" == "$BEFORE_PSEO" ]] ||
@@ -78,8 +103,7 @@ docker exec -i "$POSTGRES_CONTAINER" pg_restore -U mock -d "$ROLLBACK" \
 [[ "$(query "$ROLLBACK" "SELECT COUNT(*) FROM payload_migrations WHERE name IN ('$AUTH','$MEDIA')")" == 0 ]] || exit 1
 [[ "$(query "$ROLLBACK" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] || exit 1
 [[ "$(query "$ROLLBACK" 'SELECT COUNT(*) FROM pseo_pages')" == "$BEFORE_PSEO" ]] || exit 1
-ROLLBACK_SCHEMA="$(docker exec "$POSTGRES_CONTAINER" pg_dump -U mock -d "$ROLLBACK" \
-  --schema-only --no-owner --no-acl | sha256sum | cut -d ' ' -f 1)"
+ROLLBACK_SCHEMA="$(schema_fingerprint "$ROLLBACK")"
 [[ "$ROLLBACK_SCHEMA" == "$BEFORE_SCHEMA" ]] || exit 1
 echo 'PASS: synthetic production-like ledger (15 -> 17) rehearsed on mock clone.'
 echo 'PASS: October migrations idempotent; schema and synthetic pSEO stable.'
