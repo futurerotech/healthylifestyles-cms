@@ -33,6 +33,8 @@ test('refuses live origins, local hosts and unsafe staging targets before fetchi
     'https://healthylifesstyles.com',
     'http://cms-qa.healthylifesstyles.com',
     'https://127.0.0.1', 'https://localhost',
+    'https://[::1]', 'https://[::ffff:127.0.0.1]',
+    'https://[2001:db8::1]',
     'https://cms-qa.healthylifesstyles.com/path',
     'https://user:pass@cms-qa.healthylifesstyles.com',
     'https://cms-qa.healthylifesstyles.com?token=x',
