@@ -88,3 +88,8 @@ export const checkBacklinks: Endpoint = {
     return Response.json({ ok: true, checked: (docs as any[]).length, live, lost, inconclusive: errors });
   },
 };
+
+
+// Collection /api/backlinks/:id can shadow /api/backlinks/check.
+// This distinct alias uses the same guarded handler and authentication.
+export const checkBacklinksDirect: Endpoint = { ...checkBacklinks, path: '/backlink-check' };
