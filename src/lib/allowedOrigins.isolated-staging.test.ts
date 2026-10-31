@@ -69,6 +69,8 @@ describe('Isolated staging CORS/CSRF configuration', () => {
       { ...safe, indexNowLiveEnabled: 'true' },
       { ...safe, deployHook: 'https://api.vercel.com/webhooks/deploy' },
     ]) expect(() => resolveIsolatedStagingCmsOrigin(invalid)).toThrow();
-    expect(resolveIsolatedStagingCmsOrigin({ ...safe, mode: 'false' })).toBeNull();
+    expect(() => resolveIsolatedStagingCmsOrigin({ ...safe, mode: 'false' })).toThrow(/requires HLS_ISOLATED_STAGING/);
+    expect(() => resolveIsolatedStagingCmsOrigin({ ...safe, mode: undefined })).toThrow(/requires HLS_ISOLATED_STAGING/);
+    expect(resolveIsolatedStagingCmsOrigin({ ...safe, mode: 'false', serverURL: LIVE })).toBeNull();
   });
 });
