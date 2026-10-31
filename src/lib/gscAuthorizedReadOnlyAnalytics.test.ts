@@ -86,6 +86,16 @@ describe('bounded staff-only Google Search Analytics adapter', () => {
     await expect(collectStaffGscReportWithTransport(staff, windows, provider))
       .rejects.toThrow(/25,000-row review cap/);
   });
+  it('rejects invalid report options before any Google property or analytics request', async () => {
+    for (const options of [{top:101},{top:0},{includeQueries:'true'},
+      {includeDetails:true},null]) {
+      const provider=transport();
+      await expect(collectStaffGscReportWithTransport(staff,windows,provider,
+        options as never)).rejects.toThrow(/display options/);
+      expect(provider.listSites).not.toHaveBeenCalled();
+      expect(provider.query).not.toHaveBeenCalled();
+    }
+  });
   it('never makes real network calls when live feature flag is absent', async () => {
     const provider = transport();
     await expect(collectStaffGoogleReadOnlyReport(staff, windows))
