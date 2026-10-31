@@ -44,14 +44,19 @@ function r2Endpoint(input: unknown): string | null {
   }
 }
 
-function publicMediaOrigin(input: unknown): string | null {
-  if (typeof input !== 'string' || !input || input !== input.trim()) return null;
+function publicMediaBase(input: unknown): { origin: string; base: string } | null {
+  if (typeof input !== 'string' || !input || input !== input.trim() ||
+      input.includes('\\') || input.includes('%')) return null;
   try {
     const url = new URL(input);
     if (url.protocol !== 'https:' || url.username || url.password ||
         url.search || url.hash || url.port || url.hostname.endsWith('.') ||
-        !/^[a-z0-9.-]+$/.test(url.hostname)) return null;
-    return url.origin;
+        !/^[a-z0-9.-]+$/.test(url.hostname) ||
+        url.pathname.includes('//') ||
+        // Refuse ambiguous path aliases and normalized dot segments.
+        /\/(?:\.{1,2})(?:\/|$)/.test(input)) return null;
+    const path = url.pathname === '/' ? '' : url.pathname.replace(/\/+$/, '');
+    return { origin: url.origin, base: url.origin + path };
   } catch {
     return null;
   }
@@ -80,11 +85,13 @@ export function assertIsolatedStagingMedia(input: IsolatedStagingMediaConfig): v
   // A public CDN URL is optional on staging. If present it must be explicitly
   // identified as staging and must NOT share the production media hostname.
   if (input.publicUrl) {
-    const stage = publicMediaOrigin(input.stagingPublicUrl);
-    const prod = publicMediaOrigin(input.productionPublicUrl);
-    const current = publicMediaOrigin(input.publicUrl);
+    const stage = publicMediaBase(input.stagingPublicUrl);
+    const prod = publicMediaBase(input.productionPublicUrl);
+    const current = publicMediaBase(input.publicUrl);
     if (!stage || !prod || !current ||
-        current !== stage || current === prod || stage === prod) {
+        current.base !== stage.base ||
+        current.base === prod.base ||
+        stage.origin === prod.origin) {
       throw new Error('Isolated staging media URL is not distinct from production; startup refused.');
     }
   } else if (input.stagingPublicUrl) {
