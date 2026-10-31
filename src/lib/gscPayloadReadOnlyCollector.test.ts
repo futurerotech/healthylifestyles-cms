@@ -46,3 +46,92 @@ describe('authorized Payload read-only snapshot', () => {
     await expect(collectAuthorizedPayloadReviewSnapshot(unauthorizedResult,req)).resolves.toMatchObject({counts:{articles:0,tools:0}});
   });
 });
+describe('bounded GSC Payload pagination and access regression', () => {
+  it('reads a real second logical page in ascending ID order with access checks on every call', async () => {
+    const articles = Array.from({length: 101}, (_, i) => ({
+      id: i + 1, slug: 'published-guide-' + (i + 1),
+      _status: 'published', seo: { noIndex: false },
+    }));
+    const payload = mock(({collection, page}) => {
+      if (collection === 'articles') {
+        const start = (page - 1) * 100;
+        return response(articles.slice(start, start + 100), articles.length, page);
+      }
+      return response([
+        { id: 900, slug: 'sleep-score', _status: 'published', enabled: true },
+      ], 1, page);
+    });
+    const snapshot = await collectAuthorizedPayloadReviewSnapshot(payload, req);
+    expect(snapshot.counts).toEqual({ articles: 101, tools: 1 });
+    expect(snapshot.catalog).toHaveLength(102);
+    expect(snapshot.catalog.filter(x => x.collection === 'articles').map(x => x.recordId))
+      .toEqual(Array.from({length: 101}, (_, i) => i + 1));
+    expect(vi.mocked(payload.find)).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(payload.find).mock.calls.map(([args]) => [args.collection, args.page]))
+      .toEqual([['articles', 1], ['articles', 2], ['tools', 1]]);
+    for (const [args] of vi.mocked(payload.find).mock.calls) {
+      expect(args).toMatchObject({
+        req, overrideAccess: false, draft: false, depth: 0,
+        sort: 'id', limit: 100, pagination: true,
+      });
+      expect(Object.keys(args.select ?? {}).sort())
+        .toEqual((args.collection === 'tools'
+          ? ['_status', 'enabled', 'seo', 'slug'] : ['_status', 'seo', 'slug']).sort());
+      expect(args.select.seo).toEqual({ noIndex: true, canonical: true });
+    }
+  });
+
+  it('rejects a duplicate identifier that appears only on the second page', async () => {
+    const pageOne = Array.from({ length: 100 }, (_, i) => ({
+      id: i + 1, slug: 'a-' + (i + 1),
+    }));
+    const payload = mock(({collection, page}) => collection === 'articles'
+      ? response(page === 1 ? pageOne : [{ id: 42, slug: 'second-page-repeat' }], 101, page)
+      : response([]));
+    await expect(collectAuthorizedPayloadReviewSnapshot(payload, req)).rejects.toThrow(/repeated across paginated reads/);
+    expect(vi.mocked(payload.find)).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses changing counts, truncated pages and contradictory page metadata', async () => {
+    const firstPage = Array.from({ length: 100 }, (_, i) => ({ id: i + 1, slug: 'a-' + (i + 1) }));
+    const changedCount = mock(({collection, page}) => collection === 'articles'
+      ? response(page === 1 ? firstPage : [
+        { id: 101, slug: 'a-101' }, { id: 102, slug: 'a-102' },
+      ], page === 1 ? 101 : 102, page) : response([]));
+    await expect(collectAuthorizedPayloadReviewSnapshot(changedCount, req)).rejects.toThrow(/changed during the read/);
+
+    const truncated = mock(() => response(firstPage.slice(0, 99), 101, 1));
+    await expect(collectAuthorizedPayloadReviewSnapshot(truncated, req)).rejects.toThrow(/omitted or repeated document slots/);
+
+    const contradictory = mock(() => ({
+      ...response(firstPage, 101, 1),
+      hasNextPage: false,
+    }));
+    await expect(collectAuthorizedPayloadReviewSnapshot(contradictory, req)).rejects.toThrow(/incomplete or contradictory/);
+  });
+
+  it('rejects over-budget collections and malformed IDs before returning a snapshot', async () => {
+    const overBudget = mock(() => response([], 25_001));
+    await expect(collectAuthorizedPayloadReviewSnapshot(overBudget, req)).rejects.toThrow(/exceeds 25,000 documents/);
+    expect(vi.mocked(overBudget.find)).toHaveBeenCalledTimes(1);
+    const missingId = mock(() => response([{ slug: 'missing-id' }]));
+    await expect(collectAuthorizedPayloadReviewSnapshot(missingId, req)).rejects.toThrow(/stable document ID/);
+  });
+
+  it('refuses unauthorized roles without any database request while permitting administrator access', async () => {
+    const payload = mock(() => response([]));
+    for (const user of [null, { role: 'subscriber' }, { role: 'viewer' }, { role: '' }]) {
+      await expect(collectAuthorizedPayloadReviewSnapshot(payload,
+        { user } as unknown as PayloadRequest)).rejects.toThrow(/administrator or editor/);
+    }
+    expect(vi.mocked(payload.find)).not.toHaveBeenCalled();
+    const admin = { user: { id: 6, role: 'admin' } } as unknown as PayloadRequest;
+    await expect(collectAuthorizedPayloadReviewSnapshot(payload, admin))
+      .resolves.toMatchObject({ counts: { articles: 0, tools: 0 } });
+    expect(vi.mocked(payload.find)).toHaveBeenCalledTimes(2);
+    for (const [args] of vi.mocked(payload.find).mock.calls) {
+      expect(args.req).toBe(admin);
+      expect(args.overrideAccess).toBe(false);
+    }
+  });
+});
