@@ -1,3 +1,4 @@
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
 
 /* ---------------------------------------------------------------------------
@@ -229,6 +230,8 @@ export const aiWriting: Endpoint = {
   path: '/ai-writing',
   method: 'post',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     /* Auth — staff only */
     if (!req.user) {
       return Response.json({ error: 'Not authenticated.' }, { status: 401 });
