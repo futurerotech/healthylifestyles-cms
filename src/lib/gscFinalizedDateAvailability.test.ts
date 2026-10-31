@@ -13,7 +13,7 @@ describe('GSC finalized-date preflight',()=>{
    ]) expect(()=>requireFinalizedDateAvailability({rows},period)).toThrow();
    expect(()=>requireFinalizedDateAvailability({rows:[{keys:['2026-08-01']}],error:{code:403}},period)).toThrow(/envelope/);
    expect(()=>requireFinalizedDateAvailability({rows:[{keys:['2026-08-01']}],responseAggregationType:'unrecognized'},period)).toThrow(/envelope/);
-   expect(()=>requireFinalizedDateAvailability({rows:[{keys:['2026-08-01']}],responseAggregationType:'auto'},period)).toBe(1);
+   expect(requireFinalizedDateAvailability({rows:[{keys:['2026-08-01']}],responseAggregationType:'auto'},period)).toBe(1);
    expect(()=>requireFinalizedDateAvailability({rows:[{keys:['2026-02-29']}]},{startDate:'2026-02-01',endDate:'2026-02-28'})).toThrow();
  });
  it('fails closed on empty and malformed reports',()=>{
