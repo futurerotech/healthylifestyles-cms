@@ -179,3 +179,7 @@ It never accesses Hostinger or live Neon, and is NOT a substitute for an
 owner-approved isolated Hostinger staging instance, staging-only user-role
 acceptance, fresh recovery point or demonstrated real rollback. A new exact-head
 CI PASS is required before claiming this mock runtime gate has succeeded.
+
+## Authenticated staging-only CI acceptance — 2026-10-31
+
+The opt-in isolated-staging test now creates disposable Admin and Editor staff in mock PostgreSQL, checks queue role limits, and rejects authenticated stage-origin deploy and confirmed IndexNow before external fetch. It also confirms a preview attempt fails closed when the synthetic public manifest is unavailable. The workflow passes temporary 0600 mock JWTs to the built CMS HTTP smoke, where an actual authenticated Admin must receive `stagingPreviewOnly:true` and cannot deploy or submit IndexNow; Editor cannot read the queue. The runner deletes the token fixture, and no live credentials or production database are used. This remains a GitHub-only rehearsal; it does NOT verify real Hostinger staging, current Neon backup, or rollback. New head CI must pass.
