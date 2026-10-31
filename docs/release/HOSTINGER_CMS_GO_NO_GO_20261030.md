@@ -195,3 +195,7 @@ With HLS_ISOLATED_STAGING=true, startup now refuses a missing or shared R2 bucke
 ## R2 CDN alias hardening — 2026-10-31
 
 After CI #41155577400 SUCCESS on the previous head, the staging media validator was tightened to compare full configured HTTPS CDN bases (including optional paths), reject encoded/ambiguous paths, and reject staging and production sharing a hostname even with different prefixes. This avoids accidentally using production media through a staging-looking path. Synthetic unit cases were added; this follow-up source change requires its own exact-head CI PASS. No actual R2 credentials, production bucket actions, Hostinger deploys, or Neon writes were performed.
+
+## External outbound integration isolation — 2026-10-31
+
+A staging-only handler gate returns HTTP 503 without external calls for push notifications, subscriber synchronization, AI-writing/SEO/assistant calls, backlink checks, CSV imports and pSEO generation. The gate is neutral in ordinary production mode and tested separately. It is defense in depth; independent runtime verification and review of remaining endpoints are required. No live services were changed. The last run for the preceding head (Actions 41156730319) was still in progress during this record, and the current new head needs its own CI result.
