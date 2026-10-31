@@ -1,5 +1,4 @@
 import type { Endpoint, PayloadRequest } from 'payload';
-import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import { computeSchemaFlagDrift, type DriftRow } from '../lib/schemaFlagDrift';
 
 /**
