@@ -196,11 +196,11 @@ export async function collectStaffGscReportWithTransport(
  * The CMS snapshot is read first; an access/pagination error prevents ALL
  * Search Console requests. No route/cron calls this function in this PR.
  */
-export async function collectStaffEditorialReviewQueueWithTransport(
+async function collectStaffEditorialQueueCore(
   req: PayloadRequest,
   windows: GscComparisonWindows,
   payload: Pick<Payload, 'find'>,
-  transport: GscReadOnlyTransport,
+  getTransport: () => Promise<GscReadOnlyTransport>,
   options: { includeDetails?: boolean; top?: number } = {},
 ) {
   requireStaff(req);
@@ -223,6 +223,13 @@ export async function collectStaffEditorialReviewQueueWithTransport(
     throw new Error('Access-controlled CMS snapshot failed; no review queue was produced.');
   }
 
+  let transport: GscReadOnlyTransport;
+  try {
+    // Credentials are resolved ONLY after the access-controlled CMS read.
+    transport = await getTransport();
+  } catch {
+    throw new Error('Search Console read-only initialization failed; no review queue was produced.');
+  }
   const { current, previous } = await collectVerifiedGscBatchesWithTransport(
     req, windows, transport,
   );
@@ -244,6 +251,19 @@ export async function collectStaffEditorialReviewQueueWithTransport(
       'Provider identity remains unverified for injected transports; do not interpret this report as proof of current Google indexing.',
     ],
   };
+}
+
+/** Reusable injected transport facade; preserving the mock-only test contract. */
+export async function collectStaffEditorialReviewQueueWithTransport(
+  req: PayloadRequest,
+  windows: GscComparisonWindows,
+  payload: Pick<Payload, 'find'>,
+  transport: GscReadOnlyTransport,
+  options: { includeDetails?: boolean; top?: number } = {},
+) {
+  return collectStaffEditorialQueueCore(
+    req, windows, payload, async () => transport, options,
+  );
 }
 
 /**
@@ -366,9 +386,10 @@ export async function collectStaffGoogleReadOnlyEditorialQueue(
       process.env.HLS_ISOLATED_STAGING === 'true') {
     throw new Error('Live Search Analytics collection is not enabled for this environment.');
   }
-  const transport = await makeGoogleReadOnlyTransport();
-  const queue = await collectStaffEditorialReviewQueueWithTransport(
-    req, windows, payload, transport, options,
+  // Defer credentials and client construction until after the CMS read has
+  // passed request-scoped Payload access control and pagination validation.
+  const queue = await collectStaffEditorialQueueCore(
+    req, windows, payload, makeGoogleReadOnlyTransport, options,
   );
   return {
     ...queue,
