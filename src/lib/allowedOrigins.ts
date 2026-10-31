@@ -32,7 +32,26 @@ export function resolveIsolatedStagingCmsOrigin(env: {
   indexNowLiveEnabled?: string;
   deployHook?: string;
 }): string | null {
-  if (env.mode !== 'true') return null;
+  if (env.mode !== 'true') {
+    // Staging protection must not be bypassed by accidentally omitting its
+    // opt-in flag. Any owned, nonproduction HTTPS CMS subdomain used as
+    // SERVER_URL must explicitly opt into the isolation checks below.
+    let serverHost = '';
+    try {
+      if (env.serverURL) {
+        const configured = new URL(env.serverURL);
+        if (configured.protocol === 'https:') serverHost = configured.hostname.toLowerCase();
+      }
+    } catch {
+      // The ordinary (non-staging) config handles malformed URLs separately.
+    }
+    if (serverHost.endsWith('.healthylifesstyles.com') &&
+        serverHost !== 'cms.healthylifesstyles.com' &&
+        serverHost !== 'www.healthylifesstyles.com') {
+      throw new Error('Owned staging CMS origin requires HLS_ISOLATED_STAGING=true; startup refused');
+    }
+    return null;
+  }
   const requested = env.cmsOrigin;
   if (typeof requested !== 'string' || requested.length > 253) {
     throw new Error('Isolated staging requires an explicit CMS HTTPS origin');
