@@ -163,6 +163,21 @@ jobs:
           INDEXNOW_DISABLE: 'true'
         run: npm run build
 
+      # Boot the built CMS as a nonproduction isolated staging application on
+      # disposable CI PostgreSQL; no provider hooks or production credentials.
+      - name: Smoke-test isolated Hostinger staging mode (mock runtime only)
+        env:
+          GITHUB_ACTIONS: 'true'
+          CI_ISOLATED_STAGING_RUNTIME_SMOKE: '1'
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          HLS_ISOLATED_STAGING: 'true'
+          HLS_STAGING_CMS_ORIGIN: https://cms-qa.healthylifesstyles.com
+          SERVER_URL: https://cms-qa.healthylifesstyles.com
+          INDEXNOW_DISABLE: 'true'
+          INDEXNOW_LIVE_ENABLED: 'false'
+        run: node scripts/ci/isolated-staging-runtime-smoke.mjs
+
       # D4/SD2 guard #2: the produced bundle must not embed real-looking secrets.
       # HOST-AWARE by design (P17 fix): the old any-URI pattern false-positived
       # on documentation placeholders that legitimately ship in bundles — our
