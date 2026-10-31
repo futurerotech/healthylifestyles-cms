@@ -106,11 +106,11 @@ or permitted in the staging acceptance procedure.
 
 ## Operator-initiated anonymous staging preflight
 
-File: `scripts/ci/hostinger-staging-preflight.mjs`. This is a **GET-only** probe with zero credentials, disabled by default and gated by `HLS_STAGING_READ_ONLY_APPROVED=yes`. The operator must explicitly set `HLS_STAGING_ORIGIN` to the actual authorized HTTPS STAGING origin. It rejects the known live CMS and public site, localhost and IP targets before making any requests.
+File: `scripts/ci/hostinger-staging-preflight.mjs`. This is a **GET-only** probe with zero credentials, disabled by default and gated by `HLS_STAGING_READ_ONLY_APPROVED=yes`. The operator must explicitly set `HLS_STAGING_ORIGIN` to the actual authorized HTTPS STAGING origin. It rejects the known live CMS and public site, localhost, IP targets, unowned external hosts, and trailing-dot aliases before making any requests. The sample staging hostname is illustrative only; it is NOT evidence that Hostinger staging exists.
 
 Example invocation (substitute a real, approved staging hostname; this is NOT an existing deployed URL):
 ```sh
-HLS_STAGING_ORIGIN=https://cms-qa.example.org HLS_STAGING_READ_ONLY_APPROVED=yes node scripts/ci/hostinger-staging-preflight.mjs
+HLS_STAGING_ORIGIN=https://cms-qa.healthylifesstyles.com HLS_STAGING_READ_ONLY_APPROVED=yes node scripts/ci/hostinger-staging-preflight.mjs
 ```
 
 The six checks cover admin login reachability, anonymous queue and user-directory denial, anonymous `/api/users/me` session, and *sampled* anonymous article and pSEO draft visibility. They log only names/statuses, not response bodies. This probe does not authenticate as a real user, prove revision SHA, test backups/rollback, cover all drafts or constitute a staging GO decision. On the actual isolated staging system, the existing authenticated CI role/release tests and manual rollback verification are **still mandatory**.
