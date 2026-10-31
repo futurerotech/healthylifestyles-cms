@@ -7,6 +7,8 @@
  */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { readFile, unlink } from 'node:fs/promises';
+import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 const STAGING = 'https://cms-qa.healthylifesstyles.com';
@@ -104,6 +106,39 @@ try {
       'Forbidden ' + attempt.label + ' unexpectedly returned HTTP ' + response.status);
     console.log('PASS: ' + attempt.label + ' rejected with HTTP 403');
   }
+  const temp = e.RUNNER_TEMP;
+  assert.ok(temp?.startsWith('/') && temp !== '/', 'Missing runner temporary directory');
+  const fixture = join(temp, 'hls-isolated-staging-roles.json');
+  const tokens = JSON.parse(await readFile(fixture, 'utf8'));
+  await unlink(fixture);
+  for (const role of ['admin', 'editor']) {
+    assert.equal(typeof tokens[role + 'Token'], 'string', 'Missing mock-only role token');
+  }
+  const queueAuth = async (token) => get('/api/deploy/pending', {
+    headers: { Authorization: 'JWT ' + token, Origin: STAGING },
+  });
+  assert.equal((await queueAuth(tokens.editorToken)).status, 403, 'Editor queue access must be denied');
+  const adminQueue = await queueAuth(tokens.adminToken);
+  assert.equal(adminQueue.status, 200, 'Admin queue access must succeed');
+  const state = await adminQueue.json();
+  assert.equal(state.stagingPreviewOnly, true, 'Built staging runtime must report preview-only status');
+
+  const adminSubmit = await get('/api/seo/reconcile-indexnow', {
+    method: 'POST',
+    headers: {
+      Authorization: 'JWT ' + tokens.adminToken,
+      Origin: STAGING,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ confirm: true }),
+  });
+  assert.equal(adminSubmit.status, 403, 'Authenticated staging IndexNow submit must be denied');
+  const adminDeploy = await get('/api/deploy', {
+    method: 'POST',
+    headers: { Authorization: 'JWT ' + tokens.adminToken, Origin: STAGING },
+  });
+  assert.equal(adminDeploy.status, 403, 'Authenticated staging deploy must be denied');
+  console.log('PASS: real admin/editor JWTs on built staging HTTP boundary; preview-only enforced.');
   console.log('PASS: isolated staging mock runtime; zero production API or database access.');
 } catch (error) {
   console.error('NO-GO: ' + String(error));
