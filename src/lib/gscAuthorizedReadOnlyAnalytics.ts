@@ -173,6 +173,81 @@ export async function collectStaffGscReportWithTransport(
 }
 
 /**
+ * Build a Google client that can only request the Search Console readonly
+ * OAuth scope. Never reuse getGoogleAuth() (it also requests indexing scope).
+ * No API request occurs merely by constructing this transport.
+ */
+async function makeGoogleReadOnlyTransport(): Promise<GscReadOnlyTransport> {
+  const { google } = await import('googleapis');
+  const credentials = loadGoogleCredentials();
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: credentials.client_email,
+      private_key: credentials.private_key,
+    },
+    projectId: credentials.project_id,
+    scopes: [READONLY_SCOPE],
+  });
+  const api = google.searchconsole({ version: 'v1', auth });
+  return {
+    listSites: async () => (await api.sites.list()).data,
+    query: async (siteUrl, request) =>
+      // Do not spread RawGscBatch.request; its dimensionFilterGroups is
+      // intentionally untrusted and cannot enter a Google API request.
+      (await api.searchanalytics.query({
+        siteUrl,
+        requestBody: {
+          startDate: request.startDate,
+          endDate: request.endDate,
+          dimensions: ['query', 'page'],
+          type: 'web',
+          dataState: 'final',
+          aggregationType: 'byPage',
+          rowLimit: request.rowLimit,
+          startRow: request.startRow,
+        },
+      })).data,
+  };
+}
+
+/**
+ * Independent, staff-only property/permission smoke test. This is NOT the
+ * Search Analytics data collector and cannot request query, page, or click
+ * data. It requires its OWN explicit opt-in so an administrator can authorize
+ * a minimal Google sites.list call without enabling analytics collection.
+ *
+ * No HTTP route or cron invokes this function in the research branch.
+ */
+export async function probeStaffGoogleReadOnlyProperty(
+  req: Pick<PayloadRequest, 'user'>,
+) {
+  requireStaff(req);
+  if (process.env.HLS_GSC_PROPERTY_PROBE_ENABLED !== 'true' ||
+      process.env.HLS_ISOLATED_STAGING === 'true') {
+    throw new Error('Search Console property-only probe is not enabled.');
+  }
+
+  const transport = await makeGoogleReadOnlyTransport();
+  let sites: unknown;
+  try {
+    sites = await transport.listSites();
+  } catch {
+    // Never surface provider response bodies, service account identity,
+    // tokens, or any other remote error details.
+    throw new Error('Search Console read-only property check failed.');
+  }
+  assertAuthorizedProperty(sites);
+  return {
+    kind: 'gsc-readonly-property-only-probe' as const,
+    exactConfiguredPropertyAccessVerified: true as const,
+    oauthScope: READONLY_SCOPE,
+    searchAnalyticsRequests: 0 as const,
+    indexingSubmissions: 0 as const,
+    publicationAuthorized: false as const,
+  };
+}
+
+/**
  * Future explicit staff-only server entrypoint. It remains unavailable until
  * HLS_GSC_READONLY_ENABLED=true is configured after operational approval.
  * No public Next.js/Payload endpoint calls this function in this PR.
@@ -189,39 +264,7 @@ export async function collectStaffGoogleReadOnlyReport(
     throw new Error('Live Search Analytics collection is not enabled for this environment.');
   }
 
-  const { google } = await import('googleapis');
-  const credentials = loadGoogleCredentials();
-  // IMPORTANT: never call getGoogleAuth() here; it also requests the
-  // unrelated Google Indexing API scope. Search Analytics is READ-ONLY.
-  const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: credentials.client_email,
-      private_key: credentials.private_key,
-    },
-    projectId: credentials.project_id,
-    scopes: [READONLY_SCOPE],
-  });
-  const api = google.searchconsole({ version: 'v1', auth });
-  const transport: GscReadOnlyTransport = {
-    listSites: async () => (await api.sites.list()).data,
-    query: async (siteUrl, request) =>
-      // Pass only the explicitly audited query+page fields. Do not spread
-      // RawGscBatch.request, whose optional dimensionFilterGroups is unknown
-      // by design and is rejected by the offline request-scope gate.
-      (await api.searchanalytics.query({
-        siteUrl,
-        requestBody: {
-          startDate: request.startDate,
-          endDate: request.endDate,
-          dimensions: ['query', 'page'],
-          type: 'web',
-          dataState: 'final',
-          aggregationType: 'byPage',
-          rowLimit: request.rowLimit,
-          startRow: request.startRow,
-        },
-      })).data,
-  };
+  const transport = await makeGoogleReadOnlyTransport();
   const report = await collectStaffGscReportWithTransport(req, windows, transport, options);
   return {
     ...report,
