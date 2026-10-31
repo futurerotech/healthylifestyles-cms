@@ -38,6 +38,10 @@ test('refuses live origins, local hosts and unsafe staging targets before fetchi
     'https://cms-qa.healthylifesstyles.com/path',
     'https://user:pass@cms-qa.healthylifesstyles.com',
     'https://cms-qa.healthylifesstyles.com?token=x',
+    'https://stage.example.org',
+    'https://cms-qa.healthylifesstyles.com.evil.example',
+    'https://cms-qa.healthylifesstyles.com.',
+    'https://other.healthylifesstyles.example',
   ]) assert.throws(() => validateStagingOrigin(value));
   const client = mock();
   await assert.rejects(() => checkHostingerStagingReadOnly('https://cms.healthylifesstyles.com', client.fetcher));
