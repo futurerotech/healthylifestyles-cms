@@ -72,6 +72,20 @@ function verifyRawShape(batch: RawGscBatch): void {
         )) {
       throw new TypeError('Malformed Search Analytics data row.');
     }
+    // The official API emits numeric click/impression counts, CTR, and
+    // average position. Contradictory values must fail this input gate:
+    // downstream candidate filtering would otherwise silently discard
+    // corrupted rows and misrepresent incomplete results as low demand.
+    const metric = rawRow as GscQueryPageRow;
+    const expectedCtr = metric.impressions === 0 ? 0 : metric.clicks / metric.impressions;
+    if (!Number.isSafeInteger(metric.clicks) ||
+        !Number.isSafeInteger(metric.impressions) ||
+        metric.clicks < 0 || metric.impressions < 0 ||
+        metric.clicks > metric.impressions || metric.ctr < 0 ||
+        metric.ctr > 1 || metric.position < 1 ||
+        Math.abs(metric.ctr - expectedCtr) > 0.000001) {
+      throw new TypeError('Inconsistent Search Analytics row metrics.');
+    }
   }
 }
 
