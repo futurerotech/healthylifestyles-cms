@@ -18,6 +18,7 @@ describe('Isolated staging CORS/CSRF configuration', () => {
   it('keeps live CMS origins and mutation protections when staging is not enabled', async () => {
     setProductionEnvironment();
     vi.stubEnv('HLS_ISOLATED_STAGING', 'false');
+    vi.stubEnv('SERVER_URL', LIVE);
     vi.resetModules();
     const mod = await import('./allowedOrigins');
     expect(mod.ISOLATED_STAGING_CMS_ORIGIN).toBeNull();
