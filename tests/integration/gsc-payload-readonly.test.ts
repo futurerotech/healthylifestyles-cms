@@ -144,7 +144,63 @@ describe('GSC read-only collector against real Payload Local API', () => {
         'canonicalOverride', 'collection', 'enabled', 'noIndex',
         'page', 'recordId', 'slug', 'status',
       ].sort());
+
       if (ref.collection === 'articles') expect(ref.enabled).toBeUndefined();
+    }
+
+    // End-to-end synthetic GSC + real access-scoped Payload catalog. These
+    // caller-declared observations deliberately include a draft and disabled
+    // tool to make sure they remain REVIEW tasks, never publication claims.
+    const { buildOfflineEditorialReviewQueue } =
+      await import('../../src/lib/gscEditorialReviewQueue');
+    const observedPages = [
+      { page: 'https://www.healthylifesstyles.com/wellness-hub/' + publishedArticle.slug,
+        query: 'nutrition information' },
+      { page: 'https://www.healthylifesstyles.com/wellness-hub/' + draftArticle.slug,
+        query: 'unpublished nutrition evidence' },
+      { page: 'https://www.healthylifesstyles.com/tools/' + disabledTool.slug,
+        query: 'disabled nutrition score' },
+      { page: 'https://www.healthylifesstyles.com/tools/absent-gsc-ci-tool',
+        query: 'missing from bounded cms snapshot' },
+    ];
+    const rows = observedPages.map(({ page, query }) => ({
+      keys: [query, page], clicks: 2, impressions: 40, ctr: 0.05, position: 10,
+    }));
+    const batch = (startDate: string, endDate: string) => ({
+      siteUrl: 'https://www.healthylifesstyles.com/',
+      request: {
+        startDate, endDate, dimensions: ['query', 'page'], type: 'web',
+        dataState: 'final', aggregationType: 'auto', rowLimit: 25000, startRow: 0,
+      },
+      response: { rows, responseAggregationType: 'auto' },
+    });
+    const current = [batch('2026-08-29', '2026-09-25')];
+    const previous = [batch('2026-08-01', '2026-08-28')];
+    const confidential = buildOfflineEditorialReviewQueue(
+      current, previous, result.catalog, { includeDetails: true });
+    const find = (page: string) => confidential.tasks?.find(task => task.page === page);
+    expect(find(observedPages[0].page)?.cmsSnapshotState)
+      .toBe('declared-published-indexable');
+    for (const i of [1, 2]) {
+      expect(find(observedPages[i].page)?.cmsSnapshotState)
+        .toBe('declared-needs-indexability-review');
+      expect(find(observedPages[i].page)?.reviewActions)
+        .toContain('review-publication-and-indexability');
+      expect(find(observedPages[i].page)?.recommendedCmsMutation).toBeNull();
+    }
+    expect(find(observedPages[3].page)?.cmsSnapshotState)
+      .toBe('not-in-supplied-snapshot');
+    expect(find(observedPages[3].page)?.reviewActions)
+      .toContain('locate-page-in-authoritative-cms');
+    expect(confidential.publicationAuthorized).toBe(false);
+    expect(confidential.gscProvenanceAuthenticated).toBe(false);
+    expect(confidential.cmsSnapshotAuthenticated).toBe(false);
+    const redacted = buildOfflineEditorialReviewQueue(current, previous, result.catalog);
+    expect(redacted.totals.candidatePages).toBe(4);
+    expect('tasks' in redacted).toBe(false);
+    for (const { page, query } of observedPages) {
+      expect(JSON.stringify(redacted)).not.toContain(page);
+      expect(JSON.stringify(redacted)).not.toContain(query);
     }
   });
 
