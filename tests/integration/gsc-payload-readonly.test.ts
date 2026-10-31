@@ -143,7 +143,8 @@ describe('GSC read-only collector against real Payload Local API', () => {
       expect(Object.keys(ref).sort()).toEqual([
         'canonicalOverride', 'collection', 'enabled', 'noIndex',
         'page', 'recordId', 'slug', 'status',
-      ].filter(x => ref.collection === 'tools' || x !== 'enabled').sort());
+      ].sort());
+      if (ref.collection === 'articles') expect(ref.enabled).toBeUndefined();
     }
   });
 
