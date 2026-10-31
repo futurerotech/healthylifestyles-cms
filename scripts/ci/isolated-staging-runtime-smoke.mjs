@@ -146,7 +146,7 @@ try {
     '/api/generate-article', '/api/regenerate-section',
     '/api/suggest-titles', '/api/verify-sources',
     '/api/analyze-recipe', '/api/push/send',
-    '/api/audience/csv-import',
+    '/api/subscriber-sync', '/api/audience/csv-import',
     '/api/pseo/generate', '/api/audit/run',
   ];
   for (const path of outboundPaths) {
@@ -161,8 +161,7 @@ try {
     assert.equal(response.status, 503,
       'Built isolated staging outbound route must fail closed: ' + path + ' (HTTP ' + response.status + ')');
   }
-  for (const path of ['/api/backlinks/check', '/api/audit/schema-flags/cron']) {
-    if (path.includes('schema-flags')) continue; // Read-only report is an intentional dry-run.
+  for (const path of ['/api/backlink-check']) {
     const response = await get(path, {
       headers: { Authorization: 'JWT ' + tokens.adminToken, Origin: STAGING },
     });
@@ -181,6 +180,7 @@ try {
   assert.equal(shadowed.status, 404,
     'Subscriber sync route behavior changed: audit registration before release');
   console.log('PASS: subscriber sync HTTP currently 404 (route shadowed); handler guard tested separately.');
+  console.log('PASS: collision-free aliases enforce staging 503, legacy subscriber path remains 404.');
   console.log('PASS: built staging blocks all listed provider-backed Payload HTTP routes.');
   console.log('PASS: real admin/editor JWTs on built staging HTTP boundary; preview-only enforced.');
   console.log('PASS: isolated staging mock runtime; zero production API or database access.');
