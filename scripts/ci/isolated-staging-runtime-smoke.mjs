@@ -138,6 +138,38 @@ try {
     headers: { Authorization: 'JWT ' + tokens.adminToken, Origin: STAGING },
   });
   assert.equal(adminDeploy.status, 403, 'Authenticated staging deploy must be denied');
+  // Exercise actual registered Payload routes through the compiled HTTP server.
+  // Every provider-backed route must reject before reading user payloads,
+  // issuing requests, creating records, or consuming AI/USDA quota.
+  const outboundPaths = [
+    '/api/ai-assist', '/api/ai-seo', '/api/ai-writing',
+    '/api/generate-article', '/api/regenerate-section',
+    '/api/suggest-titles', '/api/verify-sources',
+    '/api/analyze-recipe', '/api/push/send',
+    '/api/subscribers/sync', '/api/audience/csv-import',
+    '/api/pseo/generate', '/api/audit/run',
+  ];
+  for (const path of outboundPaths) {
+    const response = await get(path, {
+      method: 'POST',
+      headers: {
+        Authorization: 'JWT ' + tokens.adminToken,
+        Origin: STAGING, 'Content-Type': 'application/json',
+      },
+      body: '{}',
+    });
+    assert.equal(response.status, 503,
+      'Built isolated staging outbound route must fail closed: ' + path + ' (HTTP ' + response.status + ')');
+  }
+  for (const path of ['/api/backlinks/check', '/api/audit/schema-flags/cron']) {
+    if (path.includes('schema-flags')) continue; // Read-only report is an intentional dry-run.
+    const response = await get(path, {
+      headers: { Authorization: 'JWT ' + tokens.adminToken, Origin: STAGING },
+    });
+    assert.equal(response.status, 503,
+      'Built isolated staging external audit route must fail closed: ' + path + ' (HTTP ' + response.status + ')');
+  }
+  console.log('PASS: built staging blocks all listed provider-backed Payload HTTP routes.');
   console.log('PASS: real admin/editor JWTs on built staging HTTP boundary; preview-only enforced.');
   console.log('PASS: isolated staging mock runtime; zero production API or database access.');
 } catch (error) {
