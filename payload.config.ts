@@ -1,6 +1,7 @@
 import path from 'path';
 import { canSeedDevelopmentDefaults } from './src/lib/development-seeding';
 import { postgresPoolOptions } from './src/lib/postgres-connection';
+import { assertIsolatedStagingDatabase } from './src/lib/isolated-staging-database';
 import { fileURLToPath } from 'url';
 import { buildConfig } from 'payload';
 import { postgresAdapter } from '@payloadcms/db-postgres';
@@ -83,6 +84,16 @@ if (!process.env.DATABASE_URI) {
     'DATABASE_URI is not set. Provide a PostgreSQL connection string ' +
       '(e.g. postgres://user:pass@host/db?sslmode=require).',
   );
+}
+
+if (process.env.HLS_ISOLATED_STAGING === 'true') {
+  assertIsolatedStagingDatabase({
+    databaseUri: process.env.DATABASE_URI,
+    stagingHost: process.env.HLS_STAGING_DATABASE_HOST,
+    productionHost: process.env.HLS_PRODUCTION_DATABASE_HOST,
+    ciMockRuntime: process.env.GITHUB_ACTIONS === 'true' &&
+      process.env.CI_ISOLATED_STAGING_RUNTIME_SMOKE === '1',
+  });
 }
 
 /**
