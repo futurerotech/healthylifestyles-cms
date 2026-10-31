@@ -83,6 +83,17 @@ describe.skipIf(!enabled)('actual staging-mode CMS role isolation with disposabl
 
   afterAll(async () => { await payload?.destroy(); });
 
+  it('refuses subscriber synchronization in the handler even when its HTTP route is shadowed', async () => {
+    const { subscriberSync } = await import('../../src/endpoints/subscriberSync');
+    const request = new Request(stage + '/api/subscribers/sync', {
+      method: 'POST', headers: { Origin: stage, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    const response = await subscriberSync.handler(request as never);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ ok: false });
+  });
+
   it('exposes preview-only status only to an authenticated administrator', async () => {
     expect((await queue(request('/api/deploy/pending', 'GET'))).status).toBe(401);
     expect((await queue(request('/api/deploy/pending', 'GET', editorToken))).status).toBe(403);
