@@ -65,6 +65,35 @@ describe('DeployButton IndexNow preview-and-approve workflow', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('disables live actions in isolated Hostinger staging while allowing admin previews', async () => {
+    const requested: Array<Record<string, unknown>> = [];
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      const path = String(input);
+      if (path.includes('/api/deploy/pending')) {
+        return json({ count: 2, stagingPreviewOnly: true });
+      }
+      if (path.includes('/api/seo/reconcile-indexnow')) {
+        const body = JSON.parse(String(options?.body)) as Record<string, unknown>;
+        requested.push(body);
+        if (body.confirm !== false) throw new Error('Staging must never submit URLs');
+        return json({ ...preview, page: 1, totalPages: 1, stagingPreviewOnly: true });
+      }
+      throw new Error('Staging attempted a deployment or unexpected network call: ' + path);
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const confirmMock = vi.fn(() => true);
+    vi.stubGlobal('confirm', confirmMock);
+
+    render(<DeployButton />);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Isolated staging'));
+    expect(screen.getByRole('button', { name: 'Deploy site to Vercel' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Preview IndexNow URLs' }));
+    await waitFor(() => expect(screen.getByText(URL)).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: 'Submit approved IndexNow URLs' })).not.toBeInTheDocument();
+    expect(requested).toEqual([{ confirm: false, page: 1 }]);
+    expect(confirmMock).not.toHaveBeenCalled();
+  });
+
   it('only previews URLs and never submits without affirmative consent', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const path = String(input);
