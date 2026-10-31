@@ -163,6 +163,23 @@ jobs:
           INDEXNOW_DISABLE: 'true'
         run: npm run build
 
+      # Authenticated staging roles use ephemeral mock-only Payload users.
+      # The following test generates a 0600 JWT fixture for the built runtime.
+      - name: Verify isolated staging admin/editor roles (disposable mock DB)
+        env:
+          GITHUB_ACTIONS: 'true'
+          CI_STAGING_ROLE_INTEGRATION: '1'
+          RUN_DATABASE_TESTS: '1'
+          NODE_ENV: production
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          HLS_ISOLATED_STAGING: 'true'
+          HLS_STAGING_CMS_ORIGIN: https://cms-qa.healthylifesstyles.com
+          SERVER_URL: https://cms-qa.healthylifesstyles.com
+          INDEXNOW_DISABLE: 'true'
+          INDEXNOW_LIVE_ENABLED: 'false'
+        run: npx vitest run --config vitest.integration.config.ts tests/integration/isolated-staging-roles.test.ts
+
       # Boot the built CMS as a nonproduction isolated staging application on
       # disposable CI PostgreSQL; no provider hooks or production credentials.
       - name: Smoke-test isolated Hostinger staging mode (mock runtime only)
