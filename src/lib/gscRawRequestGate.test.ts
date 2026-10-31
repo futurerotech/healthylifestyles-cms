@@ -47,4 +47,22 @@ describe('bounded raw GSC request/response gate',()=>{
  it('rejects incomparable periods even for individually well-formed batches',()=>{
   expect(()=>screenBoundedRawGscBatches(batch('2026-08-31','2026-09-27'),previous())).toThrow();
  });
+ it('rejects provider API errors even when rows are absent',()=>{
+  const errorResponse={...current(),response:{error:{code:403,message:'Forbidden'}} as unknown as RawGscBatch['response']};
+  expect(()=>screenBoundedRawGscBatches(errorResponse,previous())).toThrow(/Unexpected Search Analytics response field/);
+  expect(()=>screenPaginatedRawGscBatches([errorResponse],[previous()])).toThrow(/Unexpected Search Analytics response field/);
+  const terminal={...current(),request:{...current().request,rowLimit:1,startRow:1},
+    response:{error:{code:429}} as unknown as RawGscBatch['response']};
+  const first={...current(),request:{...current().request,rowLimit:1}};
+  expect(()=>screenPaginatedRawGscBatches([first,terminal],[previous()])).toThrow();
+ });
+ it('rejects unknown request scope fields on all pages',()=>{
+  const scoped={...current(),request:{...current().request,searchAppearance:'AMP'} as RawGscBatch['request']};
+  expect(()=>screenBoundedRawGscBatches(scoped,previous())).toThrow(/Unsupported Search Analytics request field/);
+  expect(()=>screenPaginatedRawGscBatches([scoped],[previous()])).toThrow(/Unsupported Search Analytics request field/);
+  const first={...current(),request:{...current().request,rowLimit:1}};
+  const tail={...first,request:{...first.request,startRow:1,searchAppearance:'AMP'} as RawGscBatch['request'],response:{rows:[]}};
+  expect(()=>screenPaginatedRawGscBatches([first,tail],[previous()])).toThrow(/Unsupported Search Analytics request field/);
+ });
+
 });
