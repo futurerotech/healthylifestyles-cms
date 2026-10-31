@@ -22,8 +22,12 @@ export function validateStagingOrigin(input) {
   let url;
   try { url = new URL(input); }
   catch { throw new TypeError('Invalid staging URL'); }
-  const host = url.hostname.replace(/\.$/, '').toLowerCase();
+  // This probe is an operator-run network client. Never let an arbitrary
+  // external domain (or a trailing-dot alias) become its GET target. The
+  // isolated Payload runtime uses the same owned-subdomain trust boundary.
+  const host = url.hostname.toLowerCase();
   if (url.protocol !== 'https:' || url.origin !== input ||
+      !host.endsWith('.healthylifesstyles.com') ||
       url.username || url.password || url.search || url.hash ||
       url.pathname !== '/' || url.port || LIVE_HOSTS.has(host) ||
       host === 'localhost' || host.endsWith('.localhost') ||
