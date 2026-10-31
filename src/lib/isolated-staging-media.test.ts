@@ -33,6 +33,11 @@ describe('isolated Hostinger media guard', () => {
     expect(() => check({ ...safe, ...urls })).not.toThrow();
     expect(() => check({ ...safe, ...urls, publicUrl: urls.productionPublicUrl })).toThrow(/refused/);
     expect(() => check({ ...safe, ...urls, stagingPublicUrl: urls.productionPublicUrl })).toThrow(/refused/);
+    expect(() => check({ ...safe, ...urls, publicUrl: 'https://staging-media.example.com/other' })).toThrow(/refused/);
+    expect(() => check({ ...safe, ...urls, stagingPublicUrl: 'https://media.example.com/staging' })).toThrow(/refused/);
+    expect(() => check({ ...safe, ...urls, publicUrl: 'https://staging-media.example.com/%2e%2e/' })).toThrow(/refused/);
+    expect(() => check({ ...safe, ...urls, publicUrl: 'https://staging-media.example.com//other' })).toThrow(/refused/);
+    expect(() => check({ ...safe, ...urls, publicUrl: 'https://staging-media.example.com', stagingPublicUrl: 'https://staging-media.example.com/staging' })).toThrow(/refused/);
   });
   it('allows CI-only disconnected storage and rejects configured mock storage', () => {
     expect(() => check({ ciMockRuntime: true })).not.toThrow();
