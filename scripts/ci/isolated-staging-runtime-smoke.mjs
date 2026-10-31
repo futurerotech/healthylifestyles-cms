@@ -146,7 +146,7 @@ try {
     '/api/generate-article', '/api/regenerate-section',
     '/api/suggest-titles', '/api/verify-sources',
     '/api/analyze-recipe', '/api/push/send',
-    '/api/subscribers/sync', '/api/audience/csv-import',
+    '/api/audience/csv-import',
     '/api/pseo/generate', '/api/audit/run',
   ];
   for (const path of outboundPaths) {
@@ -169,6 +169,18 @@ try {
     assert.equal(response.status, 503,
       'Built isolated staging external audit route must fail closed: ' + path + ' (HTTP ' + response.status + ')');
   }
+  // Payload collection route /api/subscribers/:id can shadow the separately
+  // registered /api/subscribers/sync endpoint. Check handler in isolated DB
+  // integration instead of pretending HTTP 404 proves its 503 guard.
+  const shadowed = await get('/api/subscribers/sync', {
+    method: 'POST',
+    headers: { Authorization: 'JWT ' + tokens.adminToken, Origin: STAGING,
+      'Content-Type': 'application/json' },
+    body: '{}',
+  });
+  assert.equal(shadowed.status, 404,
+    'Subscriber sync route behavior changed: audit registration before release');
+  console.log('PASS: subscriber sync HTTP currently 404 (route shadowed); handler guard tested separately.');
   console.log('PASS: built staging blocks all listed provider-backed Payload HTTP routes.');
   console.log('PASS: real admin/editor JWTs on built staging HTTP boundary; preview-only enforced.');
   console.log('PASS: isolated staging mock runtime; zero production API or database access.');
