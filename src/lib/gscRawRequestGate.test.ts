@@ -56,6 +56,20 @@ describe('bounded raw GSC request/response gate',()=>{
   const first={...current(),request:{...current().request,rowLimit:1}};
   expect(()=>screenPaginatedRawGscBatches([first,terminal],[previous()])).toThrow();
  });
+ it('rejects malformed metric rows and hidden provider errors before scoring',()=>{
+  const malformed=[null,{error:{code:403}}, {...row,unrecognizedScope:'partial'},
+    {keys:['bmi calculator',page],clicks:4,impressions:100,ctr:0.04}];
+  for (const value of malformed) {
+    const bad={...current(),response:{rows:[value] as unknown as RawGscBatch['response']['rows'],
+      responseAggregationType:'auto'}};
+    expect(()=>screenBoundedRawGscBatches(bad,previous())).toThrow(/Malformed Search Analytics data row/);
+    expect(()=>screenPaginatedRawGscBatches([bad],[previous()])).toThrow(/Malformed Search Analytics data row/);
+  }
+  const first={...current(),request:{...current().request,rowLimit:1}};
+  const terminal={...first,request:{...first.request,startRow:1},
+    response:{rows:[{error:{code:429}}] as unknown as RawGscBatch['response']['rows']}};
+  expect(()=>screenPaginatedRawGscBatches([first,terminal],[previous()])).toThrow(/Malformed Search Analytics data row/);
+ });
  it('rejects unknown request scope fields on all pages',()=>{
   const scoped={...current(),request:{...current().request,searchAppearance:'AMP'} as RawGscBatch['request']};
   expect(()=>screenBoundedRawGscBatches(scoped,previous())).toThrow(/Unsupported Search Analytics request field/);
