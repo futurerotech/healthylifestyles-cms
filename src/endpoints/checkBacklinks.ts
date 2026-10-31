@@ -1,3 +1,4 @@
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
 
 /**
@@ -21,6 +22,8 @@ export const checkBacklinks: Endpoint = {
   path: '/backlinks/check',
   method: 'get',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     const key = req.searchParams?.get('key') || req.headers.get('x-api-key') || '';
     const keyOk = !!process.env.INTERNAL_API_KEY && key === process.env.INTERNAL_API_KEY;
     if (!req.user && !keyOk) {
@@ -85,3 +88,8 @@ export const checkBacklinks: Endpoint = {
     return Response.json({ ok: true, checked: (docs as any[]).length, live, lost, inconclusive: errors });
   },
 };
+
+
+// Collection /api/backlinks/:id can shadow /api/backlinks/check.
+// This distinct alias uses the same guarded handler and authentication.
+export const checkBacklinksDirect: Endpoint = { ...checkBacklinks, path: '/backlink-check' };

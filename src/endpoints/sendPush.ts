@@ -1,3 +1,4 @@
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
 import { broadcast, type PushConfig } from '../lib/push';
 
@@ -5,6 +6,8 @@ export const sendPush: Endpoint = {
   path: '/push/send',
   method: 'post',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     if (!req.user) {
       return Response.json({ ok: false, message: 'Not authenticated.' }, { status: 401 });
     }

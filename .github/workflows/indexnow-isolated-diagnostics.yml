@@ -1,0 +1,67 @@
+# Supplementary test evidence while the mandatory security gate investigates
+# upstream advisories. This workflow DOES NOT replace or relax promote.yml.
+name: IndexNow isolated diagnostics (not release approval)
+
+on:
+  push:
+    branches:
+      - fix/unified-indexnow-postdeploy-20261028
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: mock
+          POSTGRES_PASSWORD: mock
+          POSTGRES_DB: mock
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mock"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URI: postgres://mock:mock@127.0.0.1:5432/mock
+      PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+      INDEXNOW_LIVE_ENABLED: 'false'
+      RUN_DATABASE_TESTS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install exact locked dependencies (including test devDependencies)
+        env:
+          NODE_ENV: development
+        run: npm ci --include=dev
+      - name: Unit tests
+        run: npm test
+      - name: Native GraphQL scalar ESM and CJS compatibility
+        run: node scripts/ci/graphql-scalars-compat.mjs
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Migration safety lint
+        run: node scripts/ci/migration-safety-lint.ts
+      - name: Create disposable test schema
+        run: npx payload migrate --force-accept-warning
+      - name: PostgreSQL queue/deploy integration tests
+        env:
+          NODE_ENV: production
+          INDEXNOW_DISABLE: 'true'
+        run: npx vitest run --config vitest.integration.config.ts tests/integration/indexnow-queue-ack.test.ts
+      - name: Explicitly block release claims
+        if: always()
+        run: |
+          echo "DIAGNOSTIC ONLY. Mandatory promote.yml security gate remains required."
+          echo "No production deployment, IndexNow submission or environment changes occurred."

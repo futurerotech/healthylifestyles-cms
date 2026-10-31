@@ -1,6 +1,8 @@
 import path from 'path';
 import { canSeedDevelopmentDefaults } from './src/lib/development-seeding';
 import { postgresPoolOptions } from './src/lib/postgres-connection';
+import { assertIsolatedStagingDatabase } from './src/lib/isolated-staging-database';
+import { assertIsolatedStagingMedia } from './src/lib/isolated-staging-media';
 import { fileURLToPath } from 'url';
 import { buildConfig } from 'payload';
 import { postgresAdapter } from '@payloadcms/db-postgres';
@@ -52,10 +54,10 @@ import { pseoGenerate } from './src/endpoints/pseoGenerate';
 import { profileIdentify, profileRecordUsage, profileGet } from './src/endpoints/profiles';
 import { csvImport } from './src/endpoints/csvImport';
 import { sendPush } from './src/endpoints/sendPush';
-import { subscriberSync } from './src/endpoints/subscriberSync';
+import { subscriberSync, subscriberSyncDirect } from './src/endpoints/subscriberSync';
 import { generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint } from './src/endpoints/generateArticle';
 import { trackEmbed } from './src/endpoints/trackEmbed';
-import { checkBacklinks } from './src/endpoints/checkBacklinks';
+import { checkBacklinks, checkBacklinksDirect } from './src/endpoints/checkBacklinks';
 import { runAudit } from './src/endpoints/runAudit';
 import { analyzeRecipe } from './src/endpoints/analyzeRecipe';
 import { schemaFlagsCron } from './src/endpoints/schemaFlagsCron';
@@ -85,6 +87,17 @@ if (!process.env.DATABASE_URI) {
   );
 }
 
+if (process.env.HLS_ISOLATED_STAGING === 'true') {
+  assertIsolatedStagingDatabase({
+    databaseUri: process.env.DATABASE_URI,
+    stagingHost: process.env.HLS_STAGING_DATABASE_HOST,
+    productionHost: process.env.HLS_PRODUCTION_DATABASE_HOST,
+    ciMockRuntime: process.env.GITHUB_ACTIONS === 'true' &&
+      (process.env.CI_ISOLATED_STAGING_RUNTIME_SMOKE === '1' ||
+       process.env.CI_STAGING_ROLE_INTEGRATION === '1'),
+  });
+}
+
 /**
  * Persistent media storage. Hostinger wipes the app folder on every redeploy, so
  * locally-stored uploads vanish. When the S3/R2 env vars are present, uploads go
@@ -94,6 +107,23 @@ if (!process.env.DATABASE_URI) {
  * back to the Media collection's local staticDir — nothing else changes.
  */
 const S3_PUBLIC_URL = (process.env.S3_PUBLIC_URL || '').replace(/\/$/, '');
+if (process.env.HLS_ISOLATED_STAGING === 'true') {
+  assertIsolatedStagingMedia({
+    bucket: process.env.S3_BUCKET,
+    endpoint: process.env.S3_ENDPOINT,
+    accessKeyId: process.env.S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+    publicUrl: S3_PUBLIC_URL,
+    stagingBucket: process.env.HLS_STAGING_R2_BUCKET,
+    productionBucket: process.env.HLS_PRODUCTION_R2_BUCKET,
+    stagingPublicUrl: process.env.HLS_STAGING_MEDIA_PUBLIC_URL,
+    productionPublicUrl: process.env.HLS_PRODUCTION_MEDIA_PUBLIC_URL,
+    ciMockRuntime: process.env.GITHUB_ACTIONS === 'true' &&
+      (process.env.CI_ISOLATED_STAGING_RUNTIME_SMOKE === '1' ||
+       process.env.CI_STAGING_ROLE_INTEGRATION === '1'),
+  });
+}
+
 const s3Enabled = !!(
   process.env.S3_BUCKET &&
   process.env.S3_ENDPOINT &&
@@ -210,7 +240,7 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   sharp,
-  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks, runAudit, analyzeRecipe, schemaFlagsCron],
+  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, subscriberSyncDirect, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks, checkBacklinksDirect, runAudit, analyzeRecipe, schemaFlagsCron],
   // Seed the four default outreach templates once (idempotent: only when the
   // collection is empty). Runs at server boot, never during `payload migrate`.
   onInit: async (payload) => {

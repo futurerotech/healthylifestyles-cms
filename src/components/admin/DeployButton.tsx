@@ -18,6 +18,15 @@ import { Button, toast, useAuth } from '@payloadcms/ui';
  *                 it rather than show a button that always 403s)
  */
 const POLL_MS = 30_000;
+interface IndexPreview {
+ stagingPreviewOnly?: boolean;
+ ready: string[];
+ readyVersions: {url:string;changedAt:string}[];
+ deferred: {id:string|number;reason:string}[];
+ buildStartedAt: string;
+ page: number;
+ totalPages: number;
+}
 
 const DeployButton: React.FC = () => {
   const { user } = useAuth();
@@ -26,16 +35,26 @@ const DeployButton: React.FC = () => {
 
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<number | null>(null);
+  const [pendingError, setPendingError] = useState(false);
+  const [stagingPreviewOnly, setStagingPreviewOnly] = useState(false);
+  const [indexPreview, setIndexPreview] = useState<IndexPreview | null>(null);
+  const [indexBusy, setIndexBusy] = useState(false);
+  const [indexPage, setIndexPage] = useState(1);
 
   const refresh = useCallback(async () => {
     try {
       const res = await fetch('/api/deploy/pending', { credentials: 'include' });
-      if (res.ok) {
-        const data = (await res.json()) as { count?: number };
-        setPending(data.count ?? 0);
+      if (!res.ok) throw new Error('Pending queue unavailable');
+      const data = (await res.json()) as { count?: unknown; stagingPreviewOnly?: unknown };
+      if (typeof data.count !== 'number' || !Number.isSafeInteger(data.count) || data.count < 0) {
+        throw new Error('Invalid pending queue count');
       }
+      setPending(data.count);
+      setStagingPreviewOnly(data.stagingPreviewOnly === true);
+      setPendingError(false);
     } catch {
-      /* transient network error — keep the last known count */
+      setPending(null);
+      setPendingError(true);
     }
   }, []);
 
@@ -46,10 +65,75 @@ const DeployButton: React.FC = () => {
     return () => clearInterval(id);
   }, [isAdmin, refresh]);
 
+  async function previewIndexNow(page = indexPage) {
+    setIndexBusy(true); setIndexPreview(null);
+    try {
+      const res = await fetch('/api/seo/reconcile-indexnow', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: false, page }),
+      });
+      const body = await res.json().catch(() => ({})) as Partial<IndexPreview> & {error?:string};
+      if (!res.ok || !Array.isArray(body.ready) || !Array.isArray(body.readyVersions) ||
+          !Array.isArray(body.deferred) || !body.buildStartedAt) {
+        throw new Error(body.error || 'Unable to verify deployed URLs.');
+      }
+      setIndexPreview(body as IndexPreview);
+      if (body.stagingPreviewOnly === true) setStagingPreviewOnly(true);
+      setIndexPage(page);
+      toast.success('IndexNow preview complete. Nothing sent to IndexNow.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Preview failed.');
+    } finally { setIndexBusy(false); }
+  }
+
+  async function submitIndexNow() {
+    const preview = indexPreview;
+    if (!preview?.ready.length || indexBusy || stagingPreviewOnly || preview.stagingPreviewOnly) return;
+    if (!window.confirm('Send precisely ' + preview.ready.length +
+      ' verified URLs to IndexNow? This is a real submission to participating engines.')) return;
+    setIndexPreview(null); setIndexBusy(true);
+    try {
+      const res = await fetch('/api/seo/reconcile-indexnow', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true, approvedUrls: preview.ready,
+          approvedVersions: preview.readyVersions,
+          approvedBuildStartedAt: preview.buildStartedAt, page: preview.page || indexPage }),
+      });
+      const body = await res.json().catch(() => ({})) as { error?:string; acknowledged?:string[]; simulation?: boolean; message?: string };
+      if (!res.ok) throw new Error(body.error || 'IndexNow rejected the submission.');
+      if (body.simulation) {
+        toast.success(body.message || 'IndexNow simulation only; no URLs submitted.');
+      } else {
+        // Provider acceptance and our local queue acknowledgement are separate
+        // operations. A missing/partial acknowledgement needs operator review,
+        // never a misleading success toast or an automatic retry.
+        const acknowledged = body.acknowledged;
+        if (!Array.isArray(acknowledged) ||
+            acknowledged.some(url => typeof url !== 'string' || !preview.ready.includes(url)) ||
+            new Set(acknowledged).size !== acknowledged.length) {
+          toast.error('IndexNow acknowledgement could not be verified. Inspect the queue before another submission.');
+        } else if (acknowledged.length !== preview.ready.length) {
+          toast.error('IndexNow accepted the request, but only ' + acknowledged.length +
+            ' of ' + preview.ready.length + ' queue entry/entries were cleared. Review pending changes.');
+        } else {
+          toast.success(acknowledged.length + ' URL(s) acknowledged by IndexNow. Indexing is not guaranteed.');
+        }
+      }
+      void refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Submission failed; queue preserved.');
+    } finally { setIndexBusy(false); }
+  }
+
   // Only admins can deploy — hide the control entirely for everyone else.
   if (!isAdmin) return null;
 
   const deploy = async () => {
+    if (stagingPreviewOnly) return;
+    setIndexPreview(null);
+    setIndexPage(1);
     setBusy(true);
     // sonner (what @payloadcms/ui re-exports): toast.loading returns an id;
     // passing that same { id } to toast.success/error replaces the toast in place.
@@ -60,10 +144,9 @@ const DeployButton: React.FC = () => {
       if (res.ok) {
         const n = data.pendingCount ?? 0;
         toast.success(
-          `Deployment started on Vercel${n ? ` — ${n} change${n === 1 ? '' : 's'} published` : ''}.`,
+          `Deployment started on Vercel${n ? ` — ${n} change${n === 1 ? '' : 's'} awaiting verification` : ''}.`,
           { id },
         );
-        setPending(0);
       } else {
         toast.error(data.error || `Deploy failed (${res.status}).`, { id });
       }
@@ -76,13 +159,13 @@ const DeployButton: React.FC = () => {
   };
 
   const count = pending ?? 0;
-  const nothingToDo = count === 0;
+  const nothingToDo = !pendingError && pending === 0;
 
   return (
     <div style={{ padding: '0.5rem 0.75rem 1rem' }}>
       <Button
         onClick={() => void deploy()}
-        disabled={busy || nothingToDo}
+        disabled={busy || pendingError || pending === null || nothingToDo || stagingPreviewOnly}
         buttonStyle={nothingToDo ? 'secondary' : 'primary'}
         size="small"
         icon={busy ? undefined : ['plus']}
@@ -90,10 +173,53 @@ const DeployButton: React.FC = () => {
       >
         {busy
           ? 'Deploying…'
+          : pendingError || pending === null
+            ? 'Deploy status unavailable'
           : nothingToDo
             ? 'Site up to date'
             : `Deploy site (${count} pending)`}
       </Button>
+      {pendingError && <p role="alert">Pending deploy queue unavailable. Check CMS database before deploying.</p>}
+      {stagingPreviewOnly && <p role="status">Isolated staging: Vercel deployment and IndexNow submission are disabled. Preview only.</p>}
+      <section aria-label="IndexNow post-deploy verification" style={{ marginTop: 12 }}>
+        <p style={{ fontSize: 12 }}>IndexNow: verify production pages after Vercel is ready. Google uses Search Console.</p>
+        <Button onClick={() => void previewIndexNow()} disabled={busy || indexBusy}
+          buttonStyle="secondary" size="small" aria-label="Preview IndexNow URLs">
+          {indexBusy ? 'Checking…' : 'Preview IndexNow'}
+        </Button>
+        {indexPreview && <div role="region" aria-label="IndexNow preview" style={{ fontSize: 12, overflowWrap: 'anywhere' }}>
+          <p>{indexPreview.ready.length} verified URL(s), {indexPreview.deferred.length} deferred. No URLs submitted.</p>
+          <p>Queue page {indexPreview.page || indexPage} of {indexPreview.totalPages || 1}.</p>
+          <div>
+            <Button onClick={() => void previewIndexNow((indexPreview.page || indexPage) - 1)}
+              disabled={indexBusy || (indexPreview.page || indexPage) <= 1}
+              buttonStyle="secondary" size="small" aria-label="Previous IndexNow page">Previous</Button>
+            <Button onClick={() => void previewIndexNow((indexPreview.page || indexPage) + 1)}
+              disabled={indexBusy || (indexPreview.page || indexPage) >= (indexPreview.totalPages || 1)}
+              buttonStyle="secondary" size="small" aria-label="Next IndexNow page">Next</Button>
+          </div>
+          <ul style={{ maxHeight: 160, overflowY: 'auto', paddingLeft: 18 }}>
+            {indexPreview.ready.map(url => <li key={url}>{url}</li>)}
+          </ul>
+          {indexPreview.deferred.length > 0 && (
+            <details aria-label="Deferred IndexNow queue entries">
+              <summary>Review {indexPreview.deferred.length} deferred queue item(s) and reasons</summary>
+              <ul style={{ maxHeight: 200, overflowY: 'auto', paddingLeft: 18 }}>
+                {indexPreview.deferred.map((item, i) => (
+                  <li key={String(item.id) + ':' + i}>
+                    Queue entry {String(item.id)}: {item.reason}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {indexPreview.ready.length > 0 && !stagingPreviewOnly && !indexPreview.stagingPreviewOnly &&
+          <Button onClick={() => void submitIndexNow()}
+            disabled={indexBusy} buttonStyle="primary" size="small" aria-label="Submit approved IndexNow URLs">
+            Submit verified URLs to IndexNow
+          </Button>}
+        </div>}
+      </section>
     </div>
   );
 };

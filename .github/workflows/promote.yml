@@ -48,6 +48,13 @@ jobs:
           node-version: '22'
           cache: 'npm'
 
+      - name: Test source-provenance validator and bind CI merge to PR head
+        env:
+          HLS_EXPECTED_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          node --test scripts/ci/release-provenance.test.mjs
+          node scripts/ci/release-provenance.mjs --verify
+
       # D4/SD2 guard #1: no real-credential fingerprints may live in workflows.
       # HOST-AWARE (P17): a real leaked credential necessarily carries its real
       # provider host, so postgres URIs trip only on actual infra domains —
@@ -65,6 +72,14 @@ jobs:
           fi
           echo 'Workflows clean: no real-provider credentials present.'
 
+      # Safety-test the opt-in external staging probe using mocks only.
+      - name: Verify read-only Hostinger staging preflight (no network)
+        run: node --test scripts/ci/hostinger-staging-preflight.test.mjs
+
+      # Offline-only migration ledger comparator: no database credentials or I/O.
+      - name: Verify migration ledger preflight (synthetic fixtures only)
+        run: node --test scripts/ci/migration-ledger-audit.test.mjs
+
       - run: npm ci
 
       - name: Unit and access-control regression tests
@@ -75,6 +90,9 @@ jobs:
 
       - name: Type check
         run: npx tsc --noEmit
+
+      - name: Native GraphQL scalar ESM and CJS compatibility
+        run: node scripts/ci/graphql-scalars-compat.mjs
 
       - name: Security release gate
         run: npm run security:check
@@ -123,6 +141,16 @@ jobs:
           DATABASE_URI: postgres://mock:mock@localhost:5432/mock
         run: bash scripts/ci/rehearse-backup.sh
 
+      - name: Rehearse Oct migration ledger drift and rollback (synthetic DBs only)
+        env:
+          RUN_DATABASE_TESTS: '1'
+          CI_MIGRATION_DRIFT_REHEARSAL: '1'
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          INDEXNOW_DISABLE: 'true'
+        run: bash scripts/ci/rehearse-migration-ledger-drift.sh
+
       # D4: exercise the actual Hostinger build command against the mock DB.
       # Database migrations are a separate, explicit operation after a backup;
       # never mutate production data as a side effect of a deployment build.
@@ -134,6 +162,38 @@ jobs:
           PAYLOAD_SECRET: ci-mock-payload-secret-not-production
           INDEXNOW_DISABLE: 'true'
         run: npm run build
+
+      # Authenticated staging roles use ephemeral mock-only Payload users.
+      # The following test generates a 0600 JWT fixture for the built runtime.
+      - name: Verify isolated staging admin/editor roles (disposable mock DB)
+        env:
+          GITHUB_ACTIONS: 'true'
+          CI_STAGING_ROLE_INTEGRATION: '1'
+          RUN_DATABASE_TESTS: '1'
+          NODE_ENV: production
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          HLS_ISOLATED_STAGING: 'true'
+          HLS_STAGING_CMS_ORIGIN: https://cms-qa.healthylifesstyles.com
+          SERVER_URL: https://cms-qa.healthylifesstyles.com
+          INDEXNOW_DISABLE: 'true'
+          INDEXNOW_LIVE_ENABLED: 'false'
+        run: npx vitest run --config vitest.integration.config.ts tests/integration/isolated-staging-roles.test.ts
+
+      # Boot the built CMS as a nonproduction isolated staging application on
+      # disposable CI PostgreSQL; no provider hooks or production credentials.
+      - name: Smoke-test isolated Hostinger staging mode (mock runtime only)
+        env:
+          GITHUB_ACTIONS: 'true'
+          CI_ISOLATED_STAGING_RUNTIME_SMOKE: '1'
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          HLS_ISOLATED_STAGING: 'true'
+          HLS_STAGING_CMS_ORIGIN: https://cms-qa.healthylifesstyles.com
+          SERVER_URL: https://cms-qa.healthylifesstyles.com
+          INDEXNOW_DISABLE: 'true'
+          INDEXNOW_LIVE_ENABLED: 'false'
+        run: node scripts/ci/isolated-staging-runtime-smoke.mjs
 
       # D4/SD2 guard #2: the produced bundle must not embed real-looking secrets.
       # HOST-AWARE by design (P17 fix): the old any-URI pattern false-positived
@@ -157,3 +217,16 @@ jobs:
             exit 1
           fi
           echo 'Build artifacts clean.'
+
+      - name: Generate hash-only release traceability evidence (not a deploy)
+        env:
+          HLS_EXPECTED_PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: node scripts/ci/release-provenance.mjs --write
+
+      - name: Archive non-production provenance evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cms-source-provenance-${{ github.run_id }}
+          path: .ci-artifacts/release-provenance.json
+          if-no-files-found: error
+          retention-days: 14

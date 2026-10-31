@@ -1,3 +1,4 @@
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
 
 /**
@@ -63,6 +64,8 @@ export const subscriberSync: Endpoint = {
   path: '/subscribers/sync',
   method: 'post',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     const origin = req.headers.get('origin') || '';
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
@@ -177,3 +180,9 @@ export const subscriberSync: Endpoint = {
     }
   },
 };
+
+
+// Collection /api/subscribers/:id can shadow /api/subscribers/sync.
+// Register a collision-free equivalent without removing the legacy path.
+// Update external automation to /api/subscriber-sync only after release approval.
+export const subscriberSyncDirect: Endpoint = { ...subscriberSync, path: '/subscriber-sync' };

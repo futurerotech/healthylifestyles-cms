@@ -1,10 +1,12 @@
 import type { CollectionConfig } from 'payload';
-import { isAdminOrEditor } from '../access/roles';
+import { isAdmin } from '../access/roles';
 
 /**
  * AI SEO Autopilot — pending deploys queue (§7.1).
- * Each content save creates an entry here instead of triggering a Vercel build.
- * The deploy endpoint clears the queue when a manual deploy is triggered.
+ * Published content changes are recorded by the server inside its PostgreSQL
+ * transaction; IndexNow acknowledges only the exact matching queued revision.
+ * Even administrators cannot delete queue entries through REST/Local API:
+ * reviewed server-side acknowledgement is the only automatic removal path.
  */
 export const PendingDeploys: CollectionConfig = {
   slug: 'pending-deploys',
@@ -13,18 +15,16 @@ export const PendingDeploys: CollectionConfig = {
     useAsTitle: 'collectionSlug',
     defaultColumns: ['collectionSlug', 'docId', 'changedAt'],
     listSearchableFields: ['collectionSlug', 'docId'],
-    // Completely hidden from the admin navigation. This queue is machine-managed
-    // (written by the trackPendingChange hook on content saves, drained by
-    // /api/deploy) — staff never browse it directly. `hidden` only removes the
-    // nav entry and list view; the REST/Local API the hook and endpoint use
-    // keeps working.
+    // Machine-managed: hiding navigation is not an authorization control.
+    // Admins can inspect read-only; nobody can write/delete via REST.
+    // Exact-revision SQL acknowledgement remains server-controlled.
     hidden: true,
   },
   access: {
-    read: isAdminOrEditor,
+    read: isAdmin,
     create: () => false,
     update: () => false,
-    delete: isAdminOrEditor,
+    delete: () => false,
   },
   fields: [
     { name: 'collectionSlug', type: 'text', required: true, admin: { description: 'Which collection was changed.' } },
