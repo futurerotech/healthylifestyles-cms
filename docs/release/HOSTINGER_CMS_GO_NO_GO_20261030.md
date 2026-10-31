@@ -207,3 +207,7 @@ The shared staging-only outbound guard now covers all four AI article authoring 
 ## Provider-route HTTP fail-closed acceptance — 2026-10-31
 
 The recipe analyzer now rejects isolated-staging requests before invoking AI parsing or USDA. The built Next/Payload HTTP smoke checks 13 provider-backed POST paths and the backlink GET endpoint for HTTP 503 with a disposable administrator JWT. This extends coverage beyond testing the shared utility function alone. The mail-only schema flags cron intentionally remains a dry-run, not a blocked provider call. This is CI synthetic staging, NOT real Hostinger acceptance; new exact-head CI must pass and no real provider traffic is authorized.
+
+## CI staging HTTP route collision follow-up — 2026-10-31
+
+The built runtime returned HTTP 404 at POST /api/subscribers/sync, not 503, during Actions 41158782353. This may be due to Payload collection dynamic routing shadowing the custom sync endpoint; 404 alone is NOT evidence that the staging guard ran. The HTTP smoke now explicitly records and checks this current routing behavior, while a separate staging integration assertion invokes the protected handler directly and requires 503 before any subscriber writes or n8n calls. Production routing remains unchanged. Resolve the collision independently before asserting that subscriber sync is reachable in live CMS. This test correction requires fresh exact-head CI PASS; do not merge, deploy, or submit IndexNow.
