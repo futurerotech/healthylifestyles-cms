@@ -23,6 +23,27 @@ const MAX_PAGES_PER_WINDOW = 25;
 const READONLY_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
 const ALLOWED_PERMISSIONS = new Set(['siteOwner', 'siteFullUser', 'siteRestrictedUser']);
 
+type GscReportOptions = { includeQueries?: boolean; top?: number };
+type GscEditorialOptions = { includeDetails?: boolean; top?: number };
+
+/**
+ * Validate all caller-controlled display options BEFORE opening credentials,
+ * CMS access or GSC provider transport. An invalid bounded/opt-in setting
+ * must never cause provider requests followed by an avoidable report failure.
+ */
+function assertBoundedReviewOptions(
+  options: GscReportOptions | GscEditorialOptions,
+  disclosureFlag: 'includeQueries' | 'includeDetails',
+): void {
+  if (!options || typeof options !== 'object' || Array.isArray(options) ||
+      Object.keys(options).some(key => key !== disclosureFlag && key !== 'top') ||
+      (options[disclosureFlag] !== undefined && typeof options[disclosureFlag] !== 'boolean') ||
+      (options.top !== undefined &&
+        (!Number.isSafeInteger(options.top) || options.top < 1 || options.top > 100))) {
+    throw new RangeError('Invalid bounded GSC review display options.');
+  }
+}
+
 export interface GscDateWindow {
   startDate: string;
   endDate: string;
@@ -176,8 +197,11 @@ export async function collectStaffGscReportWithTransport(
   req: Pick<PayloadRequest, 'user'>,
   windows: GscComparisonWindows,
   transport: GscReadOnlyTransport,
-  options: { includeQueries?: boolean; top?: number } = {},
+  options: GscReportOptions = {},
 ) {
+  requireStaff(req);
+  assertApprovedPeriods(windows);
+  assertBoundedReviewOptions(options, 'includeQueries');
   const { current, previous } = await collectVerifiedGscBatchesWithTransport(
     req, windows, transport,
   );
@@ -208,12 +232,7 @@ async function collectStaffEditorialQueueCore(
   if (!payload || typeof payload.find !== 'function') {
     throw new TypeError('An access-controlled Payload read transport is required.');
   }
-  if (!options || typeof options !== 'object' || Array.isArray(options) ||
-      (options.includeDetails !== undefined && typeof options.includeDetails !== 'boolean') ||
-      (options.top !== undefined &&
-        (!Number.isSafeInteger(options.top) || options.top < 1 || options.top > 100))) {
-    throw new RangeError('Invalid bounded editorial review options.');
-  }
+  assertBoundedReviewOptions(options, 'includeDetails');
 
   let snapshot: Awaited<ReturnType<typeof collectAuthorizedPayloadReviewSnapshot>>;
   try {
@@ -353,6 +372,7 @@ export async function collectStaffGoogleReadOnlyReport(
 ) {
   requireStaff(req);
   assertApprovedPeriods(windows);
+  assertBoundedReviewOptions(options, 'includeQueries');
   if (process.env.HLS_GSC_READONLY_ENABLED !== 'true' ||
       process.env.HLS_ISOLATED_STAGING === 'true') {
     throw new Error('Live Search Analytics collection is not enabled for this environment.');
@@ -378,10 +398,11 @@ export async function collectStaffGoogleReadOnlyEditorialQueue(
   req: PayloadRequest,
   windows: GscComparisonWindows,
   payload: Pick<Payload, 'find'>,
-  options: { includeDetails?: boolean; top?: number } = {},
+  options: GscEditorialOptions = {},
 ) {
   requireStaff(req);
   assertApprovedPeriods(windows);
+  assertBoundedReviewOptions(options, 'includeDetails');
   if (process.env.HLS_GSC_READONLY_ENABLED !== 'true' ||
       process.env.HLS_ISOLATED_STAGING === 'true') {
     throw new Error('Live Search Analytics collection is not enabled for this environment.');
