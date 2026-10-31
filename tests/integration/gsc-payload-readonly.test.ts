@@ -82,6 +82,15 @@ describe('GSC read-only collector against real Payload Local API', () => {
         seo: { noIndex: true },
       },
     });
+    const noIndexArticle = await payload.create({
+      collection: 'articles', context,
+      data: {
+        title: 'GSC CI published no-index article ' + suffix,
+        slug: 'gsc-noindex-article-' + suffix,
+        _status: 'published',
+        seo: { noIndex: true },
+      },
+    });
     const toolBase = {
       category: category.id,
       toolType: 'coded' as const,
@@ -95,6 +104,19 @@ describe('GSC read-only collector against real Payload Local API', () => {
         ...toolBase, name: 'GSC CI published tool ' + suffix,
         slug: 'gsc-published-tool-' + suffix,
         enabled: true, _status: 'published',
+      },
+    });
+    const canonicalTool = await payload.create({
+      collection: 'tools', context,
+      data: {
+        ...toolBase,
+        name: 'GSC CI alternate-canonical tool ' + suffix,
+        slug: 'gsc-canonical-tool-' + suffix,
+        enabled: true, _status: 'published',
+        seo: {
+          noIndex: false,
+          canonical: 'https://www.healthylifesstyles.com/tools/' + publishedTool.slug,
+        },
       },
     });
     const disabledTool = await payload.create({
@@ -126,6 +148,13 @@ describe('GSC read-only collector against real Payload Local API', () => {
     });
     expect(byId('articles', draftArticle.id)).toMatchObject({
       status: 'draft', noIndex: true,
+    });
+    expect(byId('articles', noIndexArticle.id)).toMatchObject({
+      status: 'published', noIndex: true,
+    });
+    expect(byId('tools', canonicalTool.id)).toMatchObject({
+      status: 'published', enabled: true, noIndex: false,
+      canonicalOverride: 'https://www.healthylifesstyles.com/tools/' + publishedTool.slug,
     });
     expect(byId('tools', publishedTool.id)).toMatchObject({
       status: 'published', enabled: true, noIndex: false,
@@ -160,6 +189,10 @@ describe('GSC read-only collector against real Payload Local API', () => {
         query: 'unpublished nutrition evidence' },
       { page: 'https://www.healthylifesstyles.com/tools/' + disabledTool.slug,
         query: 'disabled nutrition score' },
+      { page: 'https://www.healthylifesstyles.com/wellness-hub/' + noIndexArticle.slug,
+        query: 'noindex nutrition guide' },
+      { page: 'https://www.healthylifesstyles.com/tools/' + canonicalTool.slug,
+        query: 'tool with alternate canonical' },
       { page: 'https://www.healthylifesstyles.com/tools/absent-gsc-ci-tool',
         query: 'missing from bounded cms snapshot' },
     ];
@@ -181,22 +214,24 @@ describe('GSC read-only collector against real Payload Local API', () => {
     const find = (page: string) => confidential.tasks?.find(task => task.page === page);
     expect(find(observedPages[0].page)?.cmsSnapshotState)
       .toBe('declared-published-indexable');
-    for (const i of [1, 2]) {
+    for (const i of [1, 2, 3, 4]) {
       expect(find(observedPages[i].page)?.cmsSnapshotState)
         .toBe('declared-needs-indexability-review');
       expect(find(observedPages[i].page)?.reviewActions)
         .toContain('review-publication-and-indexability');
       expect(find(observedPages[i].page)?.recommendedCmsMutation).toBeNull();
     }
-    expect(find(observedPages[3].page)?.cmsSnapshotState)
+    expect(find(observedPages[5].page)?.cmsSnapshotState)
       .toBe('not-in-supplied-snapshot');
-    expect(find(observedPages[3].page)?.reviewActions)
+    expect(find(observedPages[5].page)?.reviewActions)
       .toContain('locate-page-in-authoritative-cms');
     expect(confidential.publicationAuthorized).toBe(false);
     expect(confidential.gscProvenanceAuthenticated).toBe(false);
     expect(confidential.cmsSnapshotAuthenticated).toBe(false);
     const redacted = buildOfflineEditorialReviewQueue(current, previous, result.catalog);
-    expect(redacted.totals.candidatePages).toBe(4);
+    expect(redacted.totals.candidatePages).toBe(6);
+    expect(confidential.totals.declaredIndexabilityReviewPages).toBe(4);
+    expect(confidential.totals.missingFromSuppliedSnapshot).toBe(1);
     expect('tasks' in redacted).toBe(false);
     for (const { page, query } of observedPages) {
       expect(JSON.stringify(redacted)).not.toContain(page);
