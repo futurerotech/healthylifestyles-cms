@@ -196,6 +196,27 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     expect(sdk.query).not.toHaveBeenCalled();
   });
 
+  it('rejects missing finalized dates before requesting query/page observations', async () => {
+    sdk.query.mockReset().mockResolvedValueOnce({
+      data: {rows: [{keys: ['2026-08-01']}]},
+    }).mockResolvedValueOnce({data: {rows: []}});
+    await expect(collectStaffGoogleReadOnlyReport(user, windows))
+      .rejects.toThrow(/No finalized Search Console dates/);
+    expect(sdk.sites).toHaveBeenCalledTimes(1);
+    expect(sdk.query).toHaveBeenCalledTimes(2);
+    for (const [request] of sdk.query.mock.calls) {
+      expect((request as {requestBody:{dimensions:string[]}}).requestBody.dimensions)
+        .toEqual(['date']);
+    }
+  });
+  it('does not fetch detailed Search Analytics when the first date preflight fails', async () => {
+    sdk.query.mockReset().mockResolvedValueOnce({data: {rows: [{keys: ['bad-date']}]}});
+    await expect(collectStaffGoogleReadOnlyReport(user, windows))
+      .rejects.toThrow(/Malformed, repeated or out-of-range finalized/);
+    expect(sdk.query).toHaveBeenCalledTimes(1);
+    expect((sdk.query.mock.calls[0][0] as {requestBody:{dimensions:string[]}})
+      .requestBody.dimensions).toEqual(['date']);
+  });
   it('redacts provider error text instead of logging or echoing private GSC queries', async () => {
     sdk.query.mockResolvedValueOnce({data:{rows:[{keys:['2026-08-01']}]}});
     sdk.query.mockResolvedValueOnce({data:{rows:[{keys:['2026-08-29']}]}});
