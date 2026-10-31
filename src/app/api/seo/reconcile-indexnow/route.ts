@@ -120,7 +120,9 @@ export async function POST(req: Request): Promise<NextResponse> {
     else deferred.push({ id: item.id, reason: item.reason });
   }
   const readyVersions = ready.map(x => ({ url: publicOrigin + x.path, changedAt: x.changedAt }));
-  const report = { dryRun: !explicitlyConfirmed, ready: ready.map(x => publicOrigin + x.path), readyVersions,
+  const report = { dryRun: !explicitlyConfirmed,
+    stagingPreviewOnly: Boolean(ISOLATED_STAGING_CMS_ORIGIN),
+    ready: ready.map(x => publicOrigin + x.path), readyVersions,
     deferred, queuedTotal: pending.totalDocs, page: requestedPage,
     totalPages: pending.totalPages, hasNextPage: pending.hasNextPage, hasPrevPage: pending.hasPrevPage,
     buildStartedAt: manifest.buildStartedAt };
