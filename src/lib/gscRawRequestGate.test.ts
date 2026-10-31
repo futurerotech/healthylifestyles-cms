@@ -70,6 +70,28 @@ describe('bounded raw GSC request/response gate',()=>{
     response:{rows:[{error:{code:429}}] as unknown as RawGscBatch['response']['rows']}};
   expect(()=>screenPaginatedRawGscBatches([first,terminal],[previous()])).toThrow(/Malformed Search Analytics data row/);
  });
+ it('rejects contradictory numeric metrics without converting them to no-data',()=>{
+  const malformed=[
+    {...row,clicks:-1}, {...row,impressions:-100}, {...row,clicks:101},
+    {...row,clicks:0.5}, {...row,impressions:100.5},
+    {...row,ctr:1.1}, {...row,ctr:0.5}, {...row,position:0},
+    {...row,clicks:Number.MAX_SAFE_INTEGER + 10},
+  ];
+  for (const badRow of malformed) {
+    const bad={...current(),response:{rows:[badRow],responseAggregationType:'auto'}};
+    expect(()=>screenBoundedRawGscBatches(bad,previous())).toThrow(/Inconsistent Search Analytics row metrics/);
+    expect(()=>screenPaginatedRawGscBatches([bad],[previous()])).toThrow(/Inconsistent Search Analytics row metrics/);
+    expect(()=>screenBoundedRawGscBatches(current(),{...previous(),response:{rows:[badRow]}}))
+      .toThrow(/Inconsistent Search Analytics row metrics/);
+  }
+  const first={...current(),request:{...current().request,rowLimit:1}};
+  const terminal={...first,request:{...first.request,startRow:1},
+    response:{rows:[{...row,ctr:0.5}]}};
+  expect(()=>screenPaginatedRawGscBatches([first,terminal],[previous()]))
+    .toThrow(/Inconsistent Search Analytics row metrics/);
+  const validZero={...current(),response:{rows:[{...row,clicks:0,impressions:0,ctr:0}]}};
+  expect(screenBoundedRawGscBatches(validZero,previous()).acceptedRows).toBe(0);
+ });
  it('rejects unknown request scope fields on all pages',()=>{
   const scoped={...current(),request:{...current().request,searchAppearance:'AMP'} as RawGscBatch['request']};
   expect(()=>screenBoundedRawGscBatches(scoped,previous())).toThrow(/Unsupported Search Analytics request field/);
