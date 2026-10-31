@@ -17,6 +17,7 @@ import { buildOfflineGscReport } from './gscOfflineReport';
 import { buildOfflineEditorialReviewQueue } from './gscEditorialReviewQueue';
 import { collectAuthorizedPayloadReviewSnapshot } from './gscPayloadReadOnlyCollector';
 import type { RawGscBatch } from './gscRawRequestGate';
+import { requireFinalizedDateAvailability } from './gscFinalizedDateAvailability';
 
 const ROW_LIMIT = 1000;
 const MAX_PAGES_PER_WINDOW = 25;
@@ -62,6 +63,7 @@ export interface GscReadOnlyTransport {
   listSites(): Promise<unknown>;
   /** A Google Search Console searchAnalytics.query() READ. */
   query(siteUrl: string, request: RawGscBatch['request']): Promise<unknown>;
+  checkDatePresence?(siteUrl: string, window: GscDateWindow): Promise<unknown>;
 }
 
 function requireStaff(req: Pick<PayloadRequest, 'user'>): void {
@@ -190,10 +192,19 @@ async function collectVerifiedGscBatchesWithTransport(
     throw new Error('Search Console property verification failed; no report was produced.');
   }
   assertAuthorizedProperty(sites);
+  const finalizedDatePresenceChecked = typeof transport.checkDatePresence === 'function';
+  if (transport.checkDatePresence) {
+    for (const window of [windows.previous, windows.current]) {
+      let response: unknown;
+      try { response = await transport.checkDatePresence(GSC_SITE_URL, window); }
+      catch { throw new Error('Search Console finalized-date availability check failed; no report was produced.'); }
+      requireFinalizedDateAvailability(response, window);
+    }
+  }
   // Serial provider calls and a strict cap; no persistence or logging.
   const previous = await readWindow(transport, windows.previous);
   const current = await readWindow(transport, windows.current);
-  return { current, previous };
+  return { current, previous, finalizedDatePresenceChecked };
 }
 
 export async function collectStaffGscReportWithTransport(
@@ -205,11 +216,12 @@ export async function collectStaffGscReportWithTransport(
   requireStaff(req);
   assertApprovedPeriods(windows);
   assertBoundedReviewOptions(options, 'includeQueries');
-  const { current, previous } = await collectVerifiedGscBatchesWithTransport(
+  const { current, previous, finalizedDatePresenceChecked } = await collectVerifiedGscBatchesWithTransport(
     req, windows, transport,
   );
   return {
     ...buildOfflineGscReport(current, previous, options),
+    finalizedDatePresenceChecked,
     propertyPermissionChecked: true as const,
     providerAuthentication: 'caller-transport-not-verified' as const,
     liveIndexingVerified: false as const,
@@ -252,7 +264,7 @@ async function collectStaffEditorialQueueCore(
   } catch {
     throw new Error('Search Console read-only initialization failed; no review queue was produced.');
   }
-  const { current, previous } = await collectVerifiedGscBatchesWithTransport(
+  const { current, previous, finalizedDatePresenceChecked } = await collectVerifiedGscBatchesWithTransport(
     req, windows, transport,
   );
   const queue = buildOfflineEditorialReviewQueue(
@@ -263,6 +275,7 @@ async function collectStaffEditorialQueueCore(
     cmsSnapshotReadWithAccessChecks: true as const,
     cmsSnapshotCounts: snapshot.counts,
     propertyPermissionCheckedInTransport: true as const,
+    finalizedDatePresenceChecked,
     providerAuthentication: 'caller-transport-not-verified' as const,
     liveIndexingVerified: false as const,
     publicationAuthorized: false as const,
@@ -307,6 +320,9 @@ async function makeGoogleReadOnlyTransport(): Promise<GscReadOnlyTransport> {
   const api = google.searchconsole({ version: 'v1', auth });
   return {
     listSites: async () => (await api.sites.list()).data,
+    checkDatePresence: async (siteUrl, window) => (await api.searchanalytics.query({
+      siteUrl, requestBody: {startDate:window.startDate,endDate:window.endDate,dimensions:['date'],type:'web',dataState:'final'},
+    })).data,
     query: async (siteUrl, request) =>
       // Do not spread RawGscBatch.request; its dimensionFilterGroups is
       // intentionally untrusted and cannot enter a Google API request.
