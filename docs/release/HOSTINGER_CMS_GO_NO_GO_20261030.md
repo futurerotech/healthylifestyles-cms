@@ -167,3 +167,15 @@ Before/after and rollback also compare fingerprints of **every synthetic public 
 This does NOT use production data, real Hostinger staging, or Neon credentials,
 so it cannot certify their deploy/restore path. A separate authorized staging
 rehearsal, current recovery point and owner production approval remain mandatory.
+
+## Built isolated staging mode smoke gate — CI mock only (2026-10-31)
+
+The release-candidate workflow now boots the compiled Next/Payload CMS with
+`HLS_ISOLATED_STAGING=true`, a simulated owned HTTPS staging origin, disabled
+IndexNow and deploy integrations, and **disposable CI-only PostgreSQL**. The
+bounded HTTP test verifies login reachability, anonymous queue denial,
+production-origin rejection and staging-mode forbidden deploy/submit paths.
+It never accesses Hostinger or live Neon, and is NOT a substitute for an
+owner-approved isolated Hostinger staging instance, staging-only user-role
+acceptance, fresh recovery point or demonstrated real rollback. A new exact-head
+CI PASS is required before claiming this mock runtime gate has succeeded.
