@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PayloadRequest } from 'payload';
+import type { Payload, PayloadRequest } from 'payload';
 
 const sdk = vi.hoisted(() => ({
   authConfigs: [] as unknown[],
@@ -25,7 +25,7 @@ vi.mock('googleapis', () => ({
 }));
 vi.mock('./google-auth', () => ({ loadGoogleCredentials: sdk.credentials }));
 
-import { collectStaffGoogleReadOnlyReport, probeStaffGoogleReadOnlyProperty } from './gscAuthorizedReadOnlyAnalytics';
+import { collectStaffGoogleReadOnlyReport, collectStaffGoogleReadOnlyEditorialQueue, probeStaffGoogleReadOnlyProperty } from './gscAuthorizedReadOnlyAnalytics';
 
 const property = 'sc-domain:healthylifesstyles.com';
 const page = 'https://www.healthylifesstyles.com/tools/bmi-calculator';
@@ -107,6 +107,24 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     await expect(probeStaffGoogleReadOnlyProperty(user))
       .rejects.toThrow('Search Console read-only property check failed.');
     expect(sdk.query).not.toHaveBeenCalled();
+  });
+  it('does not load OAuth credentials if CMS read fails before the Google client is needed', async () => {
+    const payload = {find: vi.fn(async () => {throw new Error('private database failure');})};
+    await expect(collectStaffGoogleReadOnlyEditorialQueue(user,windows,
+      payload as unknown as Pick<Payload,'find'>))
+      .rejects.toThrow('Access-controlled CMS snapshot failed; no review queue was produced.');
+    expect(payload.find).toHaveBeenCalledTimes(1);
+    expect(sdk.credentials).not.toHaveBeenCalled();
+    expect(sdk.authConfigs).toHaveLength(0);
+    expect(sdk.sites).not.toHaveBeenCalled();
+    expect(sdk.query).not.toHaveBeenCalled();
+  });
+  it('rejects invalid combined queue options before accessing Google credentials or CMS', async () => {
+    const payload = {find: vi.fn()};
+    await expect(collectStaffGoogleReadOnlyEditorialQueue(user,windows,
+      payload as unknown as Pick<Payload,'find'>,{top:101})).rejects.toThrow(/options/);
+    expect(payload.find).not.toHaveBeenCalled();
+    expect(sdk.credentials).not.toHaveBeenCalled();
   });
   it('uses only webmasters.readonly OAuth and exact audited request parameters', async () => {
     const report = await collectStaffGoogleReadOnlyReport(user, windows);
