@@ -25,7 +25,7 @@ vi.mock('googleapis', () => ({
 }));
 vi.mock('./google-auth', () => ({ loadGoogleCredentials: sdk.credentials }));
 
-import { collectStaffGoogleReadOnlyReport } from './gscAuthorizedReadOnlyAnalytics';
+import { collectStaffGoogleReadOnlyReport, probeStaffGoogleReadOnlyProperty } from './gscAuthorizedReadOnlyAnalytics';
 
 const property = 'sc-domain:healthylifesstyles.com';
 const page = 'https://www.healthylifesstyles.com/tools/bmi-calculator';
@@ -39,6 +39,7 @@ const observed = {
 };
 const originalEnabled = process.env.HLS_GSC_READONLY_ENABLED;
 const originalStaging = process.env.HLS_ISOLATED_STAGING;
+const originalProbe = process.env.HLS_GSC_PROPERTY_PROBE_ENABLED;
 
 describe('Google SDK readonly Search Analytics gate (offline mocks only)', () => {
   beforeEach(() => {
@@ -62,8 +63,51 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     else process.env.HLS_GSC_READONLY_ENABLED = originalEnabled;
     if (originalStaging === undefined) delete process.env.HLS_ISOLATED_STAGING;
     else process.env.HLS_ISOLATED_STAGING = originalStaging;
+    if (originalProbe === undefined) delete process.env.HLS_GSC_PROPERTY_PROBE_ENABLED;
+    else process.env.HLS_GSC_PROPERTY_PROBE_ENABLED = originalProbe;
   });
 
+  it('uses a separate opt-in for a minimal sites.list-only property probe', async () => {
+    delete process.env.HLS_GSC_READONLY_ENABLED;
+    delete process.env.HLS_GSC_PROPERTY_PROBE_ENABLED;
+    await expect(probeStaffGoogleReadOnlyProperty(user)).rejects.toThrow(/not enabled/);
+    expect(sdk.credentials).not.toHaveBeenCalled();
+    process.env.HLS_GSC_PROPERTY_PROBE_ENABLED = 'true';
+    const result = await probeStaffGoogleReadOnlyProperty(user);
+    expect(result).toMatchObject({
+      exactConfiguredPropertyAccessVerified: true,
+      oauthScope: 'https://www.googleapis.com/auth/webmasters.readonly',
+      searchAnalyticsRequests: 0, indexingSubmissions: 0, publicationAuthorized: false,
+    });
+    expect(sdk.sites).toHaveBeenCalledTimes(1);
+    expect(sdk.query).not.toHaveBeenCalled();
+    expect(sdk.authConfigs).toHaveLength(1);
+    expect((sdk.authConfigs[0] as {scopes:string[]}).scopes).toEqual([
+      'https://www.googleapis.com/auth/webmasters.readonly',
+    ]);
+  });
+  it('rejects unauthorized users and property mismatch without querying analytics', async () => {
+    process.env.HLS_GSC_PROPERTY_PROBE_ENABLED = 'true';
+    await expect(probeStaffGoogleReadOnlyProperty({user:null} as PayloadRequest))
+      .rejects.toThrow(/administrator or editor/);
+    expect(sdk.credentials).not.toHaveBeenCalled();
+    sdk.sites.mockResolvedValueOnce({data:{siteEntry:[{
+      siteUrl:'https://www.healthylifesstyles.com/',permissionLevel:'siteOwner',
+    }]}});
+    await expect(probeStaffGoogleReadOnlyProperty(user)).rejects.toThrow(/exact configured/);
+    expect(sdk.query).not.toHaveBeenCalled();
+  });
+  it('sanitizes provider errors and denies the probe in isolated staging', async () => {
+    process.env.HLS_GSC_PROPERTY_PROBE_ENABLED = 'true';
+    process.env.HLS_ISOLATED_STAGING = 'true';
+    await expect(probeStaffGoogleReadOnlyProperty(user)).rejects.toThrow(/not enabled/);
+    expect(sdk.credentials).not.toHaveBeenCalled();
+    delete process.env.HLS_ISOLATED_STAGING;
+    sdk.sites.mockRejectedValueOnce(new Error('private credentials and token'));
+    await expect(probeStaffGoogleReadOnlyProperty(user))
+      .rejects.toThrow('Search Console read-only property check failed.');
+    expect(sdk.query).not.toHaveBeenCalled();
+  });
   it('uses only webmasters.readonly OAuth and exact audited request parameters', async () => {
     const report = await collectStaffGoogleReadOnlyReport(user, windows);
     expect(sdk.credentials).toHaveBeenCalledTimes(1);
