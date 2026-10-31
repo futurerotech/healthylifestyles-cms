@@ -180,3 +180,9 @@ export const subscriberSync: Endpoint = {
     }
   },
 };
+
+
+// Collection /api/subscribers/:id can shadow /api/subscribers/sync.
+// Register a collision-free equivalent without removing the legacy path.
+// Update external automation to /api/subscriber-sync only after release approval.
+export const subscriberSyncDirect: Endpoint = { ...subscriberSync, path: '/subscriber-sync' };
