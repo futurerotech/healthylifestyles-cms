@@ -1,3 +1,4 @@
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
 
 /**
@@ -21,6 +22,8 @@ export const checkBacklinks: Endpoint = {
   path: '/backlinks/check',
   method: 'get',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     const key = req.searchParams?.get('key') || req.headers.get('x-api-key') || '';
     const keyOk = !!process.env.INTERNAL_API_KEY && key === process.env.INTERNAL_API_KEY;
     if (!req.user && !keyOk) {
