@@ -6,7 +6,7 @@
  * disabled by default, and uses ONLY webmasters.readonly OAuth scope.
  * Tests inject a read-only transport and cannot authenticate provider data.
  */
-import type { PayloadRequest } from 'payload';
+import type { Payload, PayloadRequest } from 'payload';
 import { loadGoogleCredentials } from './google-auth';
 import { GSC_SITE_URL } from './site-config';
 import {
@@ -14,6 +14,8 @@ import {
   type DeclaredGscExport,
 } from './gscExportIntegrity';
 import { buildOfflineGscReport } from './gscOfflineReport';
+import { buildOfflineEditorialReviewQueue } from './gscEditorialReviewQueue';
+import { collectAuthorizedPayloadReviewSnapshot } from './gscPayloadReadOnlyCollector';
 import type { RawGscBatch } from './gscRawRequestGate';
 
 const ROW_LIMIT = 1000;
@@ -141,11 +143,15 @@ async function readWindow(
  * report remains labeled offline/unverified, with page/query details redacted
  * unless the staff caller deliberately opts in.
  */
-export async function collectStaffGscReportWithTransport(
+/**
+ * Keep captured query/page rows local to this module and never expose them
+ * in a default staff response. These are caller-transport assertions only:
+ * the injected transport is not proof of live Google authentication.
+ */
+async function collectVerifiedGscBatchesWithTransport(
   req: Pick<PayloadRequest, 'user'>,
   windows: GscComparisonWindows,
   transport: GscReadOnlyTransport,
-  options: { includeQueries?: boolean; top?: number } = {},
 ) {
   requireStaff(req);
   assertApprovedPeriods(windows);
@@ -160,15 +166,83 @@ export async function collectStaffGscReportWithTransport(
     throw new Error('Search Console property verification failed; no report was produced.');
   }
   assertAuthorizedProperty(sites);
-  // Serial provider calls and a strict cap; do not persist raw query data.
+  // Serial provider calls and a strict cap; no persistence or logging.
   const previous = await readWindow(transport, windows.previous);
   const current = await readWindow(transport, windows.current);
+  return { current, previous };
+}
+
+export async function collectStaffGscReportWithTransport(
+  req: Pick<PayloadRequest, 'user'>,
+  windows: GscComparisonWindows,
+  transport: GscReadOnlyTransport,
+  options: { includeQueries?: boolean; top?: number } = {},
+) {
+  const { current, previous } = await collectVerifiedGscBatchesWithTransport(
+    req, windows, transport,
+  );
   return {
     ...buildOfflineGscReport(current, previous, options),
     propertyPermissionChecked: true as const,
     providerAuthentication: 'caller-transport-not-verified' as const,
     liveIndexingVerified: false as const,
     publicationAuthorized: false as const,
+  };
+}
+
+/**
+ * Link access-controlled Payload base-document projections with bounded,
+ * read-only Search Analytics observations for human editorial triage.
+ * The CMS snapshot is read first; an access/pagination error prevents ALL
+ * Search Console requests. No route/cron calls this function in this PR.
+ */
+export async function collectStaffEditorialReviewQueueWithTransport(
+  req: PayloadRequest,
+  windows: GscComparisonWindows,
+  payload: Pick<Payload, 'find'>,
+  transport: GscReadOnlyTransport,
+  options: { includeDetails?: boolean; top?: number } = {},
+) {
+  requireStaff(req);
+  assertApprovedPeriods(windows);
+  if (!payload || typeof payload.find !== 'function') {
+    throw new TypeError('An access-controlled Payload read transport is required.');
+  }
+  if (!options || typeof options !== 'object' || Array.isArray(options) ||
+      (options.includeDetails !== undefined && typeof options.includeDetails !== 'boolean') ||
+      (options.top !== undefined &&
+        (!Number.isSafeInteger(options.top) || options.top < 1 || options.top > 100))) {
+    throw new RangeError('Invalid bounded editorial review options.');
+  }
+
+  let snapshot: Awaited<ReturnType<typeof collectAuthorizedPayloadReviewSnapshot>>;
+  try {
+    snapshot = await collectAuthorizedPayloadReviewSnapshot(payload, req);
+  } catch {
+    // Never surface underlying database errors, SQL, user data or query text.
+    throw new Error('Access-controlled CMS snapshot failed; no review queue was produced.');
+  }
+
+  const { current, previous } = await collectVerifiedGscBatchesWithTransport(
+    req, windows, transport,
+  );
+  const queue = buildOfflineEditorialReviewQueue(
+    current, previous, snapshot.catalog, options,
+  );
+  return {
+    ...queue,
+    cmsSnapshotReadWithAccessChecks: true as const,
+    cmsSnapshotCounts: snapshot.counts,
+    propertyPermissionCheckedInTransport: true as const,
+    providerAuthentication: 'caller-transport-not-verified' as const,
+    liveIndexingVerified: false as const,
+    publicationAuthorized: false as const,
+    caveats: [
+      ...queue.caveats,
+      ...snapshot.caveats,
+      'Both captures were checked for shape and access, not frozen in an atomic cross-system transaction.',
+      'Provider identity remains unverified for injected transports; do not interpret this report as proof of current Google indexing.',
+    ],
   };
 }
 
@@ -272,5 +346,35 @@ export async function collectStaffGoogleReadOnlyReport(
     // This proves property access for this request only; it does NOT prove
     // complete Search Console row coverage or Google indexing of the pages.
     googleReadOnlyPropertyAccessVerified: true as const,
+  };
+}
+
+/**
+ * No public route is wired to this function. Explicitly enabling the
+ * property-only probe does NOT enable Search Analytics or this combined queue.
+ * The same HLS_GSC_READONLY_ENABLED gate protects the real Google collector.
+ */
+export async function collectStaffGoogleReadOnlyEditorialQueue(
+  req: PayloadRequest,
+  windows: GscComparisonWindows,
+  payload: Pick<Payload, 'find'>,
+  options: { includeDetails?: boolean; top?: number } = {},
+) {
+  requireStaff(req);
+  assertApprovedPeriods(windows);
+  if (process.env.HLS_GSC_READONLY_ENABLED !== 'true' ||
+      process.env.HLS_ISOLATED_STAGING === 'true') {
+    throw new Error('Live Search Analytics collection is not enabled for this environment.');
+  }
+  const transport = await makeGoogleReadOnlyTransport();
+  const queue = await collectStaffEditorialReviewQueueWithTransport(
+    req, windows, payload, transport, options,
+  );
+  return {
+    ...queue,
+    providerAuthentication: 'google-oauth-webmasters-readonly' as const,
+    googleReadOnlyPropertyAccessVerified: true as const,
+    // This does not prove that URLs are indexed or snapshots are current.
+    publicationAuthorized: false as const,
   };
 }
