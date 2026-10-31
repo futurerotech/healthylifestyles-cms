@@ -1,4 +1,5 @@
 import type { Endpoint, PayloadRequest } from 'payload';
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import { computeSchemaFlagDrift, type DriftRow } from '../lib/schemaFlagDrift';
 
 /**
@@ -74,7 +75,8 @@ export const schemaFlagsCron: Endpoint = {
     inFlight = true;
 
     try {
-      const dry =
+      const stagingPreview = process.env.HLS_ISOLATED_STAGING === 'true';
+      const dry = stagingPreview ||
         process.env.DRIFT_REPORT_DRY === '1' ||
         process.env.DRIFT_REPORT_DRY === 'true' ||
         req.searchParams?.get('dry') === '1';
