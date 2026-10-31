@@ -35,9 +35,12 @@ function assertBoundedReviewOptions(
   options: GscReportOptions | GscEditorialOptions,
   disclosureFlag: 'includeQueries' | 'includeDetails',
 ): void {
+  const disclosure = disclosureFlag === 'includeQueries'
+    ? (options as GscReportOptions)?.includeQueries
+    : (options as GscEditorialOptions)?.includeDetails;
   if (!options || typeof options !== 'object' || Array.isArray(options) ||
       Object.keys(options).some(key => key !== disclosureFlag && key !== 'top') ||
-      (options[disclosureFlag] !== undefined && typeof options[disclosureFlag] !== 'boolean') ||
+      (disclosure !== undefined && typeof disclosure !== 'boolean') ||
       (options.top !== undefined &&
         (!Number.isSafeInteger(options.top) || options.top < 1 || options.top > 100))) {
     throw new RangeError('Invalid bounded GSC review display options.');
