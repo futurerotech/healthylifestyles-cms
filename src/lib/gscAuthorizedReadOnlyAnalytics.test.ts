@@ -16,7 +16,7 @@ const row = { keys: ['bmi calculator', 'https://www.healthylifesstyles.com/tools
   clicks: 4, impressions: 100, ctr: 0.04, position: 9 };
 const transport = (permission = 'siteFullUser') => ({
   listSites: vi.fn(async () => ({ siteEntry: [{ siteUrl: property, permissionLevel: permission }] })),
-  query: vi.fn(async () => ({ rows: [row], responseAggregationType: 'byPage' })),
+  query: vi.fn(async (_site: string, _request: GscReadOnlyTransport['query'] extends (site: string, request: infer R) => Promise<unknown> ? R : never) => ({ rows: [row], responseAggregationType: 'byPage' })),
 });
 
 describe('bounded staff-only Google Search Analytics adapter', () => {
