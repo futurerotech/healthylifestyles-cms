@@ -92,7 +92,8 @@ if (process.env.HLS_ISOLATED_STAGING === 'true') {
     stagingHost: process.env.HLS_STAGING_DATABASE_HOST,
     productionHost: process.env.HLS_PRODUCTION_DATABASE_HOST,
     ciMockRuntime: process.env.GITHUB_ACTIONS === 'true' &&
-      process.env.CI_ISOLATED_STAGING_RUNTIME_SMOKE === '1',
+      (process.env.CI_ISOLATED_STAGING_RUNTIME_SMOKE === '1' ||
+       process.env.CI_STAGING_ROLE_INTEGRATION === '1'),
   });
 }
 
