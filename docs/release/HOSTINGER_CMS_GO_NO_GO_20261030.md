@@ -203,3 +203,7 @@ A staging-only handler gate returns HTTP 503 without external calls for push not
 ## Additional isolated staging outbound coverage — 2026-10-31
 
 The shared staging-only outbound guard now covers all four AI article authoring endpoints through their common preflight, and blocks launching the detached site-audit crawler before creating an audit record. The weekly schema-flags report is forced into dry-run under isolated staging, so it cannot call the email transport. Existing production behavior remains unchanged. These edits still require exact-head CI verification and do not prove that all service integrations or actual Hostinger staging are isolated. Never enable live providers for staging. No production calls were made.
+
+## Provider-route HTTP fail-closed acceptance — 2026-10-31
+
+The recipe analyzer now rejects isolated-staging requests before invoking AI parsing or USDA. The built Next/Payload HTTP smoke checks 13 provider-backed POST paths and the backlink GET endpoint for HTTP 503 with a disposable administrator JWT. This extends coverage beyond testing the shared utility function alone. The mail-only schema flags cron intentionally remains a dry-run, not a blocked provider call. This is CI synthetic staging, NOT real Hostinger acceptance; new exact-head CI must pass and no real provider traffic is authorized.
