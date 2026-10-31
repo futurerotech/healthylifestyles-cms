@@ -50,8 +50,12 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     sdk.sites.mockReset().mockResolvedValue({
       data: { siteEntry: [{ siteUrl: property, permissionLevel: 'siteFullUser' }] },
     });
-    sdk.query.mockReset().mockResolvedValue({
-      data: { rows: [observed], responseAggregationType: 'byPage' },
+    sdk.query.mockReset().mockImplementation(async (request: unknown) => {
+      const body = (request as {requestBody?:{dimensions?:string[];startDate?:string}}).requestBody;
+      if (body?.dimensions?.[0] === 'date') return {
+        data: { rows: [{keys:[body.startDate]}] },
+      };
+      return { data: { rows: [observed], responseAggregationType: 'byPage' } };
     });
     sdk.service.mockReset().mockImplementation(() => ({
       sites: { list: sdk.sites },
@@ -143,8 +147,9 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
       expect.objectContaining({ version: 'v1', auth: expect.any(Object) }),
     );
     expect(sdk.sites).toHaveBeenCalledTimes(1);
-    expect(sdk.query).toHaveBeenCalledTimes(2);
-    const bodies = sdk.query.mock.calls.map(([call]) =>
+    expect(sdk.query).toHaveBeenCalledTimes(4);
+    const bodies = sdk.query.mock.calls.filter(([call]) =>
+      (call as {requestBody:{dimensions:string[]}}).requestBody.dimensions[0] !== 'date').map(([call]) =>
       call as { siteUrl: string; requestBody: Record<string, unknown> });
     for (const request of bodies) {
       expect(request.siteUrl).toBe(property);
@@ -209,7 +214,8 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     });
     const report = await collectStaffGoogleReadOnlyReport(user, windows);
     expect(report.totals.acceptedRows).toBe(1);
-    expect(sdk.query.mock.calls.map(([call]) =>
+    expect(sdk.query.mock.calls.filter(([call]) =>
+      (call as {requestBody:{dimensions:string[]}}).requestBody.dimensions[0] !== 'date').map(([call]) =>
       (call as {requestBody:{startRow:number}}).requestBody.startRow))
       .toEqual([0, 1000, 0]);
   });
