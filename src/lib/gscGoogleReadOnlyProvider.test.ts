@@ -197,16 +197,20 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
   });
 
   it('redacts provider error text instead of logging or echoing private GSC queries', async () => {
+    sdk.query.mockResolvedValueOnce({data:{rows:[{keys:['2026-08-01']}]}});
+    sdk.query.mockResolvedValueOnce({data:{rows:[{keys:['2026-08-29']}]}});
     sdk.query.mockRejectedValueOnce(new Error('secret search phrase and auth detail'));
     await expect(collectStaffGoogleReadOnlyReport(user, windows))
       .rejects.toThrow('Search Analytics read failed; no report was produced.');
-    expect(sdk.query).toHaveBeenCalledTimes(1);
+    expect(sdk.query).toHaveBeenCalledTimes(3);
   });
 
   it('proves a full page followed by a short terminal page uses contiguous offsets', async () => {
     const first = Array.from({ length: 1000 }, (_, i) => ({
       keys: ['term-' + i, page], clicks: 0, impressions: 20, ctr: 0, position: 9,
     }));
+    sdk.query.mockResolvedValueOnce({data:{rows:[{keys:['2026-08-01']}]}});
+    sdk.query.mockResolvedValueOnce({data:{rows:[{keys:['2026-08-29']}]}});
     sdk.query.mockResolvedValueOnce({ data: { rows: first, responseAggregationType: 'byPage' } });
     sdk.query.mockResolvedValueOnce({ data: { rows: [], responseAggregationType: 'byPage' } });
     sdk.query.mockResolvedValueOnce({
