@@ -4,6 +4,7 @@ import { REGEN_SECTIONS, type RegenSection, type GeneratedArticle } from '../ser
 import { generateHeroImage, isImageConfigured } from '../services/image';
 import { searchReputable, isSearchConfigured, type SearchResult } from '../services/search';
 import { computeIsHowTo, computeIsHealthTopic } from '../lib/schemaFlags';
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 
 /**
  * POST /api/generate-article  and  POST /api/regenerate-section
@@ -263,6 +264,10 @@ async function loadContext(
 function preflight(req: PayloadRequest): Response | null {
   if (!req.user) return Response.json({ success: false, error: 'Not authenticated.' }, { status: 401 });
   if (!isEditor(req)) return Response.json({ success: false, error: 'Editors only.' }, { status: 403 });
+  // All four AI article endpoints share this preflight. Block provider calls,
+  // generated media and draft mutations in isolated Hostinger staging.
+  const stagingDenied = denyIsolatedStagingOutbound();
+  if (stagingDenied) return stagingDenied;
   if (rateLimited(String(req.user.id))) {
     return Response.json({ success: false, error: 'Too many requests — wait a minute and retry.' }, { status: 429 });
   }
