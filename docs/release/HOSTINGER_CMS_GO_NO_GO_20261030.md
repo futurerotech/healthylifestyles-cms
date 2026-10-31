@@ -199,3 +199,7 @@ After CI #41155577400 SUCCESS on the previous head, the staging media validator 
 ## External outbound integration isolation — 2026-10-31
 
 A staging-only handler gate returns HTTP 503 without external calls for push notifications, subscriber synchronization, AI-writing/SEO/assistant calls, backlink checks, CSV imports and pSEO generation. The gate is neutral in ordinary production mode and tested separately. It is defense in depth; independent runtime verification and review of remaining endpoints are required. No live services were changed. The last run for the preceding head (Actions 41156730319) was still in progress during this record, and the current new head needs its own CI result.
+
+## Additional isolated staging outbound coverage — 2026-10-31
+
+The shared staging-only outbound guard now covers all four AI article authoring endpoints through their common preflight, and blocks launching the detached site-audit crawler before creating an audit record. The weekly schema-flags report is forced into dry-run under isolated staging, so it cannot call the email transport. Existing production behavior remains unchanged. These edits still require exact-head CI verification and do not prove that all service integrations or actual Hostinger staging are isolated. Never enable live providers for staging. No production calls were made.
