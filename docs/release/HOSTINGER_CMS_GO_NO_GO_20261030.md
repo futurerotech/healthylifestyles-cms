@@ -191,3 +191,7 @@ When HLS_ISOLATED_STAGING=true, Payload startup now requires HLS_STAGING_DATABAS
 ## Staging R2 media isolation — 2026-10-31
 
 With HLS_ISOLATED_STAGING=true, startup now refuses a missing or shared R2 bucket, malformed R2 endpoint, missing staging credentials, and a configured public media URL that is not explicitly distinct from production. Operators must supply HLS_STAGING_R2_BUCKET, HLS_PRODUCTION_R2_BUCKET and, if a staging public CDN is used, HLS_STAGING_MEDIA_PUBLIC_URL and HLS_PRODUCTION_MEDIA_PUBLIC_URL. The exact GitHub Actions mock-only runtime has no configured R2 integration, and is allowed to remain disconnected. These are startup guardrails, not a verification of Cloudflare IAM: a separately restricted R2 API token and confirmation of bucket-level access remain an operator acceptance requirement. No production R2 writes or Hostinger deployment were performed. New exact-head CI must pass before considering this source change tested.
+
+## R2 CDN alias hardening — 2026-10-31
+
+After CI #41155577400 SUCCESS on the previous head, the staging media validator was tightened to compare full configured HTTPS CDN bases (including optional paths), reject encoded/ambiguous paths, and reject staging and production sharing a hostname even with different prefixes. This avoids accidentally using production media through a staging-looking path. Synthetic unit cases were added; this follow-up source change requires its own exact-head CI PASS. No actual R2 credentials, production bucket actions, Hostinger deploys, or Neon writes were performed.
