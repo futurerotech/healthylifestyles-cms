@@ -2,6 +2,7 @@ import path from 'path';
 import { canSeedDevelopmentDefaults } from './src/lib/development-seeding';
 import { postgresPoolOptions } from './src/lib/postgres-connection';
 import { assertIsolatedStagingDatabase } from './src/lib/isolated-staging-database';
+import { assertIsolatedStagingMedia } from './src/lib/isolated-staging-media';
 import { fileURLToPath } from 'url';
 import { buildConfig } from 'payload';
 import { postgresAdapter } from '@payloadcms/db-postgres';
@@ -106,6 +107,23 @@ if (process.env.HLS_ISOLATED_STAGING === 'true') {
  * back to the Media collection's local staticDir — nothing else changes.
  */
 const S3_PUBLIC_URL = (process.env.S3_PUBLIC_URL || '').replace(/\/$/, '');
+if (process.env.HLS_ISOLATED_STAGING === 'true') {
+  assertIsolatedStagingMedia({
+    bucket: process.env.S3_BUCKET,
+    endpoint: process.env.S3_ENDPOINT,
+    accessKeyId: process.env.S3_ACCESS_KEY_ID,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+    publicUrl: S3_PUBLIC_URL,
+    stagingBucket: process.env.HLS_STAGING_R2_BUCKET,
+    productionBucket: process.env.HLS_PRODUCTION_R2_BUCKET,
+    stagingPublicUrl: process.env.HLS_STAGING_MEDIA_PUBLIC_URL,
+    productionPublicUrl: process.env.HLS_PRODUCTION_MEDIA_PUBLIC_URL,
+    ciMockRuntime: process.env.GITHUB_ACTIONS === 'true' &&
+      (process.env.CI_ISOLATED_STAGING_RUNTIME_SMOKE === '1' ||
+       process.env.CI_STAGING_ROLE_INTEGRATION === '1'),
+  });
+}
+
 const s3Enabled = !!(
   process.env.S3_BUCKET &&
   process.env.S3_ENDPOINT &&
