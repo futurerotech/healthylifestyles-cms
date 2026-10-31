@@ -19,6 +19,7 @@ import { Button, toast, useAuth } from '@payloadcms/ui';
  */
 const POLL_MS = 30_000;
 interface IndexPreview {
+ stagingPreviewOnly?: boolean;
  ready: string[];
  readyVersions: {url:string;changedAt:string}[];
  deferred: {id:string|number;reason:string}[];
@@ -35,6 +36,7 @@ const DeployButton: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<number | null>(null);
   const [pendingError, setPendingError] = useState(false);
+  const [stagingPreviewOnly, setStagingPreviewOnly] = useState(false);
   const [indexPreview, setIndexPreview] = useState<IndexPreview | null>(null);
   const [indexBusy, setIndexBusy] = useState(false);
   const [indexPage, setIndexPage] = useState(1);
@@ -43,11 +45,12 @@ const DeployButton: React.FC = () => {
     try {
       const res = await fetch('/api/deploy/pending', { credentials: 'include' });
       if (!res.ok) throw new Error('Pending queue unavailable');
-      const data = (await res.json()) as { count?: unknown };
+      const data = (await res.json()) as { count?: unknown; stagingPreviewOnly?: unknown };
       if (typeof data.count !== 'number' || !Number.isSafeInteger(data.count) || data.count < 0) {
         throw new Error('Invalid pending queue count');
       }
       setPending(data.count);
+      setStagingPreviewOnly(data.stagingPreviewOnly === true);
       setPendingError(false);
     } catch {
       setPending(null);
@@ -76,6 +79,7 @@ const DeployButton: React.FC = () => {
         throw new Error(body.error || 'Unable to verify deployed URLs.');
       }
       setIndexPreview(body as IndexPreview);
+      if (body.stagingPreviewOnly === true) setStagingPreviewOnly(true);
       setIndexPage(page);
       toast.success('IndexNow preview complete. Nothing sent to IndexNow.');
     } catch (e) {
@@ -85,7 +89,7 @@ const DeployButton: React.FC = () => {
 
   async function submitIndexNow() {
     const preview = indexPreview;
-    if (!preview?.ready.length || indexBusy) return;
+    if (!preview?.ready.length || indexBusy || stagingPreviewOnly || preview.stagingPreviewOnly) return;
     if (!window.confirm('Send precisely ' + preview.ready.length +
       ' verified URLs to IndexNow? This is a real submission to participating engines.')) return;
     setIndexPreview(null); setIndexBusy(true);
@@ -127,6 +131,7 @@ const DeployButton: React.FC = () => {
   if (!isAdmin) return null;
 
   const deploy = async () => {
+    if (stagingPreviewOnly) return;
     setIndexPreview(null);
     setIndexPage(1);
     setBusy(true);
@@ -160,7 +165,7 @@ const DeployButton: React.FC = () => {
     <div style={{ padding: '0.5rem 0.75rem 1rem' }}>
       <Button
         onClick={() => void deploy()}
-        disabled={busy || pendingError || pending === null || nothingToDo}
+        disabled={busy || pendingError || pending === null || nothingToDo || stagingPreviewOnly}
         buttonStyle={nothingToDo ? 'secondary' : 'primary'}
         size="small"
         icon={busy ? undefined : ['plus']}
@@ -175,6 +180,7 @@ const DeployButton: React.FC = () => {
             : `Deploy site (${count} pending)`}
       </Button>
       {pendingError && <p role="alert">Pending deploy queue unavailable. Check CMS database before deploying.</p>}
+      {stagingPreviewOnly && <p role="status">Isolated staging: Vercel deployment and IndexNow submission are disabled. Preview only.</p>}
       <section aria-label="IndexNow post-deploy verification" style={{ marginTop: 12 }}>
         <p style={{ fontSize: 12 }}>IndexNow: verify production pages after Vercel is ready. Google uses Search Console.</p>
         <Button onClick={() => void previewIndexNow()} disabled={busy || indexBusy}
@@ -207,7 +213,8 @@ const DeployButton: React.FC = () => {
               </ul>
             </details>
           )}
-          {indexPreview.ready.length > 0 && <Button onClick={() => void submitIndexNow()}
+          {indexPreview.ready.length > 0 && !stagingPreviewOnly && !indexPreview.stagingPreviewOnly &&
+          <Button onClick={() => void submitIndexNow()}
             disabled={indexBusy} buttonStyle="primary" size="small" aria-label="Submit approved IndexNow URLs">
             Submit verified URLs to IndexNow
           </Button>}
