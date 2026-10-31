@@ -39,6 +39,7 @@ const REQUEST_FIELDS = new Set([
   'aggregationType', 'rowLimit', 'startRow', 'dimensionFilterGroups',
 ]);
 const RESPONSE_FIELDS = new Set(['rows', 'responseAggregationType']);
+const ROW_FIELDS = new Set(['keys', 'clicks', 'impressions', 'ctr', 'position']);
 
 function verifyRawShape(batch: RawGscBatch): void {
   if (!batch || typeof batch !== 'object' || Array.isArray(batch) ||
@@ -54,6 +55,23 @@ function verifyRawShape(batch: RawGscBatch): void {
   }
   if (batch.response.rows !== undefined && !Array.isArray(batch.response.rows)) {
     throw new TypeError('Search Analytics rows must be an array when present.');
+  }
+  // The official query+page row shape has five fields. A provider error
+  // object, truncated metric record or extra row scope must not be scored
+  // as a silently discarded query and mistaken for a zero-data period.
+  for (const rawRow of batch.response.rows ?? []) {
+    if (!rawRow || typeof rawRow !== 'object' || Array.isArray(rawRow) ||
+        Object.keys(rawRow).some(field => !ROW_FIELDS.has(field))) {
+      throw new TypeError('Malformed Search Analytics data row.');
+    }
+    const row = rawRow as unknown as Record<string, unknown>;
+    if (!Array.isArray(row.keys) || row.keys.length !== 2 ||
+        row.keys.some(key => typeof key !== 'string') ||
+        ['clicks', 'impressions', 'ctr', 'position'].some(
+          field => typeof row[field] !== 'number' || !Number.isFinite(row[field]),
+        )) {
+      throw new TypeError('Malformed Search Analytics data row.');
+    }
   }
 }
 
