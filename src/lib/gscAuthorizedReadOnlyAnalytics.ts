@@ -205,7 +205,22 @@ export async function collectStaffGoogleReadOnlyReport(
   const transport: GscReadOnlyTransport = {
     listSites: async () => (await api.sites.list()).data,
     query: async (siteUrl, request) =>
-      (await api.searchanalytics.query({ siteUrl, requestBody: { ...request } })).data,
+      // Pass only the explicitly audited query+page fields. Do not spread
+      // RawGscBatch.request, whose optional dimensionFilterGroups is unknown
+      // by design and is rejected by the offline request-scope gate.
+      (await api.searchanalytics.query({
+        siteUrl,
+        requestBody: {
+          startDate: request.startDate,
+          endDate: request.endDate,
+          dimensions: ['query', 'page'],
+          type: 'web',
+          dataState: 'final',
+          aggregationType: 'byPage',
+          rowLimit: request.rowLimit,
+          startRow: request.startRow,
+        },
+      })).data,
   };
   const report = await collectStaffGscReportWithTransport(req, windows, transport, options);
   return {
