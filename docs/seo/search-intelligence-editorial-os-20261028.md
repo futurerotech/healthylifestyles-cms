@@ -93,3 +93,21 @@ https://developers.google.com/search/docs/essentials/spam-policies
 
 ## 2026-10-30 bounded, access-controlled Payload local reader
 - Added `src/lib/gscPayloadReadOnlyCollector.ts` requiring a real authenticated administrator/editor `PayloadRequest`, using Payload Local API `find` with `overrideAccess:false`, `draft:false`, `depth:0`, minimal selected fields, stable ID ordering, bounded pagination (100 per page) and maximum 25,000 combined records. Rejects missing IDs, duplicate paginated IDs, inconsistent metadata and malformed projections. Explicitly does not offer an HTTP endpoint or write to CMS. This is request-scoped and not a transactionally frozen snapshot; a caller must still validate live canonicals and Search Console provenance. No actual production read has been executed.
+
+
+## 2026-11-01 isolated GSC property-only verification gate
+
+The programmatic, staff-only `probeStaffGoogleReadOnlyProperty(req)` is an **internal library function**; no public API endpoint, cron, or automatic runner is installed. It calls only the read-only Search Console `sites.list` method, verifies access to exactly `GSC_SITE_URL`, and returns a minimal receipt. This is distinct from Search Analytics and URL Inspection.
+
+**Safe operator prerequisites (not performed by CI):**
+- Obtain independent owner authorization for one real property-only permission check. Keep the service-account key in an approved ephemeral secret store, never in GitHub, logs, Drive documents, command arguments or comments.
+- Execute within an independently reviewed isolated CMS environment using a real authenticated admin/editor `PayloadRequest`. It cannot be invoked with a fabricated staff object for a real acceptance test.
+- Set `HLS_ISOLATED_STAGING=true`, `HLS_GSC_PROPERTY_PROBE_ENABLED=true`, `HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED=true`, while leaving `HLS_GSC_READONLY_ENABLED` **unset or false**.
+- Only the triple gate above permits the isolated property-only probe. Any missing opt-in or enabling of the broad analytics flag fails before credential resolution. Both real Search Analytics entrypoints remain blocked whenever isolated staging is true.
+- Once the authorized operator has invoked the function once in the authenticated server process, retain only its sanitized success/failure outcome, close the execution context and turn off the two probe opt-ins. Never export the site list, response bodies, credentials, search queries or pages.
+- A successfully mocked CI receipt is **not** proof of real property access; only a reviewed live read can complete the operational gate. No such live request is made in this PR.
+- Continue to require separate explicit release approval, successful exact-head CI, and PR34 Hostinger/Neon plus frontend PR17 Vercel gates before merging or deploying anything.
+
+References:
+- https://developers.google.com/webmaster-tools/v1/sites/list
+- https://support.google.com/webmasters/answer/7687615
