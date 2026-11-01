@@ -8,7 +8,7 @@
  */
 import type { Payload, PayloadRequest } from 'payload';
 import { loadGoogleCredentials } from './google-auth';
-import { GSC_SITE_URL } from './site-config';
+import { APPROVED_GSC_DOMAIN_PROPERTY, GSC_SITE_URL } from './site-config';
 import {
   screenComparableGscExports,
   type DeclaredGscExport,
@@ -69,6 +69,18 @@ export interface GscReadOnlyTransport {
 function requireStaff(req: Pick<PayloadRequest, 'user'>): void {
   if (!req?.user || !['admin', 'editor'].includes(req.user.role ?? '')) {
     throw new Error('An authenticated Payload administrator or editor is required.');
+  }
+}
+
+/**
+ * The Search Console operator must prove the exact Domain property, never
+ * a valid-but-different URL-prefix property supplied via environment config.
+ * Keep the approved identifier in site-config.ts, not a second literal here.
+ * This is checked before loading credentials, contacting Google or reading CMS.
+ */
+function requireApprovedGscDomainProperty(): void {
+  if (GSC_SITE_URL !== APPROVED_GSC_DOMAIN_PROPERTY) {
+    throw new Error('Configured Search Console property is not the approved Domain property.');
   }
 }
 
@@ -350,6 +362,7 @@ export async function probeStaffGoogleReadOnlyProperty(
   req: Pick<PayloadRequest, 'user'>,
 ) {
   requireStaff(req);
+  requireApprovedGscDomainProperty();
   // This permission probe is exclusively for a reviewed, isolated
   // execution. Never permit a one-flag property request in production,
   // even though it is read-only. Fail closed on ambiguous env values.
@@ -396,6 +409,7 @@ export async function collectStaffGoogleReadOnlyReport(
   requireStaff(req);
   assertApprovedPeriods(windows);
   assertBoundedReviewOptions(options, 'includeQueries');
+  requireApprovedGscDomainProperty();
   if (process.env.HLS_GSC_READONLY_ENABLED !== 'true' ||
       process.env.HLS_ISOLATED_STAGING === 'true') {
     throw new Error('Live Search Analytics collection is not enabled for this environment.');
@@ -426,6 +440,7 @@ export async function collectStaffGoogleReadOnlyEditorialQueue(
   requireStaff(req);
   assertApprovedPeriods(windows);
   assertBoundedReviewOptions(options, 'includeDetails');
+  requireApprovedGscDomainProperty();
   if (process.env.HLS_GSC_READONLY_ENABLED !== 'true' ||
       process.env.HLS_ISOLATED_STAGING === 'true') {
     throw new Error('Live Search Analytics collection is not enabled for this environment.');
