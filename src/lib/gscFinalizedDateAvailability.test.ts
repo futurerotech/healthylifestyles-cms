@@ -16,6 +16,15 @@ describe('GSC finalized-date preflight',()=>{
    expect(requireFinalizedDateAvailability({rows:[{keys:['2026-08-01']}],responseAggregationType:'auto'},period)).toBe(1);
    expect(()=>requireFinalizedDateAvailability({rows:[{keys:['2026-02-29']}]},{startDate:'2026-02-01',endDate:'2026-02-28'})).toThrow();
  });
+ it('rejects nested errors and unknown fields in finalized date rows',()=>{
+   for (const row of [
+     {keys:['2026-08-01'],error:{code:403,message:'private'}},
+     {keys:['2026-08-01'],unexpectedScope:'unverified'},
+   ]) expect(()=>requireFinalizedDateAvailability({rows:[row]},period)).toThrow(/Unexpected finalized/);
+   expect(requireFinalizedDateAvailability({rows:[{
+     keys:['2026-08-01'], clicks:1, impressions:10, ctr:0.1, position:2,
+   }]},period)).toBe(1);
+ });
  it('fails closed on empty and malformed reports',()=>{
    for(const response of [{}, {rows:[]}, {rows:null}, {error:'private'},
      {rows:[{keys:['2026-09-01']}]}, {rows:[{keys:['2026-08-01']},{keys:['2026-08-01']}]},
