@@ -133,6 +133,7 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
   it('uses only webmasters.readonly OAuth and exact audited request parameters', async () => {
     const report = await collectStaffGoogleReadOnlyReport(user, windows);
     expect(sdk.credentials).toHaveBeenCalledTimes(1);
+    expect(sdk.credentials).toHaveBeenCalledWith({ quiet: true });
     expect(sdk.authConfigs).toHaveLength(1);
     expect(sdk.authConfigs[0]).toMatchObject({
       credentials: {
