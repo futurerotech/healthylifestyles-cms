@@ -179,7 +179,7 @@ export function verifyDeployedHtml(
   // honored in the body by search crawlers. Scan both while ignoring inert
   // comment, script, style, template, textarea and noscript contents.
   const robotsHtml = uncommented
-    .replace(/<(script|style|template|noscript|textarea)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+    .replace(/<(script|style|template|noscript|textarea|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
   const metas = openingTags(robotsHtml, 'meta');
   if (metas.some((tag) => ROBOTS_META_AGENTS.has(decodeNumericHtmlReferences(attribute(tag, 'name') ?? '').toLowerCase()) &&
     forbidsIndexing(attribute(tag, 'content') ?? ''))) {
