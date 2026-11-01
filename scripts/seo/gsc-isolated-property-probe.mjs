@@ -13,6 +13,13 @@ import { pathToFileURL } from 'node:url';
 
 export const APPROVED_GSC_DOMAIN = 'sc-domain:healthylifesstyles.com';
 export const GSC_READONLY_SCOPE = 'https://www.googleapis.com/auth/webmasters.readonly';
+// This is a one-shot permission check, not a repeated polling workflow.
+// Bound the Search Console HTTP call and explicitly disable Gaxios GET retries.
+export const GSC_SINGLE_READ_OPTIONS = Object.freeze({
+  timeout: 10_000,
+  retry: false,
+  retryConfig: Object.freeze({retry: 0, noResponseRetries: 0}),
+});
 const PERMISSIONS = new Set(['siteOwner', 'siteFullUser', 'siteRestrictedUser']);
 
 function deny(message) {
@@ -131,7 +138,9 @@ export async function createGoogleAdapter({keyFile, scope}) {
       const credentials = await auth.getCredentials();
       return credentials.client_email;
     },
-    getSite: async (siteUrl) => (await api.sites.get({siteUrl})).data,
+    getSite: async (siteUrl) => (await api.sites.get(
+      {siteUrl}, GSC_SINGLE_READ_OPTIONS,
+    )).data,
   };
 }
 
