@@ -15,7 +15,7 @@ const property = 'sc-domain:healthylifesstyles.com';
 const row = { keys: ['bmi calculator', 'https://www.healthylifesstyles.com/tools/bmi-calculator'],
   clicks: 4, impressions: 100, ctr: 0.04, position: 9 };
 const transport = (permission = 'siteFullUser') => ({
-  listSites: vi.fn(async () => ({ siteEntry: [{ siteUrl: property, permissionLevel: permission }] })),
+  getSite: vi.fn(async (_siteUrl: string) => ({ siteUrl: property, permissionLevel: permission })), 
   query: vi.fn(async (_site: string, _request: GscReadOnlyTransport['query'] extends (site: string, request: infer R) => Promise<unknown> ? R : never) => ({ rows: [row], responseAggregationType: 'byPage' })),
 });
 
@@ -24,7 +24,8 @@ describe('bounded staff-only Google Search Analytics adapter', () => {
   it('uses exact property, finalized 28-day windows, bounded readonly requests and redacts details', async () => {
     const provider = transport();
     const report = await collectStaffGscReportWithTransport(staff, windows, provider);
-    expect(provider.listSites).toHaveBeenCalledTimes(1);
+    expect(provider.getSite).toHaveBeenCalledTimes(1);
+    expect(provider.getSite).toHaveBeenCalledWith(property);
     expect(provider.query).toHaveBeenCalledTimes(2);
     expect(provider.query.mock.calls.map(([site, request]) => [
       site, request.dataState, request.aggregationType, request.rowLimit, request.startRow,
@@ -47,7 +48,7 @@ describe('bounded staff-only Google Search Analytics adapter', () => {
     await expect(collectStaffGscReportWithTransport(staff, {
       ...windows, current: {startDate:'2026-09-01',endDate:'2026-09-28'},
     }, provider)).rejects.toThrow();
-    expect(provider.listSites).not.toHaveBeenCalled();
+    expect(provider.getSite).not.toHaveBeenCalled();
     expect(provider.query).not.toHaveBeenCalled();
   });
   it('requires permission to the exact configured Search Console property', async () => {
@@ -58,12 +59,19 @@ describe('bounded staff-only Google Search Analytics adapter', () => {
       expect(provider.query).not.toHaveBeenCalled();
     }
     const provider = transport();
-    provider.listSites.mockResolvedValueOnce({
-      siteEntry: [{ siteUrl: 'https://www.healthylifesstyles.com/', permissionLevel: 'siteOwner' }],
+    provider.getSite.mockResolvedValueOnce({
+      siteUrl: 'https://www.healthylifesstyles.com/', permissionLevel: 'siteOwner',
     });
     await expect(collectStaffGscReportWithTransport(staff, windows, provider))
       .rejects.toThrow(/exact configured/);
     expect(provider.query).not.toHaveBeenCalled();
+    const malformed = transport();
+    malformed.getSite.mockResolvedValueOnce({
+      siteUrl: property, permissionLevel:'siteFullUser', error:{message:'private details'},
+    } as never);
+    await expect(collectStaffGscReportWithTransport(staff, windows, malformed))
+      .rejects.toThrow(/invalid response/);
+    expect(malformed.query).not.toHaveBeenCalled();
   });
   it('rejects error envelopes and never forwards provider error messages', async () => {
     const provider = transport();
@@ -77,7 +85,7 @@ describe('bounded staff-only Google Search Analytics adapter', () => {
   });
   it('rejects nonterminal full pages without ever issuing more than 25 requests per window', async () => {
     const provider: GscReadOnlyTransport = {
-      listSites: async () => ({ siteEntry: [{siteUrl:property, permissionLevel:'siteOwner'}] }),
+      getSite: async () => ({siteUrl:property, permissionLevel:'siteOwner'}),
       query: async () => ({ rows: Array.from({length:1000}, (_,i) => ({
         keys:['term-'+i,'https://www.healthylifesstyles.com/tools/bmi-calculator'],
         clicks:0,impressions:20,ctr:0,position:9,
@@ -92,7 +100,7 @@ describe('bounded staff-only Google Search Analytics adapter', () => {
       const provider=transport();
       await expect(collectStaffGscReportWithTransport(staff,windows,provider,
         options as never)).rejects.toThrow(/display options/);
-      expect(provider.listSites).not.toHaveBeenCalled();
+      expect(provider.getSite).not.toHaveBeenCalled();
       expect(provider.query).not.toHaveBeenCalled();
     }
   });
@@ -100,6 +108,6 @@ describe('bounded staff-only Google Search Analytics adapter', () => {
     const provider = transport();
     await expect(collectStaffGoogleReadOnlyReport(staff, windows))
       .rejects.toThrow(/not enabled/);
-    expect(provider.listSites).not.toHaveBeenCalled();
+    expect(provider.getSite).not.toHaveBeenCalled();
   });
 });
