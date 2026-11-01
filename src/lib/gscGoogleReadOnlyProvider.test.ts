@@ -40,6 +40,7 @@ const observed = {
 const originalEnabled = process.env.HLS_GSC_READONLY_ENABLED;
 const originalStaging = process.env.HLS_ISOLATED_STAGING;
 const originalProbe = process.env.HLS_GSC_PROPERTY_PROBE_ENABLED;
+const originalIsolatedApproval = process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED;
 
 describe('Google SDK readonly Search Analytics gate (offline mocks only)', () => {
   beforeEach(() => {
@@ -69,6 +70,8 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     else process.env.HLS_ISOLATED_STAGING = originalStaging;
     if (originalProbe === undefined) delete process.env.HLS_GSC_PROPERTY_PROBE_ENABLED;
     else process.env.HLS_GSC_PROPERTY_PROBE_ENABLED = originalProbe;
+    if (originalIsolatedApproval === undefined) delete process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED;
+    else process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED = originalIsolatedApproval;
   });
 
   it('uses a separate opt-in for a minimal sites.list-only property probe', async () => {
@@ -110,6 +113,31 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     sdk.sites.mockRejectedValueOnce(new Error('private credentials and token'));
     await expect(probeStaffGoogleReadOnlyProperty(user))
       .rejects.toThrow('Search Console read-only property check failed.');
+    expect(sdk.query).not.toHaveBeenCalled();
+  });
+  it('allows only separately approved property-only checks in isolated staging', async () => {
+    process.env.HLS_GSC_PROPERTY_PROBE_ENABLED = 'true';
+    process.env.HLS_ISOLATED_STAGING = 'true';
+    delete process.env.HLS_GSC_READONLY_ENABLED;
+    delete process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED;
+    await expect(probeStaffGoogleReadOnlyProperty(user)).rejects.toThrow(/not enabled/);
+    expect(sdk.credentials).not.toHaveBeenCalled();
+    expect(sdk.sites).not.toHaveBeenCalled();
+    process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED = 'true';
+    const result = await probeStaffGoogleReadOnlyProperty(user);
+    expect(result.exactConfiguredPropertyAccessVerified).toBe(true);
+    expect(result.searchAnalyticsRequests).toBe(0);
+    expect(result.indexingSubmissions).toBe(0);
+    expect(sdk.credentials).toHaveBeenCalledWith({ quiet: true });
+    expect(sdk.sites).toHaveBeenCalledTimes(1);
+    expect(sdk.query).not.toHaveBeenCalled();
+    // Enabling this narrow probe never lifts the analytics staging blockade.
+    process.env.HLS_GSC_READONLY_ENABLED = 'true';
+    await expect(collectStaffGoogleReadOnlyReport(user, windows))
+      .rejects.toThrow(/not enabled/);
+    await expect(probeStaffGoogleReadOnlyProperty(user))
+      .rejects.toThrow(/not enabled/);
+    expect(sdk.sites).toHaveBeenCalledTimes(1);
     expect(sdk.query).not.toHaveBeenCalled();
   });
   it('does not load OAuth credentials if CMS read fails before the Google client is needed', async () => {
