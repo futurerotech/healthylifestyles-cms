@@ -49,7 +49,7 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     sdk.authConfigs.length = 0;
     sdk.credentials.mockClear();
     sdk.sites.mockReset().mockResolvedValue({
-      data: { siteEntry: [{ siteUrl: property, permissionLevel: 'siteFullUser' }] },
+      data: { siteUrl: property, permissionLevel: 'siteFullUser' },
     });
     sdk.query.mockReset().mockImplementation(async (request: unknown) => {
       const body = (request as {requestBody?:{dimensions?:string[];startDate?:string}}).requestBody;
@@ -59,7 +59,7 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
       return { data: { rows: [observed], responseAggregationType: 'byPage' } };
     });
     sdk.service.mockReset().mockImplementation(() => ({
-      sites: { list: sdk.sites },
+      sites: { get: sdk.sites },
       searchanalytics: { query: sdk.query },
     }));
   });
@@ -74,7 +74,7 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     else process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED = originalIsolatedApproval;
   });
 
-  it('uses a separate opt-in for a minimal sites.list-only property probe', async () => {
+  it('uses a separate opt-in for a minimal sites.get-only property probe', async () => {
     delete process.env.HLS_GSC_READONLY_ENABLED;
     delete process.env.HLS_GSC_PROPERTY_PROBE_ENABLED;
     await expect(probeStaffGoogleReadOnlyProperty(user)).rejects.toThrow(/not enabled/);
@@ -87,6 +87,7 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
       searchAnalyticsRequests: 0, indexingSubmissions: 0, publicationAuthorized: false,
     });
     expect(sdk.sites).toHaveBeenCalledTimes(1);
+    expect(sdk.sites).toHaveBeenCalledWith({siteUrl: property});
     expect(sdk.query).not.toHaveBeenCalled();
     expect(sdk.authConfigs).toHaveLength(1);
     expect((sdk.authConfigs[0] as {scopes:string[]}).scopes).toEqual([
@@ -98,9 +99,9 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     await expect(probeStaffGoogleReadOnlyProperty({user:null} as PayloadRequest))
       .rejects.toThrow(/administrator or editor/);
     expect(sdk.credentials).not.toHaveBeenCalled();
-    sdk.sites.mockResolvedValueOnce({data:{siteEntry:[{
+    sdk.sites.mockResolvedValueOnce({data:{
       siteUrl:'https://www.healthylifesstyles.com/',permissionLevel:'siteOwner',
-    }]}});
+    }});
     await expect(probeStaffGoogleReadOnlyProperty(user)).rejects.toThrow(/exact configured/);
     expect(sdk.query).not.toHaveBeenCalled();
   });
@@ -191,6 +192,7 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     );
     expect(sdk.sites).toHaveBeenCalledTimes(1);
     expect(sdk.query).toHaveBeenCalledTimes(4);
+    expect(sdk.sites).toHaveBeenCalledWith({siteUrl: property});
     const bodies = sdk.query.mock.calls.filter(([call]) =>
       (call as {requestBody:{dimensions:string[]}}).requestBody.dimensions[0] !== 'date').map(([call]) =>
       call as { siteUrl: string; requestBody: Record<string, unknown> });
@@ -230,15 +232,22 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
 
   it('denies a property mismatch and never calls query API', async () => {
     sdk.sites.mockResolvedValueOnce({
-      data: { siteEntry: [{
-        siteUrl: 'https://www.healthylifesstyles.com/', permissionLevel: 'siteOwner',
-      }] },
+      data: {siteUrl: 'https://www.healthylifesstyles.com/', permissionLevel: 'siteOwner'},
     });
     await expect(collectStaffGoogleReadOnlyReport(user, windows))
       .rejects.toThrow(/exact configured GSC property/);
     expect(sdk.query).not.toHaveBeenCalled();
   });
 
+  it('rejects a fake provider error embedded in a property record', async () => {
+    sdk.sites.mockResolvedValueOnce({data:{
+      siteUrl:property, permissionLevel:'siteFullUser', error:{message:'private'},
+    }});
+    await expect(collectStaffGoogleReadOnlyReport(user, windows))
+      .rejects.toThrow(/invalid response/);
+    expect(sdk.sites).toHaveBeenCalledWith({siteUrl: property});
+    expect(sdk.query).not.toHaveBeenCalled();
+  });
   it('rejects missing finalized dates before requesting query/page observations', async () => {
     sdk.query.mockReset().mockResolvedValueOnce({
       data: {rows: [{keys: ['2026-08-01']}]},
