@@ -71,14 +71,52 @@ export function selectPublishedProof(
 }
 
 function attribute(tag: string, name: string): string | null {
-  // HTML permits unquoted attributes. Ignoring those can miss real noindex
-  // directives even when browsers and crawlers recognize the meta element.
-  const re = new RegExp(
-    '(?:^|\\s)' + name + '\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27|([^\\s"\\x27\\x60=<>]+))',
-    'i',
-  );
-  const m = tag.match(re);
-  return m ? (m[1] ?? m[2] ?? m[3]) : null;
+  // Consume each complete quoted value before looking for the next attribute.
+  // Searching the raw tag for /\sname=/ mistakes text in data-note=" name=robots "
+  // for an actual attribute and can hide or invent SEO directives.
+  const opening = /^<[a-z][\w:-]*/i.exec(tag);
+  if (!opening) return null;
+  const attributes = /\s+([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'`=<>]+)))?/g;
+  for (const match of tag.slice(opening[0].length, -1).matchAll(attributes)) {
+    if (match[1].toLowerCase() === name.toLowerCase()) {
+      return match[2] ?? match[3] ?? match[4] ?? '';
+    }
+  }
+  return null;
+}
+
+/**
+ * Read a complete HTML opening tag before inspecting it. A > inside a quoted
+ * attribute is not the end of the tag. Skipping the full opening tag also
+ * prevents a fake <meta or <link inside another tag's quoted value from
+ * being treated as a separate metadata element.
+ */
+function openingTags(html: string, name: 'meta' | 'link'): string[] {
+  const found: string[] = [];
+  for (let cursor = 0; cursor < html.length;) {
+    const start = html.indexOf('<', cursor);
+    if (start < 0) break;
+    let quote: string | null = null;
+    let end = -1;
+    for (let i = start + 1; i < html.length; i++) {
+      const ch = html[i];
+      if (quote) {
+        if (ch === quote) quote = null;
+      } else if (ch === '"' || ch === "'") {
+        quote = ch;
+      } else if (ch === '>') {
+        end = i;
+        break;
+      }
+    }
+    if (end < 0) break; // Malformed trailing markup is not accepted as proof.
+    const tag = html.slice(start, end + 1);
+    const following = tag[1 + name.length] ?? '';
+    if (tag.slice(1, 1 + name.length).toLowerCase() === name &&
+        /[\s/>]/.test(following)) found.push(tag);
+    cursor = end + 1;
+  }
+  return found;
 }
 
 /** Resolve HTML numeric character references in metadata before interpreting it. */
@@ -121,7 +159,7 @@ export function verifyDeployedHtml(
   // Do not accept a canonical tag injected into body content, HTML comments,
   // inline scripts, templates, or styles as if it were a head directive.
   const uncommented = html.replace(/<!--[\s\S]*?-->/g, '');
-  const heads = [...uncommented.matchAll(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/gi)];
+  const heads = [...uncommented.matchAll(/<head\b(?:[^>"']|"[^"]*"|'[^']*')*>([\s\S]*?)<\/head\s*>/gi)];
   if (heads.length !== 1) {
     return { ok: false, reason: 'missing or ambiguous document head' };
   }
@@ -130,10 +168,10 @@ export function verifyDeployedHtml(
     return { ok: false, reason: 'document head follows body' };
   }
   const headHtml = heads[0][1]
-    .replace(/<(script|style|template|noscript)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
-  const links = headHtml.match(/<link\b[^>]*>/gi) ?? [];
-  const canonicals = links.filter((tag) => /(?:^|\s)rel\s*=/.test(tag.toLowerCase()) &&
-    (attribute(tag, 'rel') ?? '').toLowerCase().split(/\s+/).includes('canonical'));
+    .replace(/<(script|style|template|noscript|textarea|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+  const links = openingTags(headHtml, 'link');
+  const canonicals = links.filter((tag) =>
+    (attribute(tag, 'rel') ?? '').trim().toLowerCase().split(/\s+/).includes('canonical'));
   if (canonicals.length !== 1 || attribute(canonicals[0], 'href') !== expectedUrl) {
     return { ok: false, reason: 'missing, duplicate, or mismatched canonical link' };
   }
@@ -142,7 +180,7 @@ export function verifyDeployedHtml(
   // comment, script, style, template, textarea and noscript contents.
   const robotsHtml = uncommented
     .replace(/<(script|style|template|noscript|textarea)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, '');
-  const metas = robotsHtml.match(/<meta\b[^>]*>/gi) ?? [];
+  const metas = openingTags(robotsHtml, 'meta');
   if (metas.some((tag) => ROBOTS_META_AGENTS.has(decodeNumericHtmlReferences(attribute(tag, 'name') ?? '').toLowerCase()) &&
     forbidsIndexing(attribute(tag, 'content') ?? ''))) {
     return { ok: false, reason: 'meta robots forbids indexing' };
