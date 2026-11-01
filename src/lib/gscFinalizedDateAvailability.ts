@@ -46,7 +46,14 @@ export function requireFinalizedDateAvailability(
     if (!row || typeof row !== 'object' || Array.isArray(row)) {
       throw new TypeError('Malformed finalized Search Console date row.');
     }
-    const keys = (row as Record<string, unknown>).keys;
+    // A date-shaped row can still be a malformed provider/error object.
+    // Reject unknown nested fields rather than treating a partial error as
+    // successful evidence that finalized date data were returned.
+    const fields = row as Record<string, unknown>;
+    if (Object.keys(fields).some(key => !['keys', 'clicks', 'impressions', 'ctr', 'position'].includes(key))) {
+      throw new TypeError('Unexpected finalized Search Console date row field.');
+    }
+    const keys = fields.keys;
     if (!Array.isArray(keys) || keys.length !== 1 || typeof keys[0] !== 'string' ||
         !/^\d{4}-\d{2}-\d{2}$/.test(keys[0]) ||
         !isRealUtcCalendarDate(keys[0]) ||
