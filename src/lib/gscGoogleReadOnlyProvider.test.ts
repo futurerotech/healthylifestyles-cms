@@ -140,6 +140,20 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     expect(sdk.sites).toHaveBeenCalledTimes(1);
     expect(sdk.query).not.toHaveBeenCalled();
   });
+  it('never accesses CMS or Google through the editorial queue while isolated staging is enabled', async () => {
+    process.env.HLS_ISOLATED_STAGING = 'true';
+    process.env.HLS_GSC_PROPERTY_PROBE_ENABLED = 'true';
+    process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED = 'true';
+    process.env.HLS_GSC_READONLY_ENABLED = 'true';
+    const payload = {find: vi.fn()};
+    await expect(collectStaffGoogleReadOnlyEditorialQueue(user, windows,
+      payload as unknown as Pick<Payload, 'find'>)).rejects.toThrow(/not enabled/);
+    expect(payload.find).not.toHaveBeenCalled();
+    expect(sdk.credentials).not.toHaveBeenCalled();
+    expect(sdk.authConfigs).toHaveLength(0);
+    expect(sdk.sites).not.toHaveBeenCalled();
+    expect(sdk.query).not.toHaveBeenCalled();
+  });
   it('does not load OAuth credentials if CMS read fails before the Google client is needed', async () => {
     const payload = {find: vi.fn(async () => {throw new Error('private database failure');})};
     await expect(collectStaffGoogleReadOnlyEditorialQueue(user,windows,
