@@ -308,7 +308,7 @@ export async function collectStaffEditorialReviewQueueWithTransport(
  */
 async function makeGoogleReadOnlyTransport(): Promise<GscReadOnlyTransport> {
   const { google } = await import('googleapis');
-  const credentials = loadGoogleCredentials();
+  const credentials = loadGoogleCredentials({ quiet: true });
   const auth = new google.auth.GoogleAuth({
     credentials: {
       client_email: credentials.client_email,
