@@ -148,6 +148,12 @@ and has **no browser route, cron, automatic execution, publication or writes**.
   `sites.get({siteUrl:'sc-domain:healthylifesstyles.com'})` with OAuth scope
   `https://www.googleapis.com/auth/webmasters.readonly`. It never calls
   `sites.list`, Search Analytics, URL Inspection, or the Indexing API.
+  The Search Console `sites.get` HTTP request has a **10-second timeout** and
+  explicitly disables HTTP retries (`retry:false` and zero retry counts).
+  This limits the permission check to one attempted Search Console GET, not
+  necessarily one total network transaction: Google OAuth token acquisition
+  can involve a separate authenticated exchange. Do not equate this with a
+  proven end-to-end 10-second process deadline.
 - Only a sanitized boolean result/counter object goes to stdout on success;
   on failure the CLI emits a generic status string. It never returns
   raw Google responses, service-account identity, keys or provider errors.
