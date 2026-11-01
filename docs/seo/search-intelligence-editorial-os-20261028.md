@@ -97,7 +97,7 @@ https://developers.google.com/search/docs/essentials/spam-policies
 
 ## 2026-11-01 isolated GSC property-only verification gate
 
-The programmatic, staff-only `probeStaffGoogleReadOnlyProperty(req)` is an **internal library function**; no public API endpoint, cron, or automatic runner is installed. It calls only the read-only Search Console `sites.list` method, verifies access to exactly `GSC_SITE_URL`, and returns a minimal receipt. This is distinct from Search Analytics and URL Inspection.
+The programmatic, staff-only `probeStaffGoogleReadOnlyProperty(req)` is an **internal library function**; no public API endpoint, cron, or automatic runner is installed. It calls only the read-only Search Console `sites.get({siteUrl: GSC_SITE_URL})` method, verifies access to exactly `GSC_SITE_URL`, and returns a minimal receipt. This prevents enumerating unrelated properties accessible to the same Google account. This is distinct from Search Analytics and URL Inspection.
 
 **Safe operator prerequisites (not performed by CI):**
 - Obtain independent owner authorization for one real property-only permission check. Keep the service-account key in an approved ephemeral secret store, never in GitHub, logs, Drive documents, command arguments or comments.
@@ -109,5 +109,5 @@ The programmatic, staff-only `probeStaffGoogleReadOnlyProperty(req)` is an **int
 - Continue to require separate explicit release approval, successful exact-head CI, and PR34 Hostinger/Neon plus frontend PR17 Vercel gates before merging or deploying anything.
 
 References:
-- https://developers.google.com/webmaster-tools/v1/sites/list
+- https://developers.google.com/webmaster-tools/v1/sites/get
 - https://support.google.com/webmasters/answer/7687615
