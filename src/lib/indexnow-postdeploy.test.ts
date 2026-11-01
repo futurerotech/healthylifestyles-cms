@@ -215,6 +215,9 @@ describe('post-deploy IndexNow safety gates', () => {
   expect(check(wrap(canonical+'<meta data-note=" name=robots " content=noindex>'))).toBe(true);
   // A fake <meta within a preceding tag's quoted attribute is not active markup.
   expect(check(wrap(canonical+'<meta data-note=" <meta name=robots content=noindex> " content=other>'))).toBe(true);
+  // Literal markup within <title> is text, not an active robots directive.
+  expect(check(wrap(canonical+'<title>Example <meta name="robots" content="noindex"></title>'))).toBe(true);
+  expect(check(wrap(canonical+'<title>Example <meta name="robots" content="noindex"></title><meta name=robots content=none>'))).toBe(false);
   // Actual robots remains blocking even when a misleading quoted attribute precedes it.
   expect(check(wrap(canonical+'<meta data-note=" name=other " name=googlebot content=none>'))).toBe(false);
  });
