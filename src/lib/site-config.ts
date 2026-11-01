@@ -4,7 +4,9 @@
  */
 
 export const SITE_BASE_URL = process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'
-export const GSC_SITE_URL = process.env.GSC_SITE_URL || 'sc-domain:healthylifesstyles.com'
+/** Exact approved Search Console Domain property; distinct from URL-prefix properties. */
+export const APPROVED_GSC_DOMAIN_PROPERTY = 'sc-domain:healthylifesstyles.com'
+export const GSC_SITE_URL = process.env.GSC_SITE_URL || APPROVED_GSC_DOMAIN_PROPERTY
 
 // Validation
 if (SITE_BASE_URL.endsWith('/')) {
