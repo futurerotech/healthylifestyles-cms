@@ -42,12 +42,14 @@ describe('one-shot isolated GSC property-only operator runner', () => {
     const adapter = makeAdapter();
     const createAdapter = vi.fn(async () => adapter);
     const result = await runIsolatedOperatorProbe({env:env(), createAdapter});
-    expect(createAdapter).toHaveBeenCalledExactlyOnceWith({
+    expect(createAdapter).toHaveBeenCalledTimes(1);
+    expect(createAdapter).toHaveBeenCalledWith({
       keyFile: '/isolated/mounted/fictional-account.json',
       scope: GSC_READONLY_SCOPE,
     });
     expect(adapter.getIdentity).toHaveBeenCalledTimes(1);
-    expect(adapter.getSite).toHaveBeenCalledExactlyOnceWith(APPROVED_GSC_DOMAIN);
+    expect(adapter.getSite).toHaveBeenCalledTimes(1);
+    expect(adapter.getSite).toHaveBeenCalledWith(APPROVED_GSC_DOMAIN);
     expect(result).toMatchObject({
       exactPropertyReadPermissionVerified: true,
       expectedServiceAccountIdentityVerified: true,
