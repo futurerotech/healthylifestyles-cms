@@ -30,14 +30,69 @@ function canonicalFilters(filters: unknown): string {
   return filters;
 }
 
+// Search Console API responses are untrusted JSON. An API error can omit
+// `rows`, exactly like a legitimate no-data response. Only known fields
+// may be accepted; do not silently turn an error or unknown filter into
+// zero traffic. Never log provider error bodies or query details here.
+const REQUEST_FIELDS = new Set([
+  'startDate', 'endDate', 'dimensions', 'type', 'dataState',
+  'aggregationType', 'rowLimit', 'startRow', 'dimensionFilterGroups',
+]);
+const RESPONSE_FIELDS = new Set(['rows', 'responseAggregationType']);
+const ROW_FIELDS = new Set(['keys', 'clicks', 'impressions', 'ctr', 'position']);
+
+function verifyRawShape(batch: RawGscBatch): void {
+  if (!batch || typeof batch !== 'object' || Array.isArray(batch) ||
+      !batch.request || typeof batch.request !== 'object' || Array.isArray(batch.request) ||
+      !batch.response || typeof batch.response !== 'object' || Array.isArray(batch.response)) {
+    throw new TypeError('A declared raw GSC request and valid response are required.');
+  }
+  if (Object.keys(batch.request).some(field => !REQUEST_FIELDS.has(field))) {
+    throw new RangeError('Unsupported Search Analytics request field; scope cannot be verified.');
+  }
+  if (Object.keys(batch.response).some(field => !RESPONSE_FIELDS.has(field))) {
+    throw new RangeError('Unexpected Search Analytics response field; possible provider error or incomplete data.');
+  }
+  if (batch.response.rows !== undefined && !Array.isArray(batch.response.rows)) {
+    throw new TypeError('Search Analytics rows must be an array when present.');
+  }
+  // The official query+page row shape has five fields. A provider error
+  // object, truncated metric record or extra row scope must not be scored
+  // as a silently discarded query and mistaken for a zero-data period.
+  for (const rawRow of batch.response.rows ?? []) {
+    if (!rawRow || typeof rawRow !== 'object' || Array.isArray(rawRow) ||
+        Object.keys(rawRow).some(field => !ROW_FIELDS.has(field))) {
+      throw new TypeError('Malformed Search Analytics data row.');
+    }
+    const row = rawRow as unknown as Record<string, unknown>;
+    if (!Array.isArray(row.keys) || row.keys.length !== 2 ||
+        row.keys.some(key => typeof key !== 'string') ||
+        ['clicks', 'impressions', 'ctr', 'position'].some(
+          field => typeof row[field] !== 'number' || !Number.isFinite(row[field]),
+        )) {
+      throw new TypeError('Malformed Search Analytics data row.');
+    }
+    // The official API emits numeric click/impression counts, CTR, and
+    // average position. Contradictory values must fail this input gate:
+    // downstream candidate filtering would otherwise silently discard
+    // corrupted rows and misrepresent incomplete results as low demand.
+    const metric = rawRow as GscQueryPageRow;
+    const expectedCtr = metric.impressions === 0 ? 0 : metric.clicks / metric.impressions;
+    if (!Number.isSafeInteger(metric.clicks) ||
+        !Number.isSafeInteger(metric.impressions) ||
+        metric.clicks < 0 || metric.impressions < 0 ||
+        metric.clicks > metric.impressions || metric.ctr < 0 ||
+        metric.ctr > 1 || metric.position < 1 ||
+        Math.abs(metric.ctr - expectedCtr) > 0.000001) {
+      throw new TypeError('Inconsistent Search Analytics row metrics.');
+    }
+  }
+}
+
 function checkedBatch(batch: RawGscBatch): DeclaredGscExport {
   // Search Analytics can omit rows altogether when a completed query has no
   // matches. Accept only that omission, not a malformed or null rows payload.
-  if (!batch || !batch.request || !batch.response ||
-      typeof batch.response !== 'object' || Array.isArray(batch.response) ||
-      (batch.response.rows !== undefined && !Array.isArray(batch.response.rows))) {
-    throw new TypeError('A declared raw GSC request and valid response are required.');
-  }
+  verifyRawShape(batch);
   const rows = batch.response.rows ?? [];
   const req = batch.request;
   if (!Number.isSafeInteger(req.rowLimit) || req.rowLimit < 1 || req.rowLimit > 25000 ||
@@ -99,6 +154,7 @@ export function screenPaginatedRawGscBatches(
         (base.response.rows !== undefined && !Array.isArray(base.response.rows))) {
       throw new TypeError('A valid Search Analytics response is required for each period.');
     }
+    verifyRawShape(base);
     // Validate the request without falsifying response rows: a full page is
     // valid only when a subsequent short terminal page proves pagination.
     const first = checkedBatch({
@@ -112,11 +168,7 @@ export function screenPaginatedRawGscBatches(
     let offset = 0;
     for (let i = 0; i < pages.length; i++) {
       const page = pages[i];
-      if (!page?.response || typeof page.response !== 'object' ||
-          Array.isArray(page.response) ||
-          (page.response.rows !== undefined && !Array.isArray(page.response.rows))) {
-        throw new TypeError('A valid Search Analytics response is required for every page.');
-      }
+      verifyRawShape(page);
       const list = page.response.rows ?? [];
       if (page.siteUrl !== base.siteUrl ||
           page.request.startDate !== base.request.startDate ||
