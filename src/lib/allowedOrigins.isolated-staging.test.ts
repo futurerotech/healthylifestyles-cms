@@ -48,6 +48,19 @@ describe('Isolated staging CORS/CSRF configuration', () => {
     expect(mod.isAllowedIndexNowPreviewOrigin(undefined)).toBe(false);
   });
 
+  it('never permits a staging-origin deploy when NODE_ENV is development', async () => {
+    setProductionEnvironment();
+    vi.stubEnv('NODE_ENV', 'development');
+    vi.stubEnv('HLS_ISOLATED_STAGING', 'true');
+    vi.resetModules();
+    const mod = await import('./allowedOrigins');
+    expect(mod.ISOLATED_STAGING_CMS_ORIGIN).toBe(STAGE);
+    // Before this fix, isAllowedAdminMutationOrigin(STAGE, false) returned true.
+    expect(mod.isAllowedAdminMutationOrigin(STAGE, false)).toBe(false);
+    expect(mod.isAllowedAdminMutationOrigin(STAGE)).toBe(false);
+    expect(mod.isAllowedIndexNowPreviewOrigin(STAGE, false)).toBe(true);
+  });
+
   it('fails startup on missing disable flag, mismatched URL or live deploy hook', async () => {
     const { resolveIsolatedStagingCmsOrigin } = await import('./allowedOrigins');
     const safe = {

@@ -121,7 +121,10 @@ export const isAllowedAdminMutationOrigin = (
   origin: string | null | undefined,
   isProduction = IS_PROD,
 ): boolean =>
-  isAllowedOrigin(origin) && (!isProduction || origin === CMS_ORIGIN);
+  // Staging must never initiate privileged deployments, even if an operator
+  // accidentally starts its process under NODE_ENV=development.
+  isAllowedOrigin(origin) && !ISOLATED_STAGING_CMS_ORIGIN &&
+  (!isProduction || origin === CMS_ORIGIN);
 
 /**
  * Staging can make an admin-authenticated, READ-ONLY IndexNow preview request,
