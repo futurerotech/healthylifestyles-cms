@@ -14,7 +14,7 @@ const response = (collection: string) => ({ docs: collection === 'tools'
 const make = () => {
  const payload = { find: vi.fn(async ({collection}: {collection:string})=>response(collection)),
    create:vi.fn(), update:vi.fn(), delete:vi.fn() };
- const transport = {listSites:vi.fn(async ()=>({siteEntry:[{siteUrl:property,permissionLevel:'siteFullUser'}]})),
+ const transport = {getSite:vi.fn(async (_siteUrl:string)=>({siteUrl:property,permissionLevel:'siteFullUser'})),
    query:vi.fn(async ()=>({rows:[row],responseAggregationType:'byPage'}))};
  return {payload,transport};
 };
@@ -36,6 +36,7 @@ describe('staff CMS + GSC readonly editorial bridge',()=>{
   expect(payload.create).not.toHaveBeenCalled();
   expect(payload.update).not.toHaveBeenCalled();
   expect(payload.delete).not.toHaveBeenCalled();
+  expect(transport.getSite).toHaveBeenCalledWith(property);
   expect(transport.query).toHaveBeenCalledTimes(2);
  });
  it('requires explicit detail opt-in and never recommends a CMS mutation',async()=>{
@@ -52,14 +53,14 @@ describe('staff CMS + GSC readonly editorial bridge',()=>{
   await expect(collectStaffEditorialReviewQueueWithTransport(req,{...windows,current:{startDate:'2026-09-01',endDate:'2026-09-28'}},
     payload as unknown as Pick<Payload,'find'>,transport)).rejects.toThrow();
   expect(payload.find).not.toHaveBeenCalled();
-  expect(transport.listSites).not.toHaveBeenCalled();
+  expect(transport.getSite).not.toHaveBeenCalled();
  });
  it('blocks a CMS read failure before fetching private GSC queries',async()=>{
   const {payload,transport}=make();
   payload.find.mockRejectedValueOnce(new Error('SQL private data'));
   await expect(collectStaffEditorialReviewQueueWithTransport(req,windows,
     payload as unknown as Pick<Payload,'find'>,transport)).rejects.toThrow('Access-controlled CMS snapshot failed; no review queue was produced.');
-  expect(transport.listSites).not.toHaveBeenCalled();
+  expect(transport.getSite).not.toHaveBeenCalled();
   expect(transport.query).not.toHaveBeenCalled();
  });
  it('rejects malformed options before touching either backend',async()=>{
@@ -67,6 +68,6 @@ describe('staff CMS + GSC readonly editorial bridge',()=>{
   await expect(collectStaffEditorialReviewQueueWithTransport(req,windows,
     payload as unknown as Pick<Payload,'find'>,transport,{top:101})).rejects.toThrow(/options/);
   expect(payload.find).not.toHaveBeenCalled();
-  expect(transport.listSites).not.toHaveBeenCalled();
+  expect(transport.getSite).not.toHaveBeenCalled();
  });
 });
