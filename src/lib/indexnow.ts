@@ -10,6 +10,7 @@
  *  - Debounce/batch: publishes within 60s collapse into ONE submission
  *    (deduped; IndexNow caps 10,000 URLs per call — far above our volume).
  *  - Dry-run: INDEXNOW_DRY_RUN=true logs the payload and sends nothing.
+ *    Live HTTP additionally requires INDEXNOW_LIVE_ENABLED=true.
  *    Unset, it DEFAULTS to dry-run outside NODE_ENV=production.
  *  - Kill switch: INDEXNOW_DISABLE=true → queue is a no-op (for scripts/seeds).
  *  - Missing INDEXNOW_API_KEY → quiet no-op (logged once per process).
@@ -18,6 +19,7 @@
  *  - Test hooks: INDEXNOW_ENDPOINT + INDEXNOW_RETRY_DELAY_MS overrides.
  */
 import { SITE_BASE_URL } from './site-config';
+import { isIndexNowLiveSubmissionEnabled } from './indexnow-postdeploy';
 
 const DEBOUNCE_MS = 60_000;
 const MAX_URLS = 10_000;
@@ -30,6 +32,11 @@ const endpoint = () => process.env.INDEXNOW_ENDPOINT || 'https://api.indexnow.or
 const retryDelayMs = () => Number(process.env.INDEXNOW_RETRY_DELAY_MS || 10_000);
 
 const isDryRun = (): boolean => {
+  // Legacy code must not bypass the same explicit live opt-in as the
+  // reviewed post-deployment reconciliation endpoint.
+  if (!isIndexNowLiveSubmissionEnabled(
+    process.env.INDEXNOW_LIVE_ENABLED, process.env.INDEXNOW_DISABLE,
+  )) return true;
   if (process.env.INDEXNOW_DRY_RUN === 'true') return true;
   if (process.env.INDEXNOW_DRY_RUN === 'false') return false;
   return process.env.NODE_ENV !== 'production';
@@ -68,7 +75,8 @@ export async function flushIndexNowQueue(): Promise<void> {
   }
   const urls = [...pending].slice(0, MAX_URLS);
   pending.clear();
-  if (urls.length === 0) return;
+  // Emergency disable must take effect even if the URL was queued earlier.
+  if (process.env.INDEXNOW_DISABLE === 'true' || urls.length === 0) return;
 
   const key = process.env.INDEXNOW_API_KEY;
   if (!key) return;
