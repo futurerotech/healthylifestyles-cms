@@ -355,7 +355,13 @@ export async function probeStaffGoogleReadOnlyProperty(
 ) {
   requireStaff(req);
   if (process.env.HLS_GSC_PROPERTY_PROBE_ENABLED !== 'true' ||
-      process.env.HLS_ISOLATED_STAGING === 'true') {
+      (process.env.HLS_ISOLATED_STAGING === 'true' &&
+        (process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED !== 'true' ||
+          process.env.HLS_GSC_READONLY_ENABLED === 'true'))) {
+    // Isolated property-only verification needs two distinct opt-ins and
+    // the broad Analytics flag must remain OFF. This never enables the
+    // Search Analytics collectors, which always reject isolated staging.
+    // No credential resolution or provider request occurs on denial.
     throw new Error('Search Console property-only probe is not enabled.');
   }
 
