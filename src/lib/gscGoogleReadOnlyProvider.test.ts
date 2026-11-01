@@ -46,6 +46,8 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
   beforeEach(() => {
     process.env.HLS_GSC_READONLY_ENABLED = 'true';
     delete process.env.HLS_ISOLATED_STAGING;
+    delete process.env.HLS_GSC_PROPERTY_PROBE_ENABLED;
+    delete process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED;
     sdk.authConfigs.length = 0;
     sdk.credentials.mockClear();
     sdk.sites.mockReset().mockResolvedValue({
@@ -80,6 +82,8 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     await expect(probeStaffGoogleReadOnlyProperty(user)).rejects.toThrow(/not enabled/);
     expect(sdk.credentials).not.toHaveBeenCalled();
     process.env.HLS_GSC_PROPERTY_PROBE_ENABLED = 'true';
+    process.env.HLS_ISOLATED_STAGING = 'true';
+    process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED = 'true';
     const result = await probeStaffGoogleReadOnlyProperty(user);
     expect(result).toMatchObject({
       exactConfiguredPropertyAccessVerified: true,
@@ -96,6 +100,9 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
   });
   it('rejects unauthorized users and property mismatch without querying analytics', async () => {
     process.env.HLS_GSC_PROPERTY_PROBE_ENABLED = 'true';
+    process.env.HLS_ISOLATED_STAGING = 'true';
+    process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED = 'true';
+    delete process.env.HLS_GSC_READONLY_ENABLED;
     await expect(probeStaffGoogleReadOnlyProperty({user:null} as PayloadRequest))
       .rejects.toThrow(/administrator or editor/);
     expect(sdk.credentials).not.toHaveBeenCalled();
@@ -110,10 +117,49 @@ describe('Google SDK readonly Search Analytics gate (offline mocks only)', () =>
     process.env.HLS_ISOLATED_STAGING = 'true';
     await expect(probeStaffGoogleReadOnlyProperty(user)).rejects.toThrow(/not enabled/);
     expect(sdk.credentials).not.toHaveBeenCalled();
-    delete process.env.HLS_ISOLATED_STAGING;
+    process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED = 'true';
+    delete process.env.HLS_GSC_READONLY_ENABLED;
     sdk.sites.mockRejectedValueOnce(new Error('private credentials and token'));
     await expect(probeStaffGoogleReadOnlyProperty(user))
       .rejects.toThrow('Search Console read-only property check failed.');
+    expect(sdk.query).not.toHaveBeenCalled();
+  });
+  it('rejects every nonisolated or ambiguous probe setting before Google initialization', async () => {
+    const cases = [
+      {staging: undefined, probe:'true', approval:'true', analytics:undefined},
+      {staging: 'false', probe:'true', approval:'true', analytics:undefined},
+      {staging: 'TRUE', probe:'true', approval:'true', analytics:undefined},
+      {staging: 'true', probe:undefined, approval:'true', analytics:undefined},
+      {staging: 'true', probe:'true', approval:undefined, analytics:undefined},
+      {staging: 'true', probe:'true', approval:'true', analytics:'true'},
+      {staging: 'true', probe:'true', approval:'true', analytics:'enabled'},
+    ];
+    for (const state of cases) {
+      for (const [name, value] of [
+        ['HLS_ISOLATED_STAGING', state.staging],
+        ['HLS_GSC_PROPERTY_PROBE_ENABLED', state.probe],
+        ['HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED', state.approval],
+        ['HLS_GSC_READONLY_ENABLED', state.analytics],
+      ] as const) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+      await expect(probeStaffGoogleReadOnlyProperty(user)).rejects.toThrow(/not enabled/);
+    }
+    expect(sdk.credentials).not.toHaveBeenCalled();
+    expect(sdk.authConfigs).toHaveLength(0);
+    expect(sdk.sites).not.toHaveBeenCalled();
+    expect(sdk.query).not.toHaveBeenCalled();
+  });
+  it('allows an explicit false analytics flag only in approved isolated staging', async () => {
+    process.env.HLS_ISOLATED_STAGING = 'true';
+    process.env.HLS_GSC_PROPERTY_PROBE_ENABLED = 'true';
+    process.env.HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED = 'true';
+    process.env.HLS_GSC_READONLY_ENABLED = 'false';
+    const receipt = await probeStaffGoogleReadOnlyProperty(user);
+    expect(receipt.exactConfiguredPropertyAccessVerified).toBe(true);
+    expect(receipt.searchAnalyticsRequests).toBe(0);
+    expect(sdk.sites).toHaveBeenCalledWith({siteUrl:property});
     expect(sdk.query).not.toHaveBeenCalled();
   });
   it('allows only separately approved property-only checks in isolated staging', async () => {
