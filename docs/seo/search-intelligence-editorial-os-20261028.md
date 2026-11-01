@@ -112,3 +112,54 @@ The programmatic, staff-only `probeStaffGoogleReadOnlyProperty(req)` is an **int
 References:
 - https://developers.google.com/webmaster-tools/v1/sites/get
 - https://support.google.com/webmasters/answer/7687615
+
+
+## 2026-11-01 standalone one-shot GSC operator probe
+
+An independent command-line runner now exists at
+`scripts/seo/gsc-isolated-property-probe.mjs` for the **operational** permission
+gate. It does not use Payload or require a live CMS server/database. This
+runner is separate from the request-scoped internal function documented above
+and has **no browser route, cron, automatic execution, publication or writes**.
+
+- `node scripts/seo/gsc-isolated-property-probe.mjs --check` (also the default)
+  confirms the runner is inert. It reads no credentials, imports no Google SDK
+  client, and makes zero network or CMS requests.
+- `--execute` is explicitly operator-only and prohibited until an owner has
+  approved an independently verified physically isolated host. No live
+  execution has been conducted as part of this PR.
+- Live operation requires these exact operator-supplied environment gates:
+  `HLS_ISOLATED_STAGING=true`,
+  `HLS_GSC_PROPERTY_PROBE_ENABLED=true`,
+  `HLS_GSC_ISOLATED_PROPERTY_PROBE_APPROVED=true`,
+  `HLS_GSC_OPERATOR_ONE_SHOT_APPROVED=true`, with
+  `HLS_GSC_READONLY_ENABLED` unset or exactly `false`.
+- An explicit `GOOGLE_APPLICATION_CREDENTIALS` **absolute secret-mount path**
+  and separately verified `HLS_GSC_EXPECTED_SERVICE_ACCOUNT_EMAIL` are
+  mandatory. The expected email must come from the owner-verified service
+  account configuration; **do not copy it or the JSON key into this repo,
+  comments, Drive docs, CLI arguments, screenshots or logs**. The runner
+  uses an explicitly mounted GoogleAuth `keyFile` rather than indexing
+  credentials or ambient ADC discovery. In the real adapter, it verifies that
+  the credential's service-account identity matches the independently
+  approved expected email before any Google property request.
+- `GSC_SITE_URL`, if provided, must be exactly
+  `sc-domain:healthylifesstyles.com`. The runner always requests only
+  `sites.get({siteUrl:'sc-domain:healthylifesstyles.com'})` with OAuth scope
+  `https://www.googleapis.com/auth/webmasters.readonly`. It never calls
+  `sites.list`, Search Analytics, URL Inspection, or the Indexing API.
+- Only a sanitized boolean result/counter object goes to stdout on success;
+  on failure the CLI emits a generic status string. It never returns
+  raw Google responses, service-account identity, keys or provider errors.
+  A passing mocked CI test **does not prove** real Search Console access.
+  An operator must verify that no secrets were echoed, turn off opt-in flags,
+  and dispose of the isolated runtime after the one-time read.
+- Environment flags are NOT proof of isolation or approval. Their presence
+  must not be used to bypass the independently reviewed execution environment,
+  secret handling and separation from production/Hostinger/Neon.
+- Even after the live property-only permission receipt, enabling Search
+  Analytics, merging PR35 and deploying remains a **separate NO-GO** pending
+  owner approval and existing PR34/PR17 gates.
+
+Relevant Google API reference:
+https://developers.google.com/webmaster-tools/v1/sites/get
