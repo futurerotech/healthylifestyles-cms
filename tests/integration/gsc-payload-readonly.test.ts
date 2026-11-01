@@ -1,0 +1,249 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { Payload, PayloadRequest } from 'payload';
+
+// Run only against the ephemeral GitHub Actions PostgreSQL mock. Never permit
+// this test to touch Neon, Hostinger, R2 or live Search Console credentials.
+const db = new URL(process.env.DATABASE_URI || 'postgres://invalid/invalid');
+if (process.env.GITHUB_ACTIONS !== 'true' ||
+    process.env.RUN_DATABASE_TESTS !== '1' ||
+    process.env.NODE_ENV !== 'production' ||
+    !['localhost', '127.0.0.1', '[::1]'].includes(db.hostname) ||
+    db.pathname !== '/mock' || db.username !== 'mock' ||
+    process.env.S3_ENDPOINT || process.env.VERCEL_DEPLOY_HOOK_URL ||
+    process.env.INDEXNOW_DISABLE !== 'true' || process.env.GOOGLE_INDEXING_KEY ||
+    process.env.INDEXNOW_API_KEY) {
+  throw new Error('GSC Payload integration requires the disposable loopback CI database with no external integrations.');
+}
+
+describe('GSC read-only collector against real Payload Local API', () => {
+  let payload: Payload;
+  let editor: { id: string | number; role: 'editor' };
+  beforeAll(async () => {
+    const { getPayload } = await import('payload');
+    const config = (await import('../../payload.config')).default;
+    payload = await getPayload({ config });
+    expect(payload.db.push).toBe(false);
+    const suffix = Date.now().toString(36);
+    const user = await payload.create({
+      collection: 'users',
+      data: {
+        name: 'Disposable GSC collector reviewer',
+        email: 'gsc-review-' + suffix + '@example.invalid',
+        password: 'Mock-GSC-only-' + suffix + '-pass!',
+        role: 'editor',
+      },
+    });
+    editor = { id: user.id, role: 'editor' };
+  });
+  afterAll(async () => { await payload?.destroy(); });
+
+  it('uses real access-scoped paginated selections and returns no fabricated records', async () => {
+    const { collectAuthorizedPayloadReviewSnapshot } =
+      await import('../../src/lib/gscPayloadReadOnlyCollector');
+    const req = { user: editor, payload } as unknown as PayloadRequest;
+    const snapshot = await collectAuthorizedPayloadReviewSnapshot(payload, req);
+    expect(snapshot.kind).toBe('access-controlled-local-payload-snapshot');
+    expect(snapshot.includesDraftVersions).toBe(false);
+    expect(snapshot.catalog).toHaveLength(snapshot.counts.articles + snapshot.counts.tools);
+    expect(new Set(snapshot.catalog.map(row => row.collection + ':' + row.recordId)).size)
+      .toBe(snapshot.catalog.length);
+    for (const row of snapshot.catalog) {
+      expect(row.recordId).not.toBeNull();
+      expect(row.page).toMatch(/^https:\/\/www\.healthylifesstyles\.com\/(?:tools|wellness-hub)\/[a-z0-9-]+$/);
+    }
+  });
+
+  it('keeps real published, draft and disabled CMS records distinct in the read-only triage', async () => {
+    const { collectAuthorizedPayloadReviewSnapshot } =
+      await import('../../src/lib/gscPayloadReadOnlyCollector');
+    // These writes affect only the empty disposable CI database, and use a
+    // fixture context so publish/indexing hooks cannot contact providers.
+    const context = { reseedVersions: true };
+    const suffix = Date.now().toString(36);
+    const category = await payload.create({
+      collection: 'categories', context,
+      data: { name: 'GSC CI tool category ' + suffix, kind: 'tool' },
+    });
+    const publishedArticle = await payload.create({
+      collection: 'articles', context,
+      data: {
+        title: 'GSC CI published article ' + suffix,
+        slug: 'gsc-published-article-' + suffix,
+        _status: 'published',
+        seo: { noIndex: false },
+      },
+    });
+    const draftArticle = await payload.create({
+      collection: 'articles', context, draft: true,
+      data: {
+        title: 'GSC CI unpublished article ' + suffix,
+        slug: 'gsc-draft-article-' + suffix,
+        _status: 'draft',
+        seo: { noIndex: true },
+      },
+    });
+    const noIndexArticle = await payload.create({
+      collection: 'articles', context,
+      data: {
+        title: 'GSC CI published no-index article ' + suffix,
+        slug: 'gsc-noindex-article-' + suffix,
+        _status: 'published',
+        seo: { noIndex: true },
+      },
+    });
+    const toolBase = {
+      category: category.id,
+      toolType: 'coded' as const,
+      codedComponent: 'GscFixtureOnly',
+      riskLevel: 'low' as const,
+      seo: { noIndex: false },
+    };
+    const publishedTool = await payload.create({
+      collection: 'tools', context,
+      data: {
+        ...toolBase, name: 'GSC CI published tool ' + suffix,
+        slug: 'gsc-published-tool-' + suffix,
+        enabled: true, _status: 'published',
+      },
+    });
+    const canonicalTool = await payload.create({
+      collection: 'tools', context,
+      data: {
+        ...toolBase,
+        name: 'GSC CI alternate-canonical tool ' + suffix,
+        slug: 'gsc-canonical-tool-' + suffix,
+        enabled: true, _status: 'published',
+        seo: {
+          noIndex: false,
+          canonical: 'https://www.healthylifesstyles.com/tools/' + publishedTool.slug,
+        },
+      },
+    });
+    const disabledTool = await payload.create({
+      collection: 'tools', context,
+      data: {
+        ...toolBase, name: 'GSC CI disabled tool ' + suffix,
+        slug: 'gsc-disabled-tool-' + suffix,
+        enabled: false, _status: 'published',
+      },
+    });
+    const draftTool = await payload.create({
+      collection: 'tools', context, draft: true,
+      data: {
+        ...toolBase, name: 'GSC CI draft tool ' + suffix,
+        slug: 'gsc-draft-tool-' + suffix,
+        enabled: false, _status: 'draft',
+      },
+    });
+
+    const req = { user: editor, payload } as unknown as PayloadRequest;
+    const result = await collectAuthorizedPayloadReviewSnapshot(payload, req);
+    expect(result.kind).toBe('access-controlled-local-payload-snapshot');
+    expect(result.includesDraftVersions).toBe(false);
+    const byId = (collection: 'articles' | 'tools', id: string | number) =>
+      result.catalog.find(x => x.collection === collection && String(x.recordId) === String(id));
+    expect(byId('articles', publishedArticle.id)).toMatchObject({
+      status: 'published', noIndex: false,
+      page: 'https://www.healthylifesstyles.com/wellness-hub/' + publishedArticle.slug,
+    });
+    expect(byId('articles', draftArticle.id)).toMatchObject({
+      status: 'draft', noIndex: true,
+    });
+    expect(byId('articles', noIndexArticle.id)).toMatchObject({
+      status: 'published', noIndex: true,
+    });
+    expect(byId('tools', canonicalTool.id)).toMatchObject({
+      status: 'published', enabled: true, noIndex: false,
+      canonicalOverride: 'https://www.healthylifesstyles.com/tools/' + publishedTool.slug,
+    });
+    expect(byId('tools', publishedTool.id)).toMatchObject({
+      status: 'published', enabled: true, noIndex: false,
+    });
+    expect(byId('tools', disabledTool.id)).toMatchObject({
+      status: 'published', enabled: false,
+    });
+    expect(byId('tools', draftTool.id)).toMatchObject({
+      status: 'draft', enabled: false,
+    });
+    expect(new Set(result.catalog.map(x => x.collection + ':' + x.recordId)).size)
+      .toBe(result.catalog.length);
+    // Never project private article content, subscriber records or credentials.
+    for (const ref of result.catalog) {
+      expect(Object.keys(ref).sort()).toEqual([
+        'canonicalOverride', 'collection', 'enabled', 'noIndex',
+        'page', 'recordId', 'slug', 'status',
+      ].sort());
+
+      if (ref.collection === 'articles') expect(ref.enabled).toBeUndefined();
+    }
+
+    // End-to-end synthetic GSC + real access-scoped Payload catalog. These
+    // caller-declared observations deliberately include a draft and disabled
+    // tool to make sure they remain REVIEW tasks, never publication claims.
+    const { buildOfflineEditorialReviewQueue } =
+      await import('../../src/lib/gscEditorialReviewQueue');
+    const observedPages = [
+      { page: 'https://www.healthylifesstyles.com/wellness-hub/' + publishedArticle.slug,
+        query: 'nutrition information' },
+      { page: 'https://www.healthylifesstyles.com/wellness-hub/' + draftArticle.slug,
+        query: 'unpublished nutrition evidence' },
+      { page: 'https://www.healthylifesstyles.com/tools/' + disabledTool.slug,
+        query: 'disabled nutrition score' },
+      { page: 'https://www.healthylifesstyles.com/wellness-hub/' + noIndexArticle.slug,
+        query: 'noindex nutrition guide' },
+      { page: 'https://www.healthylifesstyles.com/tools/' + canonicalTool.slug,
+        query: 'tool with alternate canonical' },
+      { page: 'https://www.healthylifesstyles.com/tools/absent-gsc-ci-tool',
+        query: 'missing from bounded cms snapshot' },
+    ];
+    const rows = observedPages.map(({ page, query }) => ({
+      keys: [query, page], clicks: 2, impressions: 40, ctr: 0.05, position: 10,
+    }));
+    const batch = (startDate: string, endDate: string) => ({
+      siteUrl: 'https://www.healthylifesstyles.com/',
+      request: {
+        startDate, endDate, dimensions: ['query', 'page'], type: 'web',
+        dataState: 'final', aggregationType: 'auto', rowLimit: 25000, startRow: 0,
+      },
+      response: { rows, responseAggregationType: 'auto' },
+    });
+    const current = [batch('2026-08-29', '2026-09-25')];
+    const previous = [batch('2026-08-01', '2026-08-28')];
+    const confidential = buildOfflineEditorialReviewQueue(
+      current, previous, result.catalog, { includeDetails: true });
+    const find = (page: string) => confidential.tasks?.find(task => task.page === page);
+    expect(find(observedPages[0].page)?.cmsSnapshotState)
+      .toBe('declared-published-indexable');
+    for (const i of [1, 2, 3, 4]) {
+      expect(find(observedPages[i].page)?.cmsSnapshotState)
+        .toBe('declared-needs-indexability-review');
+      expect(find(observedPages[i].page)?.reviewActions)
+        .toContain('review-publication-and-indexability');
+      expect(find(observedPages[i].page)?.recommendedCmsMutation).toBeNull();
+    }
+    expect(find(observedPages[5].page)?.cmsSnapshotState)
+      .toBe('not-in-supplied-snapshot');
+    expect(find(observedPages[5].page)?.reviewActions)
+      .toContain('locate-page-in-authoritative-cms');
+    expect(confidential.publicationAuthorized).toBe(false);
+    expect(confidential.gscProvenanceAuthenticated).toBe(false);
+    expect(confidential.cmsSnapshotAuthenticated).toBe(false);
+    const redacted = buildOfflineEditorialReviewQueue(current, previous, result.catalog);
+    expect(redacted.totals.candidatePages).toBe(6);
+    expect(confidential.totals.declaredIndexabilityReviewPages).toBe(4);
+    expect(confidential.totals.missingFromSuppliedSnapshot).toBe(1);
+    expect('tasks' in redacted).toBe(false);
+    for (const { page, query } of observedPages) {
+      expect(JSON.stringify(redacted)).not.toContain(page);
+      expect(JSON.stringify(redacted)).not.toContain(query);
+    }
+  });
+
+  it('blocks an unauthenticated caller without reading CMS records', async () => {
+    const { collectAuthorizedPayloadReviewSnapshot } =
+      await import('../../src/lib/gscPayloadReadOnlyCollector');
+    await expect(collectAuthorizedPayloadReviewSnapshot(payload, {
+      payload, user: null,
+    } as unknown as PayloadRequest)).rejects.toThrow(/administrator or editor/);
+  });
+});
