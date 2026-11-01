@@ -59,8 +59,8 @@ export interface GscComparisonWindows {
 }
 
 export interface GscReadOnlyTransport {
-  /** A Google Search Console sites.list() READ, not a user-supplied property assertion. */
-  listSites(): Promise<unknown>;
+  /** A narrowly scoped Search Console sites.get() READ for exactly one property. */
+  getSite(siteUrl: string): Promise<unknown>;
   /** A Google Search Console searchAnalytics.query() READ. */
   query(siteUrl: string, request: RawGscBatch['request']): Promise<unknown>;
   checkDatePresence?(siteUrl: string, window: GscDateWindow): Promise<unknown>;
@@ -97,22 +97,18 @@ function assertApprovedPeriods(windows: GscComparisonWindows): void {
   screenComparableGscExports(envelope(windows.current), envelope(windows.previous));
 }
 
-function assertAuthorizedProperty(sites: unknown): void {
-  if (!sites || typeof sites !== 'object' || Array.isArray(sites)) {
-    throw new Error('Search Console sites.list returned an invalid response.');
+function assertAuthorizedProperty(entry: unknown): void {
+  // A targeted sites.get(siteUrl) response must describe exactly the
+  // configured property; never enumerate other Google properties.
+  // Reject error envelopes even if they include fields.
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry) ||
+      'error' in entry) {
+    throw new Error('Search Console sites.get returned an invalid response.');
   }
-  const entries = (sites as { siteEntry?: unknown }).siteEntry;
-  if (entries !== undefined && !Array.isArray(entries)) {
-    throw new Error('Search Console sites.list returned an invalid response.');
-  }
-  const allowed = ((entries ?? []) as unknown[]).some((entry) => {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return false;
-    const site = entry as { siteUrl?: unknown; permissionLevel?: unknown };
-    return site.siteUrl === GSC_SITE_URL &&
-      typeof site.permissionLevel === 'string' &&
-      ALLOWED_PERMISSIONS.has(site.permissionLevel);
-  });
-  if (!allowed) {
+  const site = entry as { siteUrl?: unknown; permissionLevel?: unknown };
+  if (site.siteUrl !== GSC_SITE_URL ||
+      typeof site.permissionLevel !== 'string' ||
+      !ALLOWED_PERMISSIONS.has(site.permissionLevel)) {
     throw new Error('The authenticated account lacks read access to the exact configured GSC property.');
   }
 }
@@ -181,17 +177,17 @@ async function collectVerifiedGscBatchesWithTransport(
 ) {
   requireStaff(req);
   assertApprovedPeriods(windows);
-  if (!transport || typeof transport.listSites !== 'function' ||
+  if (!transport || typeof transport.getSite !== 'function' ||
       typeof transport.query !== 'function') {
     throw new TypeError('A read-only Search Console transport is required.');
   }
-  let sites: unknown;
+  let property: unknown;
   try {
-    sites = await transport.listSites();
+    property = await transport.getSite(GSC_SITE_URL);
   } catch {
     throw new Error('Search Console property verification failed; no report was produced.');
   }
-  assertAuthorizedProperty(sites);
+  assertAuthorizedProperty(property);
   const finalizedDatePresenceChecked = typeof transport.checkDatePresence === 'function';
   if (transport.checkDatePresence) {
     for (const window of [windows.previous, windows.current]) {
@@ -319,7 +315,7 @@ async function makeGoogleReadOnlyTransport(): Promise<GscReadOnlyTransport> {
   });
   const api = google.searchconsole({ version: 'v1', auth });
   return {
-    listSites: async () => (await api.sites.list()).data,
+    getSite: async (siteUrl) => (await api.sites.get({siteUrl})).data,
     checkDatePresence: async (siteUrl, window) => (await api.searchanalytics.query({
       siteUrl, requestBody: {startDate:window.startDate,endDate:window.endDate,dimensions:['date'],type:'web',dataState:'final'},
     })).data,
@@ -346,7 +342,7 @@ async function makeGoogleReadOnlyTransport(): Promise<GscReadOnlyTransport> {
  * Independent, staff-only property/permission smoke test. This is NOT the
  * Search Analytics data collector and cannot request query, page, or click
  * data. It requires its OWN explicit opt-in so an administrator can authorize
- * a minimal Google sites.list call without enabling analytics collection.
+ * a minimal Google sites.get call for the configured property without enabling analytics collection.
  *
  * No HTTP route or cron invokes this function in the research branch.
  */
@@ -366,15 +362,15 @@ export async function probeStaffGoogleReadOnlyProperty(
   }
 
   const transport = await makeGoogleReadOnlyTransport();
-  let sites: unknown;
+  let property: unknown;
   try {
-    sites = await transport.listSites();
+    property = await transport.getSite(GSC_SITE_URL);
   } catch {
     // Never surface provider response bodies, service account identity,
     // tokens, or any other remote error details.
     throw new Error('Search Console read-only property check failed.');
   }
-  assertAuthorizedProperty(sites);
+  assertAuthorizedProperty(property);
   return {
     kind: 'gsc-readonly-property-only-probe' as const,
     exactConfiguredPropertyAccessVerified: true as const,
