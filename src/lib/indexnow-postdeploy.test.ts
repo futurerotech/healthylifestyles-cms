@@ -202,6 +202,23 @@ describe('post-deploy IndexNow safety gates', () => {
   expect(verifyDeployedHtml(html('<meta name="rob&#111;ts" content="none">'),expected,expected,'text/html',null).ok).toBe(false);
   expect(verifyDeployedHtml(html('<meta name=robots content=noimageindex>'),expected,expected,'text/html',null).ok).toBe(true);
  });
+ it('rejects impersonated canonical attributes and recognizes quoted > in actual robots directives', () => {
+  const canonical='<link rel="canonical" href="'+expected+'">';
+  const wrap=(head:string, body='')=>'<html><head>'+head+'</head><body>'+body+'</body></html>';
+  const check=(html:string)=>verifyDeployedHtml(html,expected,expected,'text/html',null).ok;
+  // A quoted data attribute cannot manufacture a canonical relationship.
+  expect(check(wrap('<link data-note=" rel=canonical " href="'+expected+'">'))).toBe(false);
+  // A quoted value containing '>' does not terminate an actual metadata tag.
+  expect(check(wrap(canonical+'<meta data-note=" 1 > 0 " name=robots content=noindex>'))).toBe(false);
+  expect(check(wrap('<link data-note=" > " href="'+expected+'" rel=canonical>'))).toBe(true);
+  // A text fragment within data-note cannot impersonate a robots name.
+  expect(check(wrap(canonical+'<meta data-note=" name=robots " content=noindex>'))).toBe(true);
+  // A fake <meta within a preceding tag's quoted attribute is not active markup.
+  expect(check(wrap(canonical+'<meta data-note=" <meta name=robots content=noindex> " content=other>'))).toBe(true);
+  // Actual robots remains blocking even when a misleading quoted attribute precedes it.
+  expect(check(wrap(canonical+'<meta data-note=" name=other " name=googlebot content=none>'))).toBe(false);
+ });
+
  it('requires exact current URL preview approval before submission', () => {
   const urls=['https://www.healthylifesstyles.com/tools/one','https://www.healthylifesstyles.com/tools/two'];
   expect(matchesApprovedIndexNowPreview(urls,urls)).toBe(true);
