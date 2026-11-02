@@ -30,6 +30,14 @@ The new startup guard requires real-looking `*.neon.tech` compute host syntax fo
 
 **Real staging status: NO-GO until an owner approves and independently verifies a dedicated staging branch, distinct compute/role identity, restricted R2 bucket, authorized Hostinger stage and staging-only backup/restore evidence.** No live resources were created or tested by this code change.
 
+## New offline resource and rollback PLAN gate (no live operations)
+
+The nonproduction, credential-free \`scripts/ci/staging-recovery-plan.mjs\` verifies **only the structure of an operator-supplied proposed plan** before any provider action. Its test suite runs in the existing Hostinger preflight CI command, using fabricated IDs and no network or database. It fails closed if a proposed staging database reuses the production Neon project/branch, declares copied production data, reuses the Hostinger production instance or R2 production bucket, claims overly broad R2 access, or tries to restore into the source/production branch. The plan requires an independently provisioned **empty** Neon project with synthetic fixtures and a **distinct disposable** staging-only restore target.
+
+**Crucial limitation:** matching strings and an asserted "staging-only" key scope are NOT authenticated provider evidence; a static safety pass is deliberately labeled \`realProviderIsolationVerified:false\`, \`realBackupRestoreVerified:false\`, \`ownerReleaseApprovalVerified:false\`, and \`productionReleaseAuthorized:false\`. A privileged operator must later check the actual distinct Neon project+branch and role, R2 bucket+key policy and Hostinger host identity in the providers' consoles and collect staging-only restore checksums, with explicit approval. Never insert credentials, DB URLs, secrets or production data into a plan or log.
+
+The existing \`scripts/ci/rehearse-backup.sh\`/disposable \`mock_restore\` proof remains synthetic CI-only. **It is NOT a Hostinger/Neon restore receipt.** Real staging creation, DNS, storage setup, backup, restore, billing and deployments are NOT executed by this PR.
+
 ## Evidence still required — owner/operator-gated
 
 | Release gate | Verification required | Current evidence |

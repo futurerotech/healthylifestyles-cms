@@ -92,3 +92,6 @@ test('rejects outside redirect, malformed envelope and server error', async () =
   const serverError = mock({ '/api/users/me': [500, null] });
   await assert.rejects(() => checkHostingerStagingReadOnly(origin, serverError.fetcher), /unexpected HTTP 500/);
 });
+
+// Pure, no-provider staging+restore plan regressions share this CI entrypoint.
+import './staging-recovery-plan.test.mjs';
