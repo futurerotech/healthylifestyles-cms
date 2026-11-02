@@ -19,3 +19,18 @@ describe('legacy migration-marker maintenance cannot run accidentally in product
     expect(result.stderr).not.toContain(env.DATABASE_URI);
   });
 });
+
+describe('retired author cleanup', () => {
+  it('fails before reading configuration or connecting for any environment', () => {
+    for (const nodeEnv of ['production', 'development']) {
+      const result = spawnSync(process.execPath, ['scripts/cleanup-authors.mjs'], {
+        env: { ...process.env, NODE_ENV: nodeEnv, DATABASE_URI: 'postgres://mock:never-connect@localhost/mock' },
+        encoding: 'utf8', timeout: 10000, windowsHide: true,
+      });
+      expect(result.status).toBe(1);
+      expect(result.error).toBeUndefined();
+      expect(result.stderr).toMatch(/Legacy author cleanup is disabled/);
+      expect(result.stderr).not.toContain('never-connect');
+    }
+  });
+});
