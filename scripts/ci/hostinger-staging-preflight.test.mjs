@@ -31,6 +31,9 @@ test('refuses live origins, local hosts and unsafe staging targets before fetchi
     'https://cms.healthylifesstyles.com',
     'https://www.healthylifesstyles.com',
     'https://healthylifesstyles.com',
+    'https://cms-qa.example.org',
+    'https://cms-qa.healthylifesstyles.com.attacker.example',
+    'https://cms-qa.internal',
     'http://cms-qa.healthylifesstyles.com',
     'https://127.0.0.1', 'https://localhost',
     'https://[::1]', 'https://[::ffff:127.0.0.1]',
@@ -39,8 +42,10 @@ test('refuses live origins, local hosts and unsafe staging targets before fetchi
     'https://user:pass@cms-qa.healthylifesstyles.com',
     'https://cms-qa.healthylifesstyles.com?token=x',
   ]) assert.throws(() => validateStagingOrigin(value));
+  assert.equal(validateStagingOrigin(origin), origin);
   const client = mock();
   await assert.rejects(() => checkHostingerStagingReadOnly('https://cms.healthylifesstyles.com', client.fetcher));
+  await assert.rejects(() => checkHostingerStagingReadOnly('https://cms-qa.example.org', client.fetcher));
   assert.equal(client.calls.length, 0);
 });
 test('valid staging performs only credential-free GET with manual redirect mode', async () => {
