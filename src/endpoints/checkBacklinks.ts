@@ -44,15 +44,14 @@ export const checkBacklinks: Endpoint = {
 
     for (const doc of docs as any[]) {
       const now = new Date().toISOString();
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
         const res = await fetch(doc.sourceUrl, {
           signal: controller.signal,
           redirect: 'follow',
           headers: { 'User-Agent': `HealthyLifeStyles-LinkCheck/1.0 (+${process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'})` },
         });
-        clearTimeout(timer);
 
         if (res.status === 404 || res.status === 410) {
           lost++;
@@ -82,6 +81,8 @@ export const checkBacklinks: Endpoint = {
           await p.update({ collection: 'backlinks' as never, id: doc.id, data: { lastCheckedAt: now } as never });
         } catch {}
         p.logger?.warn?.(`backlink check failed for ${doc.sourceUrl}: ${(err as Error)?.message || 'unknown'}`);
+      } finally {
+        clearTimeout(timer);
       }
     }
 
