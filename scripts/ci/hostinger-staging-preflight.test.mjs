@@ -73,6 +73,13 @@ test('rejects non-null public user session', async () => {
   const client = mock({ '/api/users/me': [200, { user: { id: 1, role: 'admin' } }] });
   await assert.rejects(() => checkHostingerStagingReadOnly(origin, client.fetcher), /anonymous user must be null/);
 });
+test('rejects ambiguous or error-bearing anonymous session responses', async () => {
+  for (const body of [{}, { user: null, error: 'provider failure' }]) {
+    const client = mock({ '/api/users/me': [200, body] });
+    await assert.rejects(() => checkHostingerStagingReadOnly(origin, client.fetcher), /anonymous user must be null/);
+    assert.equal(client.calls.length, 4);
+  }
+});
 test('rejects anonymous article/pSEO draft exposure', async () => {
   for (const overrides of [
     { '/api/articles': [200, { docs: [{ _status: 'draft' }] }] },
