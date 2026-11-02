@@ -22,10 +22,15 @@ export function validateStagingOrigin(input) {
   let url;
   try { url = new URL(input); }
   catch { throw new TypeError('Invalid staging URL'); }
-  const host = url.hostname.replace(/\.$/, '').toLowerCase();
+  // Preserve a terminal DNS dot: the CMS startup origin validator rejects it.
+  const host = url.hostname.toLowerCase();
   if (url.protocol !== 'https:' || url.origin !== input ||
       url.username || url.password || url.search || url.hash ||
       url.pathname !== '/' || url.port || LIVE_HOSTS.has(host) ||
+      // The actual CMS isolated-staging startup guard accepts only owned
+      // project subdomains. A probe of an arbitrary HTTPS host cannot prove
+      // that the same hostname could ever start in isolated staging.
+      !host.endsWith('.healthylifesstyles.com') ||
       host === 'localhost' || host.endsWith('.localhost') ||
       host.endsWith('.local') ||
       // WHATWG URL.hostname wraps IPv6 in [] but net.isIP requires bare input.

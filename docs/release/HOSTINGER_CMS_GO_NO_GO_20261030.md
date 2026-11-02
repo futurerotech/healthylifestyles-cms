@@ -71,7 +71,7 @@ File: `scripts/ci/hostinger-staging-preflight.mjs`. This is a **GET-only** probe
 
 Example invocation (substitute a real, approved staging hostname; this is NOT an existing deployed URL):
 ```sh
-HLS_STAGING_ORIGIN=https://cms-qa.example.org HLS_STAGING_READ_ONLY_APPROVED=yes node scripts/ci/hostinger-staging-preflight.mjs
+HLS_STAGING_ORIGIN=https://replace-me.healthylifesstyles.com HLS_STAGING_READ_ONLY_APPROVED=yes node scripts/ci/hostinger-staging-preflight.mjs
 ```
 
 The six checks cover admin login reachability, anonymous queue and user-directory denial, anonymous `/api/users/me` session, and *sampled* anonymous article and pSEO draft visibility. They log only names/statuses, not response bodies. This probe does not authenticate as a real user, prove revision SHA, test backups/rollback, cover all drafts or constitute a staging GO decision. On the actual isolated staging system, the existing authenticated CI role/release tests and manual rollback verification are **still mandatory**.
