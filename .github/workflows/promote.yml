@@ -14,6 +14,10 @@ permissions:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ['16', '18']
 
     # ══ D4 / SD2 — CI BUILD SAFETY (DO NOT "FIX" THIS BACK) ══════════════════
     # The build below runs against a DISPOSABLE, EMPTY postgres service with
@@ -25,7 +29,7 @@ jobs:
     # data being reachable. The "Secret-pattern guard" steps enforce this.
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:${{ matrix.postgres }}-alpine
         env:
           POSTGRES_USER: mock
           POSTGRES_PASSWORD: mock
@@ -221,7 +225,7 @@ jobs:
       - name: Archive non-production provenance evidence
         uses: actions/upload-artifact@v4
         with:
-          name: cms-source-provenance-${{ github.run_id }}
+          name: cms-source-provenance-${{ github.run_id }}-pg${{ matrix.postgres }}
           path: .ci-artifacts/release-provenance.json
           if-no-files-found: error
           retention-days: 14
