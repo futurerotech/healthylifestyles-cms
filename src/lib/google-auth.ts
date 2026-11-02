@@ -70,7 +70,7 @@ const parseB64Json = (s: string): GoogleServiceAccount | null => {
  * values, and decoded JSON are never logged. Drift detection: warns when
  * client_email differs from the expected service account.
  */
-export function loadGoogleCredentials(): GoogleServiceAccount {
+export function loadGoogleCredentials(options: { quiet?: boolean } = {}): GoogleServiceAccount {
   const plain = process.env.GOOGLE_INDEXING_CREDENTIALS;
   const b64 = process.env.GOOGLE_INDEXING_CREDENTIALS_B64;
 
@@ -90,7 +90,7 @@ export function loadGoogleCredentials(): GoogleServiceAccount {
   }
 
   if (!creds) {
-    console.error(
+    if (!options.quiet) console.error(
       `[google-auth] HEALTH: FAILED to resolve credentials — tried GOOGLE_INDEXING_CREDENTIALS as JSON${plain ? ' (set, unparseable)' : ' (unset)'}, as base64, and GOOGLE_INDEXING_CREDENTIALS_B64${b64 ? ' (set, unparseable)' : ' (unset)'}. Re-encode the (rotated) key file: base64 -w0 service-account.json → set GOOGLE_INDEXING_CREDENTIALS_B64.`,
     );
     throw new ConfigError(
@@ -99,16 +99,16 @@ export function loadGoogleCredentials(): GoogleServiceAccount {
   }
 
   if (!creds.client_email || !creds.private_key || !creds.project_id) {
-    console.error(`[google-auth] HEALTH: FAILED at FIELDS stage — ${source} parsed but is missing client_email / private_key / project_id (is this the service-account key file?).`);
+    if (!options.quiet) console.error(`[google-auth] HEALTH: FAILED at FIELDS stage — ${source} parsed but is missing client_email / private_key / project_id (is this the service-account key file?).`);
     throw new ConfigError('Service-account JSON is missing required fields (client_email, private_key, project_id).');
   }
 
   // Wrong-key drift detection (client_email + project_id are safe to log).
   if (creds.client_email !== EXPECTED_CLIENT_EMAIL) {
-    console.error(`[google-auth] WARNING: client_email drift — credentials are for "${creds.client_email}" but the GSC property owner is expected to be "${EXPECTED_CLIENT_EMAIL}". If inspections fail with "Permission denied", this is why.`);
+    if (!options.quiet) console.error(`[google-auth] WARNING: client_email drift — credentials are for "${creds.client_email}" but the GSC property owner is expected to be "${EXPECTED_CLIENT_EMAIL}". If inspections fail with "Permission denied", this is why.`);
   }
 
-  console.log(`[google-auth] credentials resolved from ${source} — client_email=${creds.client_email} project_id=${creds.project_id}`);
+  if (!options.quiet) console.log(`[google-auth] credentials resolved from ${source} — client_email=${creds.client_email} project_id=${creds.project_id}`);
   return creds;
 }
 

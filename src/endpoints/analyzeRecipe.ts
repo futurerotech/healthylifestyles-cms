@@ -1,6 +1,7 @@
 import type { Endpoint, PayloadRequest } from 'payload';
 import { searchFood, isUsdaConfigured, type UsdaSearchResult } from '../lib/usda';
 import { parseRecipe, isParseConfigured, type ParsedIngredient } from '../lib/parseRecipe';
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 
 /* ---------------------------------------------------------------------------
  * Recipe Nutrition Analyzer endpoint.
@@ -106,6 +107,9 @@ export const analyzeRecipe: Endpoint = {
   path: '/analyze-recipe',
   method: 'post',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    // Staging must not reach paid AI parsing or the external USDA API.
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     // Rate limit
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown';
     if (!checkRate(ip)) {

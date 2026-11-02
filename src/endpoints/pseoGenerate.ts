@@ -1,3 +1,4 @@
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
 import { parseCsv, generateAllPages, type PseoTemplate, type CsvRow } from '../lib/pseo';
 
@@ -12,6 +13,8 @@ export const pseoGenerate: Endpoint = {
   path: '/pseo/generate',
   method: 'post',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     if (!req.user) {
       return Response.json({ ok: false, count: 0, message: 'Not authenticated.' }, { status: 401 });
     }

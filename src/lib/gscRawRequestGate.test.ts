@@ -47,4 +47,58 @@ describe('bounded raw GSC request/response gate',()=>{
  it('rejects incomparable periods even for individually well-formed batches',()=>{
   expect(()=>screenBoundedRawGscBatches(batch('2026-08-31','2026-09-27'),previous())).toThrow();
  });
+ it('rejects provider API errors even when rows are absent',()=>{
+  const errorResponse={...current(),response:{error:{code:403,message:'Forbidden'}} as unknown as RawGscBatch['response']};
+  expect(()=>screenBoundedRawGscBatches(errorResponse,previous())).toThrow(/Unexpected Search Analytics response field/);
+  expect(()=>screenPaginatedRawGscBatches([errorResponse],[previous()])).toThrow(/Unexpected Search Analytics response field/);
+  const terminal={...current(),request:{...current().request,rowLimit:1,startRow:1},
+    response:{error:{code:429}} as unknown as RawGscBatch['response']};
+  const first={...current(),request:{...current().request,rowLimit:1}};
+  expect(()=>screenPaginatedRawGscBatches([first,terminal],[previous()])).toThrow();
+ });
+ it('rejects malformed metric rows and hidden provider errors before scoring',()=>{
+  const malformed=[null,{error:{code:403}}, {...row,unrecognizedScope:'partial'},
+    {keys:['bmi calculator',page],clicks:4,impressions:100,ctr:0.04}];
+  for (const value of malformed) {
+    const bad={...current(),response:{rows:[value] as unknown as RawGscBatch['response']['rows'],
+      responseAggregationType:'auto'}};
+    expect(()=>screenBoundedRawGscBatches(bad,previous())).toThrow(/Malformed Search Analytics data row/);
+    expect(()=>screenPaginatedRawGscBatches([bad],[previous()])).toThrow(/Malformed Search Analytics data row/);
+  }
+  const first={...current(),request:{...current().request,rowLimit:1}};
+  const terminal={...first,request:{...first.request,startRow:1},
+    response:{rows:[{error:{code:429}}] as unknown as RawGscBatch['response']['rows']}};
+  expect(()=>screenPaginatedRawGscBatches([first,terminal],[previous()])).toThrow(/Malformed Search Analytics data row/);
+ });
+ it('rejects contradictory numeric metrics without converting them to no-data',()=>{
+  const malformed=[
+    {...row,clicks:-1}, {...row,impressions:-100}, {...row,clicks:101},
+    {...row,clicks:0.5}, {...row,impressions:100.5},
+    {...row,ctr:1.1}, {...row,ctr:0.5}, {...row,position:0},
+    {...row,clicks:Number.MAX_SAFE_INTEGER + 10},
+  ];
+  for (const badRow of malformed) {
+    const bad={...current(),response:{rows:[badRow],responseAggregationType:'auto'}};
+    expect(()=>screenBoundedRawGscBatches(bad,previous())).toThrow(/Inconsistent Search Analytics row metrics/);
+    expect(()=>screenPaginatedRawGscBatches([bad],[previous()])).toThrow(/Inconsistent Search Analytics row metrics/);
+    expect(()=>screenBoundedRawGscBatches(current(),{...previous(),response:{rows:[badRow]}}))
+      .toThrow(/Inconsistent Search Analytics row metrics/);
+  }
+  const first={...current(),request:{...current().request,rowLimit:1}};
+  const terminal={...first,request:{...first.request,startRow:1},
+    response:{rows:[{...row,ctr:0.5}]}};
+  expect(()=>screenPaginatedRawGscBatches([first,terminal],[previous()]))
+    .toThrow(/Inconsistent Search Analytics row metrics/);
+  const validZero={...current(),response:{rows:[{...row,clicks:0,impressions:0,ctr:0}]}};
+  expect(screenBoundedRawGscBatches(validZero,previous()).acceptedRows).toBe(0);
+ });
+ it('rejects unknown request scope fields on all pages',()=>{
+  const scoped={...current(),request:{...current().request,searchAppearance:'AMP'} as RawGscBatch['request']};
+  expect(()=>screenBoundedRawGscBatches(scoped,previous())).toThrow(/Unsupported Search Analytics request field/);
+  expect(()=>screenPaginatedRawGscBatches([scoped],[previous()])).toThrow(/Unsupported Search Analytics request field/);
+  const first={...current(),request:{...current().request,rowLimit:1}};
+  const tail={...first,request:{...first.request,startRow:1,searchAppearance:'AMP'} as RawGscBatch['request'],response:{rows:[]}};
+  expect(()=>screenPaginatedRawGscBatches([first,tail],[previous()])).toThrow(/Unsupported Search Analytics request field/);
+ });
+
 });

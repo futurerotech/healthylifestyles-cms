@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import config from '@payload-config';
 import { verifiedCollectionCount } from '@/lib/deploy-readiness';
+import { ISOLATED_STAGING_CMS_ORIGIN } from '@/lib/allowedOrigins';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,7 +35,8 @@ export async function GET(req: Request): Promise<NextResponse> {
 
   try {
     const result = await payload.find({ collection: 'pending-deploys', limit: 0 });
-    return NextResponse.json({ count: verifiedCollectionCount(result) });
+    return NextResponse.json({ count: verifiedCollectionCount(result),
+      stagingPreviewOnly: Boolean(ISOLATED_STAGING_CMS_ORIGIN) });
   } catch {
     // Never present an unavailable queue as empty: operators must not mistake
     // a database or migration failure for a fully deployed site.
