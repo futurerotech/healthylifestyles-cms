@@ -1,4 +1,5 @@
 import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
+import { hasRealBacklink } from '../lib/backlink-html-links';
 import type { Endpoint, PayloadRequest } from 'payload';
 
 /**
@@ -14,7 +15,6 @@ import type { Endpoint, PayloadRequest } from 'payload';
  * only a successful fetch WITHOUT our domain in the HTML marks it lost.
  */
 
-const OUR_DOMAIN = process.env.SITE_BASE_URL ? new URL(process.env.SITE_BASE_URL).hostname : 'healthylifesstyles.com';
 const BATCH = 20;
 const FETCH_TIMEOUT_MS = 8000;
 
@@ -65,8 +65,8 @@ export const checkBacklinks: Endpoint = {
           continue;
         }
 
-        const html = (await res.text()).toLowerCase();
-        const found = html.includes(OUR_DOMAIN);
+        const html = await res.text();
+        const found = hasRealBacklink(html, doc.sourceUrl, doc.targetPage);
         if (found) live++;
         else lost++;
         await p.update({
