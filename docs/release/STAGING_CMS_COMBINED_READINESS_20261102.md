@@ -20,6 +20,16 @@ This does **not** prove that any such hostname is a running Hostinger staging de
 
 The probe is GET-only, credential-free and requires an explicit `HLS_STAGING_READ_ONLY_APPROVED=yes` gate. CI runs its synthetic tests only; it does not probe Hostinger.
 
+## Direct Neon provider inventory — read-only observation (2026-11-02)
+
+Connected Neon project inventory was inspected **without connecting to PostgreSQL, reading credentials, creating branches or restoring data**. The project returned three branches: one default production branch and two older backup-named branches. **No separately identified staging branch was found in this connected project.** Neither backup-named branch is authorized to serve as a testing database.
+
+The production branch inventory reported branch protection disabled. An owner/operator should review production branch protection independently. This branch-name inventory cannot prove the status of any other Neon project or Cloudflare R2 bucket.
+
+The new startup guard requires real-looking `*.neon.tech` compute host syntax for **both** staging and production references and the actual staging database URI, except for the explicitly gated disconnected CI mock. This avoids treating an arbitrary PostgreSQL hostname or a suffix-spoofed DNS name as a verified Neon endpoint. **It does NOT authenticate a Neon branch or prove that separate credentials, roles and compute exist.**
+
+**Real staging status: NO-GO until an owner approves and independently verifies a dedicated staging branch, distinct compute/role identity, restricted R2 bucket, authorized Hostinger stage and staging-only backup/restore evidence.** No live resources were created or tested by this code change.
+
 ## Evidence still required — owner/operator-gated
 
 | Release gate | Verification required | Current evidence |

@@ -33,6 +33,19 @@ function hostnameOnly(value: unknown): string | null {
   }
 }
 
+/**
+ * Staging for this deployment must target a Neon-managed endpoint, not an
+ * arbitrary PostgreSQL or lookalike DNS host. This only checks host syntax:
+ * provider project/branch ownership must still be verified independently.
+ */
+function isNeonEndpointHost(host: string | null): host is string {
+  return typeof host === 'string' &&
+    host.endsWith('.neon.tech') &&
+    host.split('.').every(label =>
+      /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label)
+    );
+}
+
 /** Neon direct and -pooler hosts can refer to the SAME compute/branch. */
 function computeIdentity(host: string): string {
   return host.replace(/-pooler(?=\.)/g, '');
@@ -55,7 +68,8 @@ export function assertIsolatedStagingDatabase(input: StagingDatabaseIdentity): v
   }
   const staging = hostnameOnly(input.stagingHost);
   const production = hostnameOnly(input.productionHost);
-  if (!staging || !production ||
+  if (!isNeonEndpointHost(staging) || !isNeonEndpointHost(production) ||
+      !isNeonEndpointHost(actual.hostname) ||
       computeIdentity(staging) === computeIdentity(production) ||
       computeIdentity(actual.hostname) !== computeIdentity(staging)) {
     throw new Error('Isolated staging database host is not independently verified; startup refused.');
