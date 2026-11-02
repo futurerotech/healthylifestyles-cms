@@ -38,6 +38,15 @@ describe('active backlink evidence', () => {
     expect(hasRealBacklink('<a href="mailto:healthylifesstyles.com@example.org">Email</a>', source, target)).toBe(false);
   });
 
+
+  it('rejects noncanonical ports instead of counting a different origin as an earned link', () => {
+    const spoofed = 'https://www.healthylifesstyles.com:8443/tools/bmi-calculator';
+    expect(hasRealBacklink('<a href="' + spoofed + '">Wrong port</a>', source, target)).toBe(false);
+    expect(() => hasRealBacklink('<a href="' + good + '">Real link</a>', source, spoofed))
+      .toThrow(/targetPage host/);
+    expect(hasRealBacklink('<a href="' + good + '">Real link</a>', source, target)).toBe(true);
+  });
+
   it('throws on a missing or external target rather than marking a record lost', () => {
     expect(() => hasRealBacklink('<a href="' + good + '">Link</a>', source, '')).toThrow(/required/);
     expect(() => hasRealBacklink('<a href="' + good + '">Link</a>', source, 'https://other.example/')).toThrow(/targetPage host/);
