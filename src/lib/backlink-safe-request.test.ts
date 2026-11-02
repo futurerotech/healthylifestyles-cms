@@ -21,7 +21,7 @@ describe('public-only backlink HTTP policy', () => {
     for (const value of [
       'http://127.0.0.1/', 'http://0177.0.0.1/', 'http://0x7f000001/',
       'http://169.254.169.254/latest/meta-data', 'http://10.0.0.1/',
-      'http://[::1]/', 'http://[fc00::1]/',
+      'http://[::1]/', 'http://[::127.0.0.1]/', 'http://[::192.168.1.1]/', 'http://[fc00::1]/',
       'http://localhost/', 'https://metadata.google.internal/',
       'http://private.local/', 'file:///etc/passwd',
       'https://user:password@example.com/', 'http://public.example:8080/',
