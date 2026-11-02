@@ -34,7 +34,7 @@ export function hasRealBacklink(
   const allowedHosts = new Set([apex, 'www.' + apex]);
   const isSiteUrl = (url: URL): boolean =>
     (url.protocol === 'http:' || url.protocol === 'https:') &&
-    !url.username && !url.password &&
+    !url.username && !url.password && !url.port &&
     allowedHosts.has(url.hostname);
 
   // Malformed or cross-site target configuration is inconclusive; the caller

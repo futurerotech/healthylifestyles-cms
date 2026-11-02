@@ -108,6 +108,15 @@ describe('public-only backlink HTTP policy', () => {
       .rejects.toThrow(/size limit/);
   });
 
+
+  it('treats a 200 response without Content-Type as inconclusive without reading its body', async () => {
+    const untyped = { ...page(200, '<html>no reliable HTML type</html>'), contentType: undefined };
+    const transport: BacklinkTransport = vi.fn(async () => untyped);
+    const result = await fetchSafeBacklink('https://public.example/no-type', opts, transport);
+    expect(result).toMatchObject({ status: 200, ok: false });
+    expect(untyped.close).toHaveBeenCalledOnce();
+  });
+
   it('treats non-HTML success as inconclusive and preserves actual 404 status', async () => {
     const nonHtml: BacklinkTransport = vi.fn(async () => ({...page(200), contentType: 'application/json'}));
     const result = await fetchSafeBacklink('https://public.example/data', opts, nonHtml);

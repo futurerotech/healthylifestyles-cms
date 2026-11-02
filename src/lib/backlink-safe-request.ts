@@ -173,8 +173,11 @@ export async function fetchSafeBacklink(
       page.close();
       return { status: page.status, ok: false, text: async () => '' };
     }
+    // Missing Content-Type is inconclusive, never evidence that a backlink was lost.
+    // Do not feed an untyped response into the HTML backlink parser.
     if (page.status < 200 || page.status >= 300 || page.status === 204 ||
-        (page.contentType && !/^\s*(?:text\/html|application\/xhtml\+xml)\b/i.test(page.contentType))) {
+        !page.contentType ||
+        !/^\s*(?:text\/html|application\/xhtml\+xml)\b/i.test(page.contentType)) {
       page.close();
       return { status: page.status, ok: false, text: async () => '' };
     }
