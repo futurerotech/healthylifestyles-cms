@@ -114,7 +114,8 @@ export async function checkHostingerStagingReadOnly(input, fetcher = fetch) {
   const me = await get('/api/users/me', 'User session');
   if (me.status === 200) {
     const body = await jsonWithin(me, 'User session');
-    if (!body || typeof body !== 'object' || Array.isArray(body) || body.user != null) {
+    if (!body || typeof body !== 'object' || Array.isArray(body) ||
+        !Object.hasOwn(body, 'user') || body.user !== null || Object.hasOwn(body, 'error') || Object.hasOwn(body, 'errors')) {
       throw new Error('User session: anonymous user must be null');
     }
   } else if (![401, 403].includes(me.status)) {
