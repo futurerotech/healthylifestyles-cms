@@ -69,20 +69,34 @@ export function selectPublicDnsAddress(records: PublicAddress[]): PublicAddress 
   return records.find(a => a.family === 4) ?? records[0];
 }
 
-const guardedLookup = ((
-  hostname: string,
-  _options: unknown,
-  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
-) => {
-  dnsLookup(hostname, { all: true })
-    .then(records => {
-      const selected = selectPublicDnsAddress(records);
-      callback(null, selected.address, selected.family);
-    })
-    .catch((error: unknown) => callback(
-      error instanceof Error ? error : new Error('Backlink DNS lookup failed'), '', 4,
-    ));
-}) as LookupFunction;
+/**
+ * Node's automatic-family selection may request ALL DNS answers instead of
+ * one. Both callback shapes must return only validated socket destinations.
+ */
+export function createGuardedLookup(
+  resolver: (hostname: string, options: { all: true }) => Promise<PublicAddress[]> = dnsLookup,
+): LookupFunction {
+  return ((
+    hostname: string,
+    options: { all?: boolean } | number,
+    callback: (error: NodeJS.ErrnoException | null, value: string | PublicAddress[], family?: number) => void,
+  ) => {
+    resolver(hostname, { all: true })
+      .then(records => {
+        const selected = selectPublicDnsAddress(records);
+        if (typeof options === 'object' && options?.all) {
+          callback(null, records);
+        } else {
+          callback(null, selected.address, selected.family);
+        }
+      })
+      .catch((error: unknown) => callback(
+        error instanceof Error ? error : new Error('Backlink DNS lookup failed'), '',
+      ));
+  }) as unknown as LookupFunction;
+}
+
+const guardedLookup = createGuardedLookup();
 
 export type BacklinkPage = {
   status: number;
@@ -99,7 +113,6 @@ const requestPublicPage: BacklinkTransport = (url, options) => new Promise((reso
   const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)(url, {
     method: 'GET',
     lookup: guardedLookup,
-    autoSelectFamily: false,
     signal: options.signal,
     headers: {
       Accept: 'text/html,application/xhtml+xml',

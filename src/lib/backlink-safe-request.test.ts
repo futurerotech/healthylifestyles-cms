@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 import {
-  blockedBacklinkAddress, fetchSafeBacklink, selectPublicDnsAddress,
+  blockedBacklinkAddress, createGuardedLookup, fetchSafeBacklink, selectPublicDnsAddress,
   validatePublicBacklinkUrl, type BacklinkPage, type BacklinkTransport,
 } from './backlink-safe-request';
 
@@ -40,6 +40,43 @@ describe('public-only backlink HTTP policy', () => {
     expect(() => selectPublicDnsAddress([{address:'fc00::1',family:6}])).toThrow();
     expect(selectPublicDnsAddress([{address:'2606:4700:4700::1111',family:6},{address:'8.8.8.8',family:4}]))
       .toMatchObject({address:'8.8.8.8',family:4});
+  });
+
+  it('pins validated public DNS records with both Node lookup callback shapes', async () => {
+    const resolver = vi.fn(async () => [
+      {address:'8.8.8.8',family:4},
+      {address:'2606:4700:4700::1111',family:6},
+    ]);
+    const lookup = createGuardedLookup(resolver);
+    await new Promise<void>((done, fail) => {
+      lookup('public.example', {all: true}, (err, records) => {
+        if (err) { fail(err); return; }
+        expect(records).toHaveLength(2);
+        done();
+      });
+    });
+    await new Promise<void>((done, fail) => {
+      lookup('public.example', {all: false}, (err, address, family) => {
+        if (err) { fail(err); return; }
+        expect(address).toBe('8.8.8.8');
+        expect(family).toBe(4);
+        done();
+      });
+    });
+    expect(resolver).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects private DNS records before giving Node any address to connect to', async () => {
+    const lookup = createGuardedLookup(async () => [{address:'127.0.0.1',family:4}]);
+    await new Promise<void>((done, fail) => {
+      lookup('untrusted.example', {all: true}, (err, records) => {
+        try {
+          expect(err).toBeTruthy();
+          expect(records).toBeUndefined();
+          done();
+        } catch (error) { fail(error); }
+      });
+    });
   });
 
   it('denies a public redirect to metadata/loopback before making the second request', async () => {
