@@ -34,6 +34,8 @@ describe('public-only backlink HTTP policy', () => {
     expect(blockedBacklinkAddress('169.254.169.254')).toBe(true);
     expect(blockedBacklinkAddress('::1')).toBe(true);
     expect(blockedBacklinkAddress('8.8.8.8')).toBe(false);
+    // IPv6-mapped addresses are denied without contaminating native public IPv4.
+    expect(blockedBacklinkAddress('::ffff:8.8.8.8')).toBe(true);
     expect(() => selectPublicDnsAddress([{address:'8.8.8.8',family:4},{address:'10.0.0.2',family:4}])).toThrow();
     expect(() => selectPublicDnsAddress([{address:'fc00::1',family:6}])).toThrow();
     expect(selectPublicDnsAddress([{address:'2606:4700:4700::1111',family:6},{address:'8.8.8.8',family:4}]))

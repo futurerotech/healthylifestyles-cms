@@ -13,7 +13,11 @@ import { BlockList, isIP, type LookupFunction } from 'node:net';
 
 const MAX_REDIRECTS = 3;
 const MAX_HTML_BYTES = 1024 * 1024;
-const denied = new BlockList();
+// Node BlockList maps IPv4 to ::ffff: addresses when checking mixed-family
+// lists. Keep IPv4 and IPv6 subnet policies separate so the blocked
+// ::ffff:0:0/96 range does not accidentally reject every public IPv4 host.
+const denied4 = new BlockList();
+const denied6 = new BlockList();
 
 const blocked4: Array<[string, number]> = [
   ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10],
@@ -28,12 +32,14 @@ const blocked6: Array<[string, number]> = [
   ['2001::', 32], ['2001:db8::', 32], ['2002::', 16],
   ['fc00::', 7], ['fe80::', 10], ['ff00::', 8],
 ];
-for (const [address, bits] of blocked4) denied.addSubnet(address, bits, 'ipv4');
-for (const [address, bits] of blocked6) denied.addSubnet(address, bits, 'ipv6');
+for (const [address, bits] of blocked4) denied4.addSubnet(address, bits, 'ipv4');
+for (const [address, bits] of blocked6) denied6.addSubnet(address, bits, 'ipv6');
 
 export function blockedBacklinkAddress(address: string): boolean {
   const family = isIP(address);
-  return family === 0 || denied.check(address, family === 4 ? 'ipv4' : 'ipv6');
+  if (family === 4) return denied4.check(address, 'ipv4');
+  if (family === 6) return denied6.check(address, 'ipv6');
+  return true;
 }
 
 export function validatePublicBacklinkUrl(raw: string): URL {
