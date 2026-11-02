@@ -22,6 +22,7 @@ describe('public-only backlink HTTP policy', () => {
       'http://127.0.0.1/', 'http://0177.0.0.1/', 'http://0x7f000001/',
       'http://169.254.169.254/latest/meta-data', 'http://10.0.0.1/',
       'http://[::1]/', 'http://[::127.0.0.1]/', 'http://[::192.168.1.1]/', 'http://[fc00::1]/',
+      'http://[fec0::1]/', 'http://[feff:ffff::1]/',
       'http://localhost/', 'https://metadata.google.internal/',
       'http://private.local/', 'file:///etc/passwd',
       'https://user:password@example.com/', 'http://public.example:8080/',
@@ -38,6 +39,7 @@ describe('public-only backlink HTTP policy', () => {
     expect(blockedBacklinkAddress('::ffff:8.8.8.8')).toBe(true);
     expect(() => selectPublicDnsAddress([{address:'8.8.8.8',family:4},{address:'10.0.0.2',family:4}])).toThrow();
     expect(() => selectPublicDnsAddress([{address:'fc00::1',family:6}])).toThrow();
+    expect(() => selectPublicDnsAddress([{address:'fec0::1',family:6}])).toThrow();
     expect(selectPublicDnsAddress([{address:'2606:4700:4700::1111',family:6},{address:'8.8.8.8',family:4}]))
       .toMatchObject({address:'8.8.8.8',family:4});
   });

@@ -30,7 +30,7 @@ const blocked6: Array<[string, number]> = [
   ['::', 96], ['::1', 128], ['::ffff:0:0', 96],
   ['64:ff9b::', 96], ['64:ff9b:1::', 48], ['100::', 64],
   ['2001::', 32], ['2001:db8::', 32], ['2002::', 16],
-  ['fc00::', 7], ['fe80::', 10], ['ff00::', 8],
+  ['fc00::', 7], ['fe80::', 10], ['fec0::', 10], ['ff00::', 8],
 ];
 for (const [address, bits] of blocked4) denied4.addSubnet(address, bits, 'ipv4');
 for (const [address, bits] of blocked6) denied6.addSubnet(address, bits, 'ipv6');
