@@ -1,5 +1,6 @@
 import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import { hasRealBacklink } from '../lib/backlink-html-links';
+import { fetchSafeBacklink } from '../lib/backlink-safe-request';
 import type { Endpoint, PayloadRequest } from 'payload';
 
 /**
@@ -47,10 +48,9 @@ export const checkBacklinks: Endpoint = {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       try {
-        const res = await fetch(doc.sourceUrl, {
+        const res = await fetchSafeBacklink(doc.sourceUrl, {
           signal: controller.signal,
-          redirect: 'follow',
-          headers: { 'User-Agent': `HealthyLifeStyles-LinkCheck/1.0 (+${process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'})` },
+          userAgent: `HealthyLifeStyles-LinkCheck/1.0 (+${process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'})`,
         });
 
         if (res.status === 404 || res.status === 410) {

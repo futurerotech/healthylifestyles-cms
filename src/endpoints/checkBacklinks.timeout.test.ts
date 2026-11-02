@@ -1,8 +1,11 @@
 // @vitest-environment node
 import { afterEach, expect, it, vi } from 'vitest';
 import { checkBacklinks } from './checkBacklinks';
+import { fetchSafeBacklink } from '../lib/backlink-safe-request';
 
-afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+vi.mock('../lib/backlink-safe-request', () => ({ fetchSafeBacklink: vi.fn() }));
+
+afterEach(() => { vi.useRealTimers(); vi.resetAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 it('times out while reading a stalled response body without marking the backlink lost', async () => {
   vi.useFakeTimers();
@@ -10,12 +13,12 @@ it('times out while reading a stalled response body without marking the backlink
   const update = vi.fn().mockResolvedValue({});
   const payload = { find: vi.fn().mockResolvedValue({ docs: [{ id: 1, sourceUrl: 'https://example.invalid/' }] }), update, logger: { warn: vi.fn() } };
   let signal: AbortSignal | undefined;
-  vi.stubGlobal('fetch', vi.fn(async (_url: unknown, options: { signal: AbortSignal }) => {
+  vi.mocked(fetchSafeBacklink).mockImplementation(async (_url, options) => {
     signal = options.signal;
-    return { ok: true, status: 200, text: () => new Promise<string>((_resolve, reject) => {
+    return new Promise((_resolve, reject) => {
       signal!.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
-    }) };
-  }));
+    });
+  });
   const req = { user: { id: 1 }, payload, headers: new Headers() };
   const pending = checkBacklinks.handler(req as never);
   await vi.advanceTimersByTimeAsync(8001);

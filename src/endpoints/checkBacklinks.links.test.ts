@@ -1,8 +1,11 @@
 // @vitest-environment node
 import { afterEach, expect, it, vi } from 'vitest';
 import { checkBacklinks } from './checkBacklinks';
+import { fetchSafeBacklink } from '../lib/backlink-safe-request';
 
-afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+vi.mock('../lib/backlink-safe-request', () => ({ fetchSafeBacklink: vi.fn() }));
+
+afterEach(() => { vi.resetAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 function mockScan(body: string, targetPage = '/tools/bmi-calculator') {
   vi.stubEnv('HLS_ISOLATED_STAGING', 'false');
@@ -13,8 +16,7 @@ function mockScan(body: string, targetPage = '/tools/bmi-calculator') {
     update,
     logger: { warn: vi.fn() },
   };
-  const fetch = vi.fn().mockResolvedValue(new Response(body, { status: 200, headers: { 'Content-Type': 'text/html' } }));
-  vi.stubGlobal('fetch', fetch);
+  const fetch = vi.mocked(fetchSafeBacklink).mockResolvedValue({ status: 200, ok: true, text: async () => body });
   return { payload, update, fetch };
 }
 
