@@ -22,7 +22,8 @@ export function validateStagingOrigin(input) {
   let url;
   try { url = new URL(input); }
   catch { throw new TypeError('Invalid staging URL'); }
-  const host = url.hostname.replace(/\.$/, '').toLowerCase();
+  // Preserve a terminal DNS dot: the CMS startup origin validator rejects it.
+  const host = url.hostname.toLowerCase();
   if (url.protocol !== 'https:' || url.origin !== input ||
       url.username || url.password || url.search || url.hash ||
       url.pathname !== '/' || url.port || LIVE_HOSTS.has(host) ||

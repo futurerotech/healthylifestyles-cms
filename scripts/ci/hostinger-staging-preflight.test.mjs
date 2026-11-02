@@ -32,6 +32,7 @@ test('refuses live origins, local hosts and unsafe staging targets before fetchi
     'https://www.healthylifesstyles.com',
     'https://healthylifesstyles.com',
     'https://cms-qa.example.org',
+    'https://cms-qa.healthylifesstyles.com.',
     'https://cms-qa.healthylifesstyles.com.attacker.example',
     'https://cms-qa.internal',
     'http://cms-qa.healthylifesstyles.com',
