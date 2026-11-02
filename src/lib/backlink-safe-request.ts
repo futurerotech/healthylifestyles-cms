@@ -79,7 +79,7 @@ export function createGuardedLookup(
   return ((
     hostname: string,
     options: { all?: boolean } | number,
-    callback: (error: NodeJS.ErrnoException | null, value: string | PublicAddress[], family?: number) => void,
+    callback: (error: NodeJS.ErrnoException | null, value?: string | PublicAddress[], family?: number) => void,
   ) => {
     resolver(hostname, { all: true })
       .then(records => {
@@ -91,7 +91,7 @@ export function createGuardedLookup(
         }
       })
       .catch((error: unknown) => callback(
-        error instanceof Error ? error : new Error('Backlink DNS lookup failed'), '',
+        error instanceof Error ? error : new Error('Backlink DNS lookup failed'),
       ));
   }) as unknown as LookupFunction;
 }
