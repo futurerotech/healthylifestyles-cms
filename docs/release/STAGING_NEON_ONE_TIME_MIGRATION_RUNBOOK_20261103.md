@@ -19,11 +19,11 @@ GitHub requires workflow_dispatch workflows to exist on the repository default b
 
 Instead, the workflow .github/workflows/staging-neon-migration-once.yml listens for a **manually created lightweight tag** named staging-migrate-<exact-40-character-reviewed-commit-SHA>. It does not run on normal branch pushes or builds. Tag creation is a separate, intentional release-control operation. GitHub Actions must have permission to run tag-triggered workflows in the repository.
 
-The execution job uses the staging-migration GitHub Environment, which the owner MUST protect with required reviewers and restrictive deployment branch/tag policies before any trigger. A nonexistent or unprotected environment is not an acceptable approval gate.
+The execution job uses the staging-migration GitHub Environment. With independent operators, use required reviewers. **For this single-maintainer repository**, required reviewers cannot be populated: enable a 5-minute wait timer, disable administrator bypass, and restrict deployment to TAG refs matching staging-migrate-*. This solo-operator mode is a weaker control, not an independent approval. The exact reviewed SHA, separately-entered approved SHA and staging-only secrets remain mandatory. Do not trigger an unprotected environment.
 
 ## GitHub Environment configuration (owner/operator only)
 
-Create a protected environment named staging-migration. Restrict eligible tags to staging-migrate-*, require an independent reviewer, and confirm the protected environment's authorization is operational.
+Create a protected environment named staging-migration. Set Deployment branches and tags to Selected branches and tags, with a **Tag** rule (not a Branch rule) matching staging-migrate-*. If the rule displays Currently applies to 0 branches, remove that Branch rule and recreate it as Tag. For a sole maintainer, use the 5-minute wait timer and turn off Allow administrators to bypass configured protection rules; do not leave Required reviewers checked with an empty reviewer list. Verify the saved settings in GitHub before proceeding.
 
 One environment **variable**:
 
@@ -32,7 +32,7 @@ One environment **variable**:
 Environment **secrets** (never put real values into GitHub files, issue comments or chat):
 
 - HLS_STAGING_MIGRATION_ENABLE - literal yes; only set after explicit staging approval.
-- HLS_STAGING_MIGRATION_APPROVED_SHA - same exact reviewed SHA, independently approved.
+- HLS_STAGING_MIGRATION_APPROVED_SHA - same exact reviewed SHA, entered by the owner after reviewing the SHA and successful CI; this is not an independent human approval for a solo maintainer.
 - HLS_NEON_STAGING_API_KEY - Neon control-plane credential capable of GET project, branch, endpoints, role and database, limited to staging if supported.
 - HLS_STAGING_DATABASE_URI - Neon **direct** PostgreSQL 18 staging URI for neondb / neondb_owner, including secure credentials.
 - HLS_STAGING_PAYLOAD_SECRET - independent secret never exposed in messages or production.
@@ -43,11 +43,11 @@ No production secrets, database URLs, indexing keys, deploy hooks or customer me
 
 ## Release gate and execution sequence
 
-1. Have a reviewer inspect the final branch, source SHA, exact-head PostgreSQL 18 CI, workflow diff and repository's existing automatic promotion rules. Do not merge.
+1. Have an authorized reviewer inspect the final branch, source SHA, exact-head PostgreSQL 18 CI, workflow diff and repository's existing automatic promotion rules. If the repository is maintained by one person only, the owner must personally validate these items; acknowledge that independent review is unavailable. Do not merge.
 2. Confirm the protected GitHub Environment and credential sources above. Ensure the staging Neon project is separate from production; inspect provider inventory and staging bucket policy. No new billable resources without approval.
 3. Confirm the production Hostinger app and frontend will be unaffected. Do not change Hostinger build command, which remains npm run build.
 4. The authorized operator creates a **lightweight** tag pointing to the exact reviewed commit on the draft branch, following the name staging-migrate-<sha>, then pushes that tag. Do not point it to main or an arbitrary commit. Never create this tag before protected environment approval.
-5. The environment reviewer approves the GitHub Actions job. The workflow checks out the exact commit, runs npm ci and offline safety tests, then launches the runner.
+5. With an independent reviewer, wait for their explicit GitHub Environment approval. In solo-maintainer mode, the restricted Tag rule and saved wait timer must be verified; there is no second-person approval. After these gates GitHub checks out the exact commit, runs npm ci and offline safety tests, then launches the runner. The timer alone does NOT authorize migrations.
 6. The runner verifies the tag/commit/approval secrets; rejects redirecting URI query parameters; authenticates Neon project, branch, endpoint, role, database and owner via read-only control-plane requests; then opens a certificate-verified TLS PostgreSQL connection with channel binding enabled. It checks actual current_user, database, PostgreSQL 18 and absence of all public base tables. TLS authentication is verified on the PostgreSQL client socket (CA/hostname), not via pg_stat_ssl: Neon's proxy may terminate external TLS before the backend, so pg_stat_ssl=false is not evidence of an insecure client-to-proxy connection. A nonempty schema refuses automatic replay.
 7. Only after the checks pass does the runner invoke npm run migrate -- --force-accept-warning, with a constrained environment and no shell. It suppresses raw child stdout/stderr to prevent secret disclosure.
 8. The runner reconnects using verified TLS and checks a populated schema and exactly 16 recorded Payload migrations. The execution result is a sanitized status, not a full provider backup or release certificate.
@@ -57,6 +57,6 @@ No production secrets, database URLs, indexing keys, deploy hooks or customer me
 ## Constraints and remaining independent verification
 
 - Real Hostinger secrets are already supplied by the owner; they are not readable by GitHub, and copying them into an unprotected Actions context would be unsafe.
-- CI can prove the runner and offline regression tests without provider access. The protected execution job cannot run without a reviewed SHA, environment secrets, tag creation and review.
+- CI can prove the runner and offline regression tests without provider access. The protected execution job cannot run without a reviewed SHA, environment secrets, manual tag creation and satisfied environment protection rules. Solo-maintainer mode cannot provide independent reviewer approval.
 - Production release remains NO-GO; no PR merge, DNS cutover, production migration, production R2 access or IndexNow submission.
 - Review the exact GitHub Actions run and compare its source SHA to the final approved commit; retain only sanitized CI evidence.
