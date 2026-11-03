@@ -11,7 +11,15 @@
 - Staging R2 bucket: healthylifesstyles-staging-media (operator-provided; actual token scope not yet proven)
 - Hostinger target: cms-qa.healthylifesstyles.com (operator-provided; deployment not yet verified)
 - Production Neon project/branch and production R2 bucket are out of scope and must not be modified.
-- Payload migration chain: 16 committed migrations. CI on disposable PostgreSQL 16/18 is not evidence of real Neon execution.
+- Payload migration chain: 16 committed indexed schema migrations plus the inert `seo-audit-fix.ts` CLI file (discovered and recorded by `payload migrate` as a 17th no-op). CI on disposable PostgreSQL 16/18 is not evidence of real Neon execution.
+
+## Real staging incident / read-only reconciliation — 2026-11-03
+
+- Original protected-tag GitHub Actions run [41579807594](https://github.com/futurerotech/healthylifestyles-cms/actions/runs/41579807594) on SHA `8a45b177998817112b61e0baba17f9d6636414c3` exited 1 in the execution step after successful checkout, npm install and eight runner tests.
+- A subsequent **read-only Neon SQL inspection** on the authorized staging project/branch `small-hall-15225012 / br-wandering-poetry-bcxj8s3v` found **157 public base tables and 17 rows** in `public.payload_migrations`, all stamped `2026-11-03 04:49:44 UTC`. Core `articles`, `tools`, `media`, `users`, `categories`, and `authors` tables exist. Article/tool/media/user/category row counts were zero. This supports completed schema application without copying production records.
+- Root cause in the gate: old postcondition asserted **exactly 16** migration rows. The Payload CLI also records the inert `seo-audit-fix` file from `src/migrations` as a 17th migration, although its `up` function explicitly does nothing. The check was corrected to enforce the exact 17-name allowlist.
+- **Do not rerun run 41579807594 or create another migration tag** for the already-nonempty staging branch. The fail-closed precondition is supposed to reject replay. Do not delete tables or reset the database to make the old one-time workflow pass.
+- This incident reconciles schema state; it is **not** proof that the CMS runtime, token scope, actual backup/restore, Hostinger deployment or rollback has passed. Those remain independent GO/NO-GO gates. No production changes are authorized.
 
 ## Why this does not use workflow_dispatch
 
@@ -50,7 +58,7 @@ No production secrets, database URLs, indexing keys, deploy hooks or customer me
 5. With an independent reviewer, wait for their explicit GitHub Environment approval. In solo-maintainer mode, the restricted Tag rule and saved wait timer must be verified; there is no second-person approval. After these gates GitHub checks out the exact commit, runs npm ci and offline safety tests, then launches the runner. The timer alone does NOT authorize migrations.
 6. The runner verifies the tag/commit/approval secrets; rejects redirecting URI query parameters; authenticates Neon project, branch, endpoint, role, database and owner via read-only control-plane requests; then opens a certificate-verified TLS PostgreSQL connection with channel binding enabled. It checks actual current_user, database, PostgreSQL 18 and absence of all public base tables. TLS authentication is verified on the PostgreSQL client socket (CA/hostname), not via pg_stat_ssl: Neon's proxy may terminate external TLS before the backend, so pg_stat_ssl=false is not evidence of an insecure client-to-proxy connection. A nonempty schema refuses automatic replay.
 7. Only after the checks pass does the runner invoke npm run migrate -- --force-accept-warning, with a constrained environment and no shell. It suppresses raw child stdout/stderr to prevent secret disclosure.
-8. The runner reconnects using verified TLS and checks a populated schema and exactly 16 recorded Payload migrations. The execution result is a sanitized status, not a full provider backup or release certificate.
+8. The runner reconnects using verified TLS and checks a populated schema and the **exact reviewed set of 17 recorded migration names**, rejecting missing, unknown, or duplicated names. The execution result is a sanitized status, not a full provider backup or release certificate.
 9. A failure at any stage is NO-GO. Investigate privately, never reset staging schema or rerun migrations blindly. No automatic rollback or production fallback exists.
 10. Once real staging migrations pass, keep npm run build for Hostinger and separately approve/test the staging deployment, real R2 isolation, staging-only restore, and staging application rollback. None is authorized by the migration receipt alone.
 
