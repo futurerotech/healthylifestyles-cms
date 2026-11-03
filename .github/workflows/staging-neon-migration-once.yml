@@ -1,0 +1,66 @@
+name: One-time Neon staging migration (manual reviewed tag)
+
+# workflow_dispatch is not usable on a feature branch absent from default.
+# Only a reviewed lightweight tag to this commit may arm this workflow.
+on:
+  push:
+    tags:
+      - 'staging-migrate-*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hls-neon-staging-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate-once:
+    if: startsWith(github.ref_name, 'staging-migrate-') && github.repository == 'futurerotech/healthylifestyles-cms'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: staging-migration
+
+    steps:
+      - name: Checkout reviewed tagged source without persisted Git credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install locked project dependencies
+        run: npm ci
+
+      - name: Offline fail-closed runner regression tests
+        run: node --test scripts/ci/staging-migration-runner.test.mjs
+
+      - name: Execute once against approved empty staging only
+        env:
+          HLS_STAGING_MIGRATION_ENABLE: ${{ secrets.HLS_STAGING_MIGRATION_ENABLE }}
+          HLS_STAGING_MIGRATION_REVIEWED_SHA: ${{ vars.HLS_STAGING_MIGRATION_REVIEWED_SHA }}
+          HLS_STAGING_MIGRATION_APPROVED_SHA: ${{ secrets.HLS_STAGING_MIGRATION_APPROVED_SHA }}
+          NEON_API_KEY: ${{ secrets.HLS_NEON_STAGING_API_KEY }}
+          DATABASE_URI: ${{ secrets.HLS_STAGING_DATABASE_URI }}
+          PAYLOAD_SECRET: ${{ secrets.HLS_STAGING_PAYLOAD_SECRET }}
+          S3_ACCESS_KEY_ID: ${{ secrets.HLS_STAGING_R2_ACCESS_KEY_ID }}
+          S3_SECRET_ACCESS_KEY: ${{ secrets.HLS_STAGING_R2_SECRET_ACCESS_KEY }}
+          S3_ENDPOINT: https://c401e58f54e7278facea9f55e4186da6.r2.cloudflarestorage.com
+          S3_REGION: auto
+          S3_BUCKET: healthylifesstyles-staging-media
+          HLS_STAGING_R2_BUCKET: healthylifesstyles-staging-media
+          HLS_PRODUCTION_R2_BUCKET: healthylifesstyles-media
+          HLS_ISOLATED_STAGING: 'true'
+          HLS_STAGING_CMS_ORIGIN: https://cms-qa.healthylifesstyles.com
+          SERVER_URL: https://cms-qa.healthylifesstyles.com
+          HLS_STAGING_DATABASE_HOST: ep-plain-forest-bca0vqud.c-16.us-east-1.aws.neon.tech
+          HLS_PRODUCTION_DATABASE_HOST: ep-lucky-voice-ad5egz8d.c-2.us-east-1.aws.neon.tech
+          INDEXNOW_DISABLE: 'true'
+          INDEXNOW_LIVE_ENABLED: 'false'
+          ALLOW_DB_PUSH: 'false'
+        run: node scripts/ci/staging-migration-runner.mjs --execute

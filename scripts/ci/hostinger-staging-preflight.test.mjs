@@ -104,3 +104,7 @@ test('rejects outside redirect, malformed envelope and server error', async () =
 import './staging-recovery-plan.test.mjs';
 import './staging-migration-identity.test.mjs';
 import './staging-neon-provider.test.mjs';
+import './staging-migration-runner.test.mjs';
+
+// Offline-only R2 permission-boundary regression tests; never contact Cloudflare in CI.
+import './staging-r2-permission-probe.test.mjs';
