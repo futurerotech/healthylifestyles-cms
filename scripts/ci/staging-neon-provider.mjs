@@ -22,9 +22,24 @@ export async function verifyStagingNeonProvider(input, apiKey, fetcher = fetch) 
       if (!response.ok || response.redirected) throw new Error('not ok');
       const length = response.headers.get('content-length');
       if (length !== null && (!/^\d+$/.test(length) || Number(length) > 131072)) throw new Error('oversized');
-      const text = await response.text();
-      if (Buffer.byteLength(text) > 131072) throw new Error('oversized');
-      return JSON.parse(text);
+      if (!response.body) throw new Error('missing body');
+      const reader = response.body.getReader();
+      const chunks = [];
+      let size = 0, complete = false;
+      try {
+        for (;;) {
+          const part = await reader.read();
+          if (part.done) break;
+          size += part.value.byteLength;
+          if (size > 131072) throw new Error('oversized');
+          chunks.push(part.value);
+        }
+        complete = true;
+      } finally {
+        if (!complete) await reader.cancel().catch(() => {});
+        reader.releaseLock();
+      }
+      return JSON.parse(Buffer.concat(chunks, size).toString('utf8'));
     } catch {
       throw new Error('Neon staging identity verification failed; no database connection attempted.');
     }

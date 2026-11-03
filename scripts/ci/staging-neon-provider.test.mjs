@@ -41,3 +41,7 @@ test('invalid target and provider failures never reveal tokens or connect to a d
   await assert.rejects(verify(input, 'synthetic-token', async () => { throw Error('synthetic-token'); }),
     error => !String(error).includes('synthetic-token'));
 });
+test('rejects an oversized streamed provider response', async () => {
+  const stream = new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(131073)); controller.close(); } });
+  await assert.rejects(verify(input, 'synthetic-token', async () => new Response(stream)), /identity verification failed/);
+});
