@@ -1,0 +1,62 @@
+# HealthyLifeStyles CMS - One-time staging migration operator runbook
+
+**Scope:** isolated staging only. The presence of this file or passing CI never grants permission to migrate, merge or deploy production.
+
+## Verified inventory (read-only, 2026-11-03)
+
+- Neon staging project: small-hall-15225012 (PostgreSQL 18)
+- Staging branch: br-wandering-poetry-bcxj8s3v (the branch is *named* production inside the separate staging project)
+- Staging database and role: neondb, neondb_owner
+- Staging direct read/write endpoint: ep-plain-forest-bca0vqud.c-16.us-east-1.aws.neon.tech
+- Staging R2 bucket: healthylifesstyles-staging-media (operator-provided; actual token scope not yet proven)
+- Hostinger target: cms-qa.healthylifesstyles.com (operator-provided; deployment not yet verified)
+- Production Neon project/branch and production R2 bucket are out of scope and must not be modified.
+- Payload migration chain: 16 committed migrations. CI on disposable PostgreSQL 16/18 is not evidence of real Neon execution.
+
+## Why this does not use workflow_dispatch
+
+GitHub requires workflow_dispatch workflows to exist on the repository default branch. This migration workflow is developed on a draft feature branch and MUST NOT be merged merely to unlock dispatch.
+
+Instead, the workflow .github/workflows/staging-neon-migration-once.yml listens for a **manually created lightweight tag** named staging-migrate-<exact-40-character-reviewed-commit-SHA>. It does not run on normal branch pushes or builds. Tag creation is a separate, intentional release-control operation. GitHub Actions must have permission to run tag-triggered workflows in the repository.
+
+The execution job uses the staging-migration GitHub Environment, which the owner MUST protect with required reviewers and restrictive deployment branch/tag policies before any trigger. A nonexistent or unprotected environment is not an acceptable approval gate.
+
+## GitHub Environment configuration (owner/operator only)
+
+Create a protected environment named staging-migration. Restrict eligible tags to staging-migrate-*, require an independent reviewer, and confirm the protected environment's authorization is operational.
+
+One environment **variable**:
+
+- HLS_STAGING_MIGRATION_REVIEWED_SHA - the exact final 40-character reviewed commit SHA containing the migration runner and all preceding security changes.
+
+Environment **secrets** (never put real values into GitHub files, issue comments or chat):
+
+- HLS_STAGING_MIGRATION_ENABLE - literal yes; only set after explicit staging approval.
+- HLS_STAGING_MIGRATION_APPROVED_SHA - same exact reviewed SHA, independently approved.
+- HLS_NEON_STAGING_API_KEY - Neon control-plane credential capable of GET project, branch, endpoints, role and database, limited to staging if supported.
+- HLS_STAGING_DATABASE_URI - Neon **direct** PostgreSQL 18 staging URI for neondb / neondb_owner, including secure credentials.
+- HLS_STAGING_PAYLOAD_SECRET - independent secret never exposed in messages or production.
+- HLS_STAGING_R2_ACCESS_KEY_ID - staging R2 bucket-only credential.
+- HLS_STAGING_R2_SECRET_ACCESS_KEY - staging R2 bucket-only secret.
+
+No production secrets, database URLs, indexing keys, deploy hooks or customer media should be accessible to this job. Verify the actual R2 token scope separately; its environment-variable labels alone do not prove isolation.
+
+## Release gate and execution sequence
+
+1. Have a reviewer inspect the final branch, source SHA, exact-head PostgreSQL 18 CI, workflow diff and repository's existing automatic promotion rules. Do not merge.
+2. Confirm the protected GitHub Environment and credential sources above. Ensure the staging Neon project is separate from production; inspect provider inventory and staging bucket policy. No new billable resources without approval.
+3. Confirm the production Hostinger app and frontend will be unaffected. Do not change Hostinger build command, which remains npm run build.
+4. The authorized operator creates a **lightweight** tag pointing to the exact reviewed commit on the draft branch, following the name staging-migrate-<sha>, then pushes that tag. Do not point it to main or an arbitrary commit. Never create this tag before protected environment approval.
+5. The environment reviewer approves the GitHub Actions job. The workflow checks out the exact commit, runs npm ci and offline safety tests, then launches the runner.
+6. The runner verifies the tag/commit/approval secrets; rejects redirecting URI query parameters; authenticates Neon project, branch, endpoint, role, database and owner via read-only control-plane requests; then opens a certificate-verified TLS PostgreSQL connection with channel binding enabled. It checks actual current_user, database, PostgreSQL 18, pg_stat_ssl and absence of all public base tables. A nonempty schema refuses automatic replay.
+7. Only after the checks pass does the runner invoke npm run migrate -- --force-accept-warning, with a constrained environment and no shell. It suppresses raw child stdout/stderr to prevent secret disclosure.
+8. The runner reconnects using verified TLS and checks a populated schema and exactly 16 recorded Payload migrations. The execution result is a sanitized status, not a full provider backup or release certificate.
+9. A failure at any stage is NO-GO. Investigate privately, never reset staging schema or rerun migrations blindly. No automatic rollback or production fallback exists.
+10. Once real staging migrations pass, keep npm run build for Hostinger and separately approve/test the staging deployment, real R2 isolation, staging-only restore, and staging application rollback. None is authorized by the migration receipt alone.
+
+## Constraints and remaining independent verification
+
+- Real Hostinger secrets are already supplied by the owner; they are not readable by GitHub, and copying them into an unprotected Actions context would be unsafe.
+- CI can prove the runner and offline regression tests without provider access. The protected execution job cannot run without a reviewed SHA, environment secrets, tag creation and review.
+- Production release remains NO-GO; no PR merge, DNS cutover, production migration, production R2 access or IndexNow submission.
+- Review the exact GitHub Actions run and compare its source SHA to the final approved commit; retain only sanitized CI evidence.
