@@ -21,6 +21,8 @@ const TARGET = Object.freeze({
   r2Endpoint: 'https://c401e58f54e7278facea9f55e4186da6.r2.cloudflarestorage.com',
 });
 const fail = () => { throw new Error('Staging migration refused; no authorization or safe target could be established.'); };
+// Diagnostic phases are fixed literals. Never include an underlying error, URI, or secret.
+const stageFailure = stage => Object.assign(new Error('Staging migration refused.'), { safeStage: stage });
 
 export function assertMigrationArm(env, sha) {
   if (!/^[a-f0-9]{40}$/.test(sha) ||
@@ -98,31 +100,39 @@ function safePgOptions(uri) {
 
 export async function inspectStagingPg(uri, createClient, stage) {
   const client = createClient(safePgOptions(uri));
+  let phase = 'connect';
   try {
     await client.connect();
+    phase = 'tls';
     const socket = client.connection?.stream;
     if (socket?.encrypted !== true || socket?.authorized !== true) fail();
+    phase = 'identity-query';
     const identity = (await client.query(
       "SELECT current_database() AS database_name, current_user AS role_name, " +
       "current_setting('server_version_num')::integer AS version_num"
     )).rows?.[0];
+    phase = 'identity-check';
     if (identity?.database_name !== TARGET.database || identity?.role_name !== TARGET.role ||
         identity?.version_num < 180000 || identity?.version_num >= 190000) fail();
+    phase = 'table-query';
     const tables = (await client.query(
       "SELECT count(*)::integer AS table_count FROM information_schema.tables " +
       "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
     )).rows?.[0];
+    phase = 'table-check';
     if (!Number.isInteger(tables?.table_count) ||
         (stage === 'before' && tables.table_count !== 0) ||
         (stage === 'after' && tables.table_count < 16)) fail();
     if (stage === 'after') {
+      phase = 'migration-count-query';
       const migrations = (await client.query(
         'SELECT count(*)::integer AS migration_count FROM public.payload_migrations'
       )).rows?.[0];
+      phase = 'migration-count-check';
       if (migrations?.migration_count !== 16) fail();
     }
     return Object.freeze({ roleVerified: true, tlsVerified: true, schemaVerified: true });
-  } catch { fail(); }
+  } catch { throw stageFailure('postgres-' + phase); }
   finally { await client.end().catch(() => {}); }
 }
 
@@ -141,28 +151,42 @@ function migrationChildEnv(env) {
 
 export async function runOneTimeMigration({ env, checkedOutSha, fetcher = fetch,
   createClient, runCommand = spawnSync, verifyProvider = verifyStagingNeonProvider }) {
+  let step = 'arm';
+  try {
   assertMigrationArm(env, checkedOutSha);
+  step = 'target-uri';
   const input = { enable: 'true', project: TARGET.project, branch: TARGET.branch,
     checkedOutSha, reviewedSha: env.HLS_STAGING_MIGRATION_REVIEWED_SHA,
     role: TARGET.role, databaseUri: env.DATABASE_URI };
   screenStagingMigrationTarget(input);
+  step = 'neon-control-plane';
   const provider = await verifyProvider(input, env.NEON_API_KEY, fetcher);
   if (provider?.providerIdentityVerified !== true) fail();
+  step = 'neon-role-database';
   await verifyRoleAndDatabase(env.NEON_API_KEY, fetcher);
+  step = 'pg-driver';
   if (!createClient) {
     const pg = await import('pg');
     createClient = options => new pg.default.Client(options);
   }
+  step = 'postgres-precheck';
   await inspectStagingPg(env.DATABASE_URI, createClient, 'before');
+  step = 'migration-command';
   const output = runCommand('npm', ['run', 'migrate', '--', '--force-accept-warning'], {
     shell: false, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
     timeout: 300000, maxBuffer: 1048576, env: migrationChildEnv(env),
   });
   if (output?.status !== 0 || output?.error || output?.signal) fail();
+  step = 'postgres-postcheck';
   await inspectStagingPg(env.DATABASE_URI, createClient, 'after');
   return Object.freeze({ kind: 'one-time-staging-migration', sourceSha: checkedOutSha,
     providerIdentityVerified: true, databaseRoleVerified: true, tlsVerified: true,
     migrationsVerified: 16, executed: true, productionTouched: false });
+  } catch (error) {
+    const detail = typeof error?.safeStage === 'string' && /^postgres-[a-z-]+$/.test(error.safeStage)
+      ? '-' + error.safeStage : '';
+    throw stageFailure(step + detail);
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -175,8 +199,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         { encoding: 'utf8', timeout: 10000 }).trim();
       const result = await runOneTimeMigration({ env: process.env, checkedOutSha: head });
       console.log(JSON.stringify(result));
-    } catch {
-      console.error('NO-GO: staging migration refused or failed. No credentials disclosed.');
+    } catch (error) {
+      const phase = typeof error?.safeStage === 'string' && /^[a-z-]{1,72}$/.test(error.safeStage)
+        ? error.safeStage : 'unknown';
+      console.error('NO-GO: staging migration refused at phase=' + phase + '. No credentials disclosed.');
       process.exitCode = 1;
     }
   }
