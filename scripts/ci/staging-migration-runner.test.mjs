@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assertMigrationArm, verifyRoleAndDatabase, inspectStagingPg, runOneTimeMigration } from './staging-migration-runner.mjs';
+import { EXPECTED_MIGRATION_NAMES, assertMigrationArm, verifyRoleAndDatabase, inspectStagingPg, runOneTimeMigration } from './staging-migration-runner.mjs';
 
 const sha = 'a'.repeat(40);
 const host = 'ep-plain-forest-bca0vqud.c-16.us-east-1.aws.neon.tech';
@@ -48,7 +48,7 @@ function fetcher(url, options) {
 }
 
 function clients({ tls = true, beforeTables = 0, afterTables = 35,
-  afterCount = 16, role = 'neondb_owner' } = {}) {
+  afterCount = 17, afterNames, role = 'neondb_owner' } = {}) {
   const instances = [], options = [];
   const createClient = opts => {
     const stage = instances.length === 0 ? 'before' : 'after';
@@ -65,7 +65,7 @@ function clients({ tls = true, beforeTables = 0, afterTables = 35,
           return { rows: [{ table_count: stage === 'before' ? beforeTables : afterTables }] };
         }
         if (sql.includes('payload_migrations')) {
-          return { rows: [{ migration_count: afterCount }] };
+          return { rows: (afterNames ?? EXPECTED_MIGRATION_NAMES.slice(0, afterCount)).map(name => ({ name })) };
         }
         throw Error('unexpected query');
       },
@@ -150,11 +150,11 @@ test('a database with tables refuses repeat migrations', async () => {
   assert.equal(x.commands.length, 0);
 });
 
-test('only an approved migration executes and 16 records are checked afterward', async () => {
+test('only an approved migration executes and 17 exact records are checked afterward', async () => {
   const x = setup();
   const result = await runOneTimeMigration(x.deps);
   assert.equal(result.executed, true);
-  assert.equal(result.migrationsVerified, 16);
+  assert.equal(result.migrationsVerified, 17);
   assert.equal(x.c.instances.length, 2);
   assert.equal(x.commands.length, 1);
   assert.equal(x.commands[0].cmd, 'npm');
@@ -171,7 +171,7 @@ test('command failure or incomplete schema never reports success', async () => {
   x.deps.runCommand = () => ({ status: 1, stderr: env.DATABASE_URI });
   await assert.rejects(() => runOneTimeMigration(x.deps),
     error => !String(error).includes('synthetic@'));
-  const y = setup({ afterCount: 15 });
+  const y = setup({ afterCount: 16 });
   await assert.rejects(() => runOneTimeMigration(y.deps));
 });
 
@@ -207,4 +207,25 @@ test('diagnostic stage reports safe names only, with no secret or raw error prop
     assert.ok(!String(error).includes(env.NEON_API_KEY));
     return true;
   });
+});
+
+
+test('real staging schema migration set includes 16 indexed migrations and inert SEO CLI file, with no extras', async () => {
+  assert.equal(EXPECTED_MIGRATION_NAMES.length, 17);
+  assert.equal(EXPECTED_MIGRATION_NAMES.at(-1), 'seo-audit-fix');
+  const existing = setup();
+  const verified = await runOneTimeMigration(existing.deps);
+  assert.equal(verified.migrationsVerified, 17);
+  for (const afterNames of [
+    [...EXPECTED_MIGRATION_NAMES.slice(0, -1)],
+    [...EXPECTED_MIGRATION_NAMES.slice(0, -1), 'unexpected-migration'],
+    [...EXPECTED_MIGRATION_NAMES, 'unexpected-migration'],
+    [...EXPECTED_MIGRATION_NAMES.slice(0, -1), EXPECTED_MIGRATION_NAMES[0]],
+  ]) {
+    const x = setup({ afterNames });
+    await assert.rejects(() => runOneTimeMigration(x.deps), error => {
+      assert.equal(error.safeStage, 'postgres-postcheck-postgres-migration-name-check');
+      return true;
+    });
+  }
 });
