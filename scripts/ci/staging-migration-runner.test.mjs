@@ -59,7 +59,7 @@ function clients({ tls = true, beforeTables = 0, afterTables = 35,
       async query(sql) {
         if (sql.includes('current_database()')) {
           return { rows: [{ database_name: 'neondb', role_name: role,
-            version_num: 180000, ssl_active: tls }] };
+            version_num: 180006, ssl_active: false }] };
         }
         if (sql.includes('information_schema')) {
           return { rows: [{ table_count: stage === 'before' ? beforeTables : afterTables }] };
@@ -114,7 +114,7 @@ test('role and database require bounded Neon control-plane GETs', async () => {
   );
 });
 
-test('PostgreSQL 18 TLS, role and empty schema are all mandatory', async () => {
+test('client-authenticated PostgreSQL 18 TLS, role and empty schema are mandatory (Neon backend may report no TLS)', async () => {
   const c = clients();
   assert.deepEqual(await inspectStagingPg(env.DATABASE_URI, c.createClient, 'before'),
     { roleVerified: true, tlsVerified: true, schemaVerified: true });
