@@ -21,6 +21,10 @@
 - **Do not rerun run 41579807594 or create another migration tag** for the already-nonempty staging branch. The fail-closed precondition is supposed to reject replay. Do not delete tables or reset the database to make the old one-time workflow pass.
 - This incident reconciles schema state; it is **not** proof that the CMS runtime, token scope, actual backup/restore, Hostinger deployment or rollback has passed. Those remain independent GO/NO-GO gates. No production changes are authorized.
 
+## Real Neon backup/restore completed — 2026-11-03
+
+[Detailed read-only verification and real snapshot-to-new-branch recovery receipt](STAGING_REAL_NEON_RESTORE_RECEIPT_20261103.md). A staging-only snapshot restored to a separate new Neon branch; 157 tables / 710 indexes / 1015 constraints / 17 migrations and schema/migration digests matched the unchanged staging source. No users, articles, tools or media were copied. Snapshot storage is billable even on Free, so the snapshot was deleted after the exercise; no manual snapshots remain. Two staging-only recovery/verification branches remain. **Hostinger actual runtime, R2 key scope, media recovery, and app rollback are not proven. No repeat migration tag is allowed.**
+
 ## Why this does not use workflow_dispatch
 
 GitHub requires workflow_dispatch workflows to exist on the repository default branch. This migration workflow is developed on a draft feature branch and MUST NOT be merged merely to unlock dispatch.
