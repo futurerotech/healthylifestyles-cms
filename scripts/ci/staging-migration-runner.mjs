@@ -104,12 +104,10 @@ export async function inspectStagingPg(uri, createClient, stage) {
     if (socket?.encrypted !== true || socket?.authorized !== true) fail();
     const identity = (await client.query(
       "SELECT current_database() AS database_name, current_user AS role_name, " +
-      "current_setting('server_version_num')::integer AS version_num, " +
-      "(SELECT ssl FROM pg_stat_ssl WHERE pid = pg_backend_pid()) AS ssl_active"
+      "current_setting('server_version_num')::integer AS version_num"
     )).rows?.[0];
     if (identity?.database_name !== TARGET.database || identity?.role_name !== TARGET.role ||
-        identity?.version_num < 180000 || identity?.version_num >= 190000 ||
-        identity?.ssl_active !== true) fail();
+        identity?.version_num < 180000 || identity?.version_num >= 190000) fail();
     const tables = (await client.query(
       "SELECT count(*)::integer AS table_count FROM information_schema.tables " +
       "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'"
