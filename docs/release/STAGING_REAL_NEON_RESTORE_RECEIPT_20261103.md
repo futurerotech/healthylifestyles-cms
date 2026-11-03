@@ -23,6 +23,14 @@
 - No staging business records were populated, so restored user-generated content fidelity is not tested. Do not treat an empty media table as proof that R2 object storage is isolated.
 - No snapshot currently remains for long-term recovery. The restored branch is a staging-only recovery artifact, not a substitute for a validated and funded backup policy.
 
+## R2 scope verification code prepared (NOT live-tested)
+
+- Added `scripts/ci/staging-r2-permission-probe.mjs` and fail-closed synthetic tests to the existing PR branch. The command requires `HLS_ISOLATED_STAGING=true`, `HLS_STAGING_READ_ONLY_APPROVED=yes`, exact approved R2 endpoint and stage/prod bucket identities, and staging-only credentials in the process environment.
+- The probe sends only `ListObjectsV2(MaxKeys=0)` commands: staging bucket must allow listing; the known real production bucket must return AccessDenied. It neither lists object keys nor reads/writes/deletes objects. Credential and raw provider errors are never logged. A broad token that lists production data triggers NO-GO.
+- **This is a limited LIST-permission boundary proof, not comprehensive bucket IAM attestation.** Cloudflare console resource-scope settings must still be inspected; object upload/read/restore must be tested only after the scope gate passes with authorized synthetic fixtures.
+- CI invokes mock-only tests for the probe; it does NOT receive real R2 credentials or query either bucket.
+- Run only after a safe, owner-approved staging app has been verified, in a secure staging-only environment with secrets provided by the runtime (never by chat or a command-line argument). Do not turn on public-media origin or indexing.
+
 ## Current release acceptance
 | Gate | Status | Grounding |
 | --- | --- | --- |
