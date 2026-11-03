@@ -174,3 +174,37 @@ test('command failure or incomplete schema never reports success', async () => {
   const y = setup({ afterCount: 15 });
   await assert.rejects(() => runOneTimeMigration(y.deps));
 });
+
+
+test('diagnostic stage reports safe names only, with no secret or raw error propagation', async () => {
+  const provider = setup();
+  provider.deps.verifyProvider = async () => { throw Error(env.NEON_API_KEY + env.DATABASE_URI); };
+  await assert.rejects(() => runOneTimeMigration(provider.deps), error => {
+    assert.equal(error.safeStage, 'neon-control-plane');
+    assert.ok(!String(error).includes(env.NEON_API_KEY));
+    assert.ok(!String(error).includes(env.DATABASE_URI));
+    assert.equal(provider.commands.length, 0);
+    return true;
+  });
+  const tls = setup({ tls: false });
+  await assert.rejects(() => runOneTimeMigration(tls.deps), error => {
+    assert.equal(error.safeStage, 'postgres-precheck-postgres-tls');
+    assert.equal(tls.commands.length, 0);
+    return true;
+  });
+  const blocked = setup();
+  blocked.deps.env = { ...env, HLS_STAGING_MIGRATION_ENABLE: 'no' };
+  await assert.rejects(() => runOneTimeMigration(blocked.deps),
+    error => error.safeStage === 'arm');
+  const invalid = setup();
+  invalid.deps.env = { ...env, DATABASE_URI: env.DATABASE_URI + '&host=bad' };
+  await assert.rejects(() => runOneTimeMigration(invalid.deps),
+    error => error.safeStage === 'target-uri');
+  const failed = setup();
+  failed.deps.runCommand = () => ({ status: 1, stderr: env.NEON_API_KEY });
+  await assert.rejects(() => runOneTimeMigration(failed.deps), error => {
+    assert.equal(error.safeStage, 'migration-command');
+    assert.ok(!String(error).includes(env.NEON_API_KEY));
+    return true;
+  });
+});
