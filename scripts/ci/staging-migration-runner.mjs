@@ -20,6 +20,27 @@ const TARGET = Object.freeze({
   prodHost: 'ep-lucky-voice-ad5egz8d.c-2.us-east-1.aws.neon.tech',
   r2Endpoint: 'https://c401e58f54e7278facea9f55e4186da6.r2.cloudflarestorage.com',
 });
+// Payload CLI picks up 16 indexed schema migrations plus the inert seo-audit-fix
+// file, which must never run its separate --apply SEO remediation here.
+export const EXPECTED_MIGRATION_NAMES = Object.freeze([
+  '20260630_225705_init',
+  '20260701_225833_s3_media_prefix',
+  '20260701_232459',
+  '20260702_183704_link_building',
+  '20260702_191106_site_audits',
+  '20260703_123018_tool_risk_review',
+  '20260704_010500_enable_rls_public',
+  '20260704_020000_harden_rls_auto_enable',
+  '20260705_165510_add_tools_semantic_entities',
+  '20260707_113916_add_audit_collections',
+  '20260707_152543_add_ai_settings_global',
+  '20260707_235442_add_gsc_inspection_fields',
+  '20260709_171108_phase8_schema_flags',
+  '20260711_184910',
+  '20261008_190423_add_reset_password_requested_at',
+  '20261008_225200_add_media_object_key',
+  'seo-audit-fix',
+]);
 const fail = () => { throw new Error('Staging migration refused; no authorization or safe target could be established.'); };
 // Diagnostic phases are fixed literals. Never include an underlying error, URI, or secret.
 const stageFailure = stage => Object.assign(new Error('Staging migration refused.'), { safeStage: stage });
@@ -125,11 +146,15 @@ export async function inspectStagingPg(uri, createClient, stage) {
         (stage === 'after' && tables.table_count < 16)) fail();
     if (stage === 'after') {
       phase = 'migration-count-query';
+      // Count alone can falsely reject a finished run or accept an unknown
+      // migration. Verify the exact reviewed 17-name set instead.
       const migrations = (await client.query(
-        'SELECT count(*)::integer AS migration_count FROM public.payload_migrations'
-      )).rows?.[0];
-      phase = 'migration-count-check';
-      if (migrations?.migration_count !== 16) fail();
+        'SELECT name FROM public.payload_migrations ORDER BY name ASC'
+      )).rows;
+      phase = 'migration-name-check';
+      if (!Array.isArray(migrations) ||
+          migrations.length !== EXPECTED_MIGRATION_NAMES.length ||
+          migrations.some((row, i) => row?.name !== EXPECTED_MIGRATION_NAMES[i])) fail();
     }
     return Object.freeze({ roleVerified: true, tlsVerified: true, schemaVerified: true });
   } catch { throw stageFailure('postgres-' + phase); }
@@ -181,7 +206,7 @@ export async function runOneTimeMigration({ env, checkedOutSha, fetcher = fetch,
   await inspectStagingPg(env.DATABASE_URI, createClient, 'after');
   return Object.freeze({ kind: 'one-time-staging-migration', sourceSha: checkedOutSha,
     providerIdentityVerified: true, databaseRoleVerified: true, tlsVerified: true,
-    migrationsVerified: 16, executed: true, productionTouched: false });
+    migrationsVerified: EXPECTED_MIGRATION_NAMES.length, executed: true, productionTouched: false });
   } catch (error) {
     const detail = typeof error?.safeStage === 'string' && /^postgres-[a-z-]+$/.test(error.safeStage)
       ? '-' + error.safeStage : '';
