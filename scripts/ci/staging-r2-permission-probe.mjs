@@ -3,6 +3,9 @@
  * This is a provider-bound read-only test; never upload, delete or copy objects.
  * Run only in isolated staging with explicit owner read-only authorization.
  */
+import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
+
 const TARGET = Object.freeze({
   endpoint: 'https://c401e58f54e7278facea9f55e4186da6.r2.cloudflarestorage.com',
   stage: 'healthylifesstyles-staging-media',
@@ -50,7 +53,7 @@ export async function probeR2Scope(env, list) {
   });
 }
 
-if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1].replaceAll('\\', '/')).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const env = process.env;
   try {
     assertR2ReadOnlyArm(env);
