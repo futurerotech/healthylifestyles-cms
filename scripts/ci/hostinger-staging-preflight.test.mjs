@@ -103,3 +103,4 @@ test('rejects outside redirect, malformed envelope and server error', async () =
 // Pure, no-provider staging+restore plan regressions share this CI entrypoint.
 import './staging-recovery-plan.test.mjs';
 import './staging-migration-identity.test.mjs';
+import './staging-neon-provider.test.mjs';
