@@ -108,3 +108,6 @@ import './staging-migration-runner.test.mjs';
 
 // Offline-only R2 permission-boundary regression tests; never contact Cloudflare in CI.
 import './staging-r2-permission-probe.test.mjs';
+
+// Runtime env/Neon read-only smoke uses synthetic credentials in CI only.
+import './hostinger-staging-runtime-evidence.test.mjs';
