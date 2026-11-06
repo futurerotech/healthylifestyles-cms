@@ -30,7 +30,7 @@ type Change = {
 async function runChange(change: Change = {}) {
   const send = vi.fn(async () => { throw new Error('Unexpected external network request'); });
   vi.stubGlobal('fetch', send);
-  const record = vi.fn(async () => ({ id: 'synthetic-only' }));
+  const record = vi.fn(async (_input: { collection: string; data: unknown }) => ({ id: 'synthetic-only' }));
   const request = {
     context: change.context ?? {},
     query: change.queryDraft === undefined ? {} : { draft: change.queryDraft },
@@ -105,7 +105,7 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
     vi.stubEnv('GOOGLE_INDEXING_KEY', '');
     const send = vi.fn(async () => new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
     vi.stubGlobal('fetch', send);
-    const record = vi.fn(async () => ({ id: 'synthetic-only' }));
+    const record = vi.fn(async (_input: { collection: string; data: unknown }) => ({ id: 'synthetic-only' }));
     const { afterChangeIndexingHook } = await import('./indexing');
     const doc = { slug: 'test-published', _status: 'published' };
     const result = await afterChangeIndexingHook({
@@ -126,7 +126,7 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
     vi.stubEnv('GOOGLE_INDEXING_KEY', '');
     const send = vi.fn(async () => new Response('{}', { status: 200 }));
     vi.stubGlobal('fetch', send);
-    const record = vi.fn(async () => ({ id: 'synthetic-only' }));
+    const record = vi.fn(async (_input: { collection: string; data: unknown }) => ({ id: 'synthetic-only' }));
     const { afterChangeIndexingHook } = await import('./indexing');
     await afterChangeIndexingHook({
       doc: { slug: 'first-publish', _status: 'published' },
