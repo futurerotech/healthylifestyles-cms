@@ -19,6 +19,11 @@ export const trackPendingChange: CollectionAfterChangeHook = async ({
   // Only queue on publish — skip autosave/draft saves
   // doc._status is 'published' when the doc is live, 'draft' when it's not
   // operation is 'create' or 'update'
+  // A Payload draft version of an already-published record may still be
+  // represented by the published parent. An explicit draft request must never
+  // enqueue a production rebuild, even when doc._status looks published.
+  const draft = (req?.query as { draft?: unknown } | undefined)?.draft
+  if (draft === true || draft === 'true' || process.env.HLS_ISOLATED_STAGING === 'true') return doc
   const status = (doc as any)?._status
   if (status !== 'published') return doc
 
