@@ -366,6 +366,10 @@ export function classifyIndexNowResponse(status: number | null): 'received' | 'p
   return 'unknown';
 }
 
+export function classifyIndexNowDispatchFailure(requestStarted: boolean): 'not_sent' | 'unknown' {
+  return requestStarted ? 'unknown' : 'not_sent';
+}
+
 /** Verify public key ownership without accepting a redirect to another URL/host. */
 export function matchesIndexNowOwnershipProof(
   response: { status: number; url: string; body: string },

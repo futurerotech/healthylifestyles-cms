@@ -6,7 +6,7 @@ import { isAllowedIndexNowPreviewOrigin, ISOLATED_STAGING_CMS_ORIGIN, CMS_ORIGIN
 import { SITE_BASE_URL } from '@/lib/site-config';
 import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
 import { withIndexNowSubmissionLock } from '@/lib/indexnow-submission-lock';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, classifyIndexNowResponse, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from '@/lib/indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, classifyIndexNowResponse, classifyIndexNowDispatchFailure, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -165,10 +165,12 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ ...report, error: 'IndexNow key proof unavailable or does not match' }, { status: 503 });
   }
   const postgresDb = payload.db as unknown as PostgresAdapter;
+  let providerRequestStarted = false;
   try {
     const locked = await withIndexNowSubmissionLock(postgresDb, ready, async (execute) => {
       let response: Response;
       try {
+        providerRequestStarted = true;
         response = await fetch('https://api.indexnow.org/indexnow', {
           method: 'POST', redirect: 'error',
           headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -201,6 +203,9 @@ export async function POST(req: Request): Promise<NextResponse> {
     if (locked.status === 'stale') return NextResponse.json({ ...report, error: 'Pending revisions changed; run a fresh preview' }, { status: 409 });
     return locked.value;
   } catch {
+    if (classifyIndexNowDispatchFailure(providerRequestStarted) === 'not_sent') {
+      return NextResponse.json({ ...report, delivery: 'not_sent', error: 'Submission could not start; queue preserved.' }, { status: 503 });
+    }
     // An error after provider acceptance may be ambiguous. Never claim the
     // provider rejected it; the database transaction preserves the queue.
     return NextResponse.json({ ...report, delivery: 'unknown', error: 'Delivery or acknowledgement is unknown. The provider may have received this request; review before retrying.' }, { status: 503 });
