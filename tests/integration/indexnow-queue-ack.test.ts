@@ -100,6 +100,41 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
     expect(afterStage.docs[0]!.changedAt).toBe(updated.docs[0]!.changedAt);
   });
 
+  it('rolls back the article and queue together if a later Payload hook fails', async () => {
+    const slug = `ci-article-rollback-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const article = await payload.create({
+      collection: 'articles', draft: false,
+      data: { title: 'CI rollback original', slug, _status: 'published' },
+    });
+    const findQueue = () => payload.find({
+      collection: 'pending-deploys', depth: 0, limit: 10,
+      where: { and: [
+        { collectionSlug: { equals: 'articles' } },
+        { docId: { equals: String(article.id) } },
+      ] },
+    });
+    const before = await findQueue();
+    expect(before.totalDocs).toBe(1);
+    const hooks = payload.collections.articles.config.hooks.afterChange;
+    const failAfterQueue = () => { throw new Error('CI deliberate post-queue failure'); };
+    hooks.push(failAfterQueue);
+    try {
+      await expect(payload.update({
+        collection: 'articles', id: article.id, draft: false,
+        data: { title: 'CI rolled back update', _status: 'published' },
+      })).rejects.toThrow('CI deliberate post-queue failure');
+    } finally {
+      const index = hooks.indexOf(failAfterQueue);
+      if (index !== -1) hooks.splice(index, 1);
+    }
+    const stored = await payload.findByID({ collection: 'articles', id: article.id, draft: false });
+    const after = await findQueue();
+    expect(stored.title).toBe('CI rollback original');
+    expect(after.totalDocs).toBe(1);
+    expect(after.docs[0]!.id).toBe(before.docs[0]!.id);
+    expect(after.docs[0]!.changedAt).toBe(before.docs[0]!.changedAt);
+  });
+
   it.each(['articles', 'tools'] as const)('does not queue published-parent drafts or isolated staging saves for %s', async collectionSlug => {
     const docId = `draft-isolation-${collectionSlug}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const base = { doc: { id: docId, _status: 'published' }, collection: { slug: collectionSlug },
