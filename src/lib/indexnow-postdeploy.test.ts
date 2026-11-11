@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { acknowledgeIndexNowQueueRevision } from './indexnow-queue-ack';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from './indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPreview, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, classifyIndexNowResponse, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from './indexnow-postdeploy';
 
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
  updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
@@ -10,6 +10,12 @@ const build = '2026-10-28T11:30:00Z';
 const expected='https://www.healthylifesstyles.com/wellness-hub/example-guide';
 
 describe('post-deploy IndexNow safety gates', () => {
+ it('classifies ambiguous transport and provider responses without claiming indexing', () => {
+  expect(classifyIndexNowResponse(200)).toBe('received');
+  expect(classifyIndexNowResponse(202)).toBe('pending');
+  for (const status of [400, 403, 422, 429]) expect(classifyIndexNowResponse(status)).toBe('rejected');
+  for (const status of [null, 500, 503, 418, 204]) expect(classifyIndexNowResponse(status)).toBe('unknown');
+ });
  it('requires explicit live enablement and honors emergency disable', () => {
   expect(isIndexNowLiveSubmissionEnabled('true', undefined)).toBe(true);
   expect(isIndexNowLiveSubmissionEnabled('true', 'true')).toBe(false);

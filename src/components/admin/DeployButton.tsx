@@ -102,7 +102,7 @@ const DeployButton: React.FC = () => {
           approvedBuildStartedAt: preview.buildStartedAt, page: preview.page || indexPage }),
       });
       const body = await res.json().catch(() => ({})) as { error?:string; acknowledged?:string[]; simulation?: boolean; message?: string };
-      if (!res.ok) throw new Error(body.error || 'IndexNow rejected the submission.');
+      if (!res.ok) throw new Error(body.error || 'Submission outcome is unknown. Review before retrying.');
       if (body.simulation) {
         toast.success(body.message || 'IndexNow simulation only; no URLs submitted.');
       } else {
@@ -123,7 +123,8 @@ const DeployButton: React.FC = () => {
       }
       void refresh();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Submission failed; queue preserved.');
+      toast.error(e instanceof TypeError ? 'Submission outcome is unknown. Review before retrying.' :
+        e instanceof Error ? e.message : 'Submission outcome is unknown. Review before retrying.');
     } finally { setIndexBusy(false); }
   }
 

@@ -6,7 +6,7 @@ import { isAllowedIndexNowPreviewOrigin, ISOLATED_STAGING_CMS_ORIGIN, CMS_ORIGIN
 import { SITE_BASE_URL } from '@/lib/site-config';
 import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
 import { withIndexNowSubmissionLock } from '@/lib/indexnow-submission-lock';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from '@/lib/indexnow-postdeploy';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, classifyIndexNowResponse, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -177,12 +177,16 @@ export async function POST(req: Request): Promise<NextResponse> {
             urlList: ready.map(x => publicOrigin + x.path) }),
         });
       } catch {
-        return NextResponse.json({ ...report, error: 'IndexNow endpoint unavailable; queue preserved' }, { status: 502 });
+        return NextResponse.json({ ...report, delivery: 'unknown', error: 'Delivery is unknown: the provider may have received this request. Queue preserved; review before retrying.' }, { status: 502 });
       }
       // A 202 remains queued until ownership is verified.
       if (response.status !== 200) {
+        const delivery = classifyIndexNowResponse(response.status);
         return NextResponse.json({ ...report, httpStatus: response.status,
-          error: response.status === 202 ? 'IndexNow key pending verification; queue preserved' : 'IndexNow rejected; queue preserved' }, { status: 502 });
+          delivery,
+          error: delivery === 'pending' ? 'IndexNow receipt is pending key verification; queue preserved; review before retrying.'
+            : delivery === 'rejected' ? 'IndexNow rejected the request; queue preserved.'
+              : 'Delivery is unknown: the provider may have received this request. Queue preserved; review before retrying.' }, { status: 502 });
       }
       const acknowledged: string[] = [];
       for (const item of ready) {
@@ -191,7 +195,7 @@ export async function POST(req: Request): Promise<NextResponse> {
         }
         acknowledged.push(publicOrigin + item.path);
       }
-      return NextResponse.json({ ...report, dryRun: false, httpStatus: response.status, acknowledged });
+      return NextResponse.json({ ...report, dryRun: false, delivery: 'received', httpStatus: response.status, acknowledged });
     });
     if (locked.status === 'busy') return NextResponse.json({ ...report, error: 'Another IndexNow submission is in progress; queue preserved' }, { status: 409 });
     if (locked.status === 'stale') return NextResponse.json({ ...report, error: 'Pending revisions changed; run a fresh preview' }, { status: 409 });
@@ -199,6 +203,6 @@ export async function POST(req: Request): Promise<NextResponse> {
   } catch {
     // An error after provider acceptance may be ambiguous. Never claim the
     // provider rejected it; the database transaction preserves the queue.
-    return NextResponse.json({ ...report, error: 'Submission could not be confirmed; queue preserved' }, { status: 503 });
+    return NextResponse.json({ ...report, delivery: 'unknown', error: 'Delivery or acknowledgement is unknown. The provider may have received this request; review before retrying.' }, { status: 503 });
   }
 }

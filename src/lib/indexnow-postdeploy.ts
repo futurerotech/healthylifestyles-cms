@@ -357,6 +357,15 @@ export function isIndexNowLiveSubmissionEnabled(
   return enabled === 'true' && disabled !== 'true';
 }
 
+/** Provider receipt is not proof of indexing. Transport errors and 5xx may
+ * happen after receipt and must not be represented as definite rejection. */
+export function classifyIndexNowResponse(status: number | null): 'received' | 'pending' | 'rejected' | 'unknown' {
+  if (status === 200) return 'received';
+  if (status === 202) return 'pending';
+  if (status === 400 || status === 403 || status === 422 || status === 429) return 'rejected';
+  return 'unknown';
+}
+
 /** Verify public key ownership without accepting a redirect to another URL/host. */
 export function matchesIndexNowOwnershipProof(
   response: { status: number; url: string; body: string },

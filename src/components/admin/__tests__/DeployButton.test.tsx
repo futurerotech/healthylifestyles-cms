@@ -178,6 +178,25 @@ describe('DeployButton IndexNow preview-and-approve workflow', () => {
     expect(screen.queryByRole('button', { name: 'Submit approved IndexNow URLs' })).not.toBeInTheDocument();
   });
 
+  it('reports a lost submit response as unknown and does not automatically retry', async () => {
+    let submits = 0;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      if (String(input).includes('/api/deploy/pending')) return json({ count: 1 });
+      const body = JSON.parse(String(options?.body)) as { confirm: boolean };
+      if (!body.confirm) return json(preview);
+      submits++;
+      throw new TypeError('network unavailable');
+    }));
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    render(<DeployButton />);
+    fireEvent.click(screen.getByRole('button', { name: 'Preview IndexNow URLs' }));
+    await waitFor(() => expect(screen.getByText(URL)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Submit approved IndexNow URLs' }));
+    await waitFor(() => expect(notices.error).toHaveBeenCalledWith('Submission outcome is unknown. Review before retrying.'));
+    expect(submits).toBe(1);
+    expect(screen.queryByRole('button', { name: 'Submit approved IndexNow URLs' })).not.toBeInTheDocument();
+  });
+
   it('labels dry-run simulation honestly and never claims URL acceptance', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const path = String(input);
