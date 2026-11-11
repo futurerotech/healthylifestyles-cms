@@ -4,6 +4,7 @@ import type { PostgresAdapter } from '@payloadcms/db-postgres';
 import { acknowledgeIndexNowQueueRevision } from '../../src/lib/indexnow-queue-ack';
 import { recordPublishedPendingChange } from '../../src/lib/indexnow-pending-queue';
 import { reserveManualDeployAttempt } from '../../src/lib/manual-deploy-reservation';
+import { trackPendingChange } from '../../src/hooks/trackPendingChange';
 
 // The tests below write ONLY to CI's disposable local mock PostgreSQL service.
 // Fail before loading the CMS or opening a connection in every other environment.
@@ -46,6 +47,38 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
   });
 
   afterAll(async () => { await payload?.destroy(); });
+
+  it.each(['articles', 'tools'] as const)('does not queue published-parent drafts or isolated staging saves for %s', async collectionSlug => {
+    const docId = `draft-isolation-${collectionSlug}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const base = { doc: { id: docId, _status: 'published' }, collection: { slug: collectionSlug },
+      req: { payload, query: {}, transactionID: undefined } };
+    const oldStage = process.env.HLS_ISOLATED_STAGING;
+    try {
+      for (const draft of [true, 'true']) {
+        await trackPendingChange({ ...base, req: { ...base.req, query: { draft } } } as never);
+      }
+      process.env.HLS_ISOLATED_STAGING = 'true';
+      await trackPendingChange(base as never);
+    } finally {
+      if (oldStage === undefined) delete process.env.HLS_ISOLATED_STAGING;
+      else process.env.HLS_ISOLATED_STAGING = oldStage;
+    }
+    const before = await payload.count({ collection: 'pending-deploys', where: { and: [
+      { collectionSlug: { equals: collectionSlug } }, { docId: { equals: docId } },
+    ] } });
+    expect(before.totalDocs).toBe(0);
+    try {
+      process.env.HLS_ISOLATED_STAGING = 'false';
+      await trackPendingChange(base as never);
+    } finally {
+      if (oldStage === undefined) delete process.env.HLS_ISOLATED_STAGING;
+      else process.env.HLS_ISOLATED_STAGING = oldStage;
+    }
+    const after = await payload.count({ collection: 'pending-deploys', where: { and: [
+      { collectionSlug: { equals: collectionSlug } }, { docId: { equals: docId } },
+    ] } });
+    expect(after.totalDocs).toBe(1);
+  });
 
   it('reserves exactly one of two competing manual deploy triggers', async () => {
     // Isolated CI database only. Test is independent of the provider hook.
