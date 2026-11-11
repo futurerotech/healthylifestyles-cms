@@ -48,6 +48,58 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
 
   afterAll(async () => { await payload?.destroy(); });
 
+  it('queues actual article publishes and updates but not draft saves or isolated staging', async () => {
+    const slug = `ci-article-lifecycle-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const article = await payload.create({
+      collection: 'articles', draft: true,
+      data: { title: 'CI article lifecycle', slug, _status: 'draft' },
+    });
+    const queue = () => payload.find({
+      collection: 'pending-deploys', depth: 0, limit: 10,
+      where: { and: [
+        { collectionSlug: { equals: 'articles' } },
+        { docId: { equals: String(article.id) } },
+      ] },
+    });
+    expect((await queue()).totalDocs).toBe(0);
+
+    await payload.update({ collection: 'articles', id: article.id, draft: false,
+      data: { title: 'CI published article', _status: 'published' } });
+    const published = await queue();
+    expect(published.totalDocs).toBe(1);
+    const initial = published.docs[0]!;
+
+    await payload.update({ collection: 'articles', id: article.id, draft: true,
+      data: { title: 'CI draft revision' } });
+    const afterDraft = await queue();
+    expect(afterDraft.totalDocs).toBe(1);
+    expect(afterDraft.docs[0]!.changedAt).toBe(initial.changedAt);
+    const publicArticle = await payload.findByID({
+      collection: 'articles', id: article.id, draft: false, overrideAccess: false,
+    });
+    expect(publicArticle.title).toBe('CI published article');
+
+    await payload.update({ collection: 'articles', id: article.id, draft: false,
+      data: { title: 'CI published revision', _status: 'published' } });
+    const updated = await queue();
+    expect(updated.totalDocs).toBe(1);
+    expect(updated.docs[0]!.id).toBe(initial.id);
+    expect(Date.parse(updated.docs[0]!.changedAt)).toBeGreaterThan(Date.parse(initial.changedAt));
+
+    const priorStage = process.env.HLS_ISOLATED_STAGING;
+    try {
+      process.env.HLS_ISOLATED_STAGING = 'true';
+      await payload.update({ collection: 'articles', id: article.id, draft: false,
+        data: { title: 'CI isolated staging revision', _status: 'published' } });
+    } finally {
+      if (priorStage === undefined) delete process.env.HLS_ISOLATED_STAGING;
+      else process.env.HLS_ISOLATED_STAGING = priorStage;
+    }
+    const afterStage = await queue();
+    expect(afterStage.totalDocs).toBe(1);
+    expect(afterStage.docs[0]!.changedAt).toBe(updated.docs[0]!.changedAt);
+  });
+
   it.each(['articles', 'tools'] as const)('does not queue published-parent drafts or isolated staging saves for %s', async collectionSlug => {
     const docId = `draft-isolation-${collectionSlug}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const base = { doc: { id: docId, _status: 'published' }, collection: { slug: collectionSlug },
