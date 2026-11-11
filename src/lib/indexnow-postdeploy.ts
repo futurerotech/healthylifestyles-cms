@@ -151,7 +151,7 @@ export function verifyDeployedHtml(
   xRobotsTag: string | null,
 ): { ok: boolean; reason: string } {
   if (responseUrl !== expectedUrl) return { ok: false, reason: 'redirect or final URL mismatch' };
-  if (!contentType?.toLowerCase().startsWith('text/html')) {
+  if (contentType?.split(';', 1)[0]?.trim().toLowerCase() !== 'text/html') {
     return { ok: false, reason: 'non-HTML response' };
   }
   if (forbidsIndexing(xRobotsTag ?? '')) return { ok: false, reason: 'X-Robots-Tag forbids indexing' };

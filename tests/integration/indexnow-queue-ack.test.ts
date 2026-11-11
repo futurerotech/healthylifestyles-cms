@@ -5,6 +5,7 @@ import { acknowledgeIndexNowQueueRevision } from '../../src/lib/indexnow-queue-a
 import { recordPublishedPendingChange } from '../../src/lib/indexnow-pending-queue';
 import { reserveManualDeployAttempt } from '../../src/lib/manual-deploy-reservation';
 import { trackPendingChange } from '../../src/hooks/trackPendingChange';
+import { withIndexNowSubmissionLock } from '../../src/lib/indexnow-submission-lock';
 
 // The tests below write ONLY to CI's disposable local mock PostgreSQL service.
 // Fail before loading the CMS or opening a connection in every other environment.
@@ -47,6 +48,28 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
   });
 
   afterAll(async () => { await payload?.destroy(); });
+
+  it('serializes simultaneous confirmed submissions on real PostgreSQL and rejects a stale retry', async () => {
+    const pending = await createPending('2026-10-28T10:00:00.000Z');
+    let release!: () => void;
+    let entered!: () => void;
+    const wait = new Promise<void>(resolve => { release = resolve; });
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    let sends = 0;
+    const rev = { id: pending.id, changedAt: pending.changedAt };
+    const first = withIndexNowSubmissionLock(db, [rev], async query => {
+      sends++; entered(); await wait;
+      expect(await acknowledgeIndexNowQueueRevision(query, rev)).toBe(true);
+      return 'accepted';
+    });
+    try {
+      await started;
+      expect(await withIndexNowSubmissionLock(db, [rev], async () => { sends++; })).toEqual({ status: 'busy' });
+    } finally { release(); }
+    expect(await first).toEqual({ status: 'completed', value: 'accepted' });
+    expect(await withIndexNowSubmissionLock(db, [rev], async () => { sends++; })).toEqual({ status: 'stale' });
+    expect(sends).toBe(1);
+  });
 
   it('queues actual article publishes and updates but not draft saves or isolated staging', async () => {
     const slug = `ci-article-lifecycle-${Date.now()}-${Math.random().toString(36).slice(2)}`;

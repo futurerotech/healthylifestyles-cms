@@ -157,6 +157,15 @@ describe('post-deploy IndexNow safety gates', () => {
   const html='<html><head><link href="'+expected+'" rel="canonical"><meta name="robots" content="index,follow"></head></html>';
   expect(verifyDeployedHtml(html,expected,expected,'text/html; charset=utf-8',null).ok).toBe(true);
  });
+ it('requires the exact HTML media type rather than a matching prefix', () => {
+  const html='<html><head><link rel="canonical" href="'+expected+'"></head></html>';
+  for (const type of ['text/html', 'Text/HTML; charset=utf-8', ' text/html ; charset=UTF-8']) {
+   expect(verifyDeployedHtml(html,expected,expected,type,null).ok).toBe(true);
+  }
+  for (const type of ['text/html-malicious', 'text/htmlx', 'application/json', 'text/html,application/json', null]) {
+   expect(verifyDeployedHtml(html,expected,expected,type,null).ok).toBe(false);
+  }
+ });
  it('rejects noindex, duplicates, redirects and non-html responses', () => {
   const html='<link rel="canonical" href="'+expected+'">';
   expect(verifyDeployedHtml(html,expected,expected,'text/html','noindex').ok).toBe(false);

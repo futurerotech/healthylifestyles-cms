@@ -5,6 +5,7 @@ import config from '@payload-config';
 import { isAllowedIndexNowPreviewOrigin, ISOLATED_STAGING_CMS_ORIGIN, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
 import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
+import { withIndexNowSubmissionLock } from '@/lib/indexnow-submission-lock';
 import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
@@ -163,39 +164,41 @@ export async function POST(req: Request): Promise<NextResponse> {
   )) {
     return NextResponse.json({ ...report, error: 'IndexNow key proof unavailable or does not match' }, { status: 503 });
   }
-  let response: Response;
-  try {
-    response = await fetch('https://api.indexnow.org/indexnow', {
-      method: 'POST',
-      redirect: 'error',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      signal: AbortSignal.timeout(12000),
-      body: JSON.stringify({ host: origin.hostname, key, keyLocation: publicOrigin + '/' + key + '.txt',
-        urlList: ready.map(x => publicOrigin + x.path) }),
-    });
-  } catch {
-    return NextResponse.json({ ...report, error: 'IndexNow endpoint unavailable; queue preserved' }, { status: 502 });
-  }
-  // 202 is acknowledged but its key is still pending verification. Keep entries until 200.
-  if (response.status !== 200) {
-    return NextResponse.json({ ...report, httpStatus: response.status,
-      error: response.status === 202 ? 'IndexNow key pending verification; queue preserved' : 'IndexNow rejected; queue preserved' }, { status: 502 });
-  }
-  // payload.config.ts uses postgresAdapter. Narrow the generic Payload DB type
-  // before executing this Postgres-only, revision-conditional SQL statement.
   const postgresDb = payload.db as unknown as PostgresAdapter;
-  const acknowledged: string[] = [];
-  for (const item of ready) {
-    try {
-      const deleted = await acknowledgeIndexNowQueueRevision(
-        (statement) => postgresDb.execute({
-          drizzle: postgresDb.drizzle as Parameters<PostgresAdapter['execute']>[0]['drizzle'],
-          sql: statement,
-        }),
-        { id: item.id, changedAt: item.changedAt },
-      );
-      if (deleted) acknowledged.push(publicOrigin + item.path);
-    } catch { /* preserve unresolved entries for the next review */ }
+  try {
+    const locked = await withIndexNowSubmissionLock(postgresDb, ready, async (execute) => {
+      let response: Response;
+      try {
+        response = await fetch('https://api.indexnow.org/indexnow', {
+          method: 'POST', redirect: 'error',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          signal: AbortSignal.timeout(12000),
+          body: JSON.stringify({ host: origin.hostname, key, keyLocation: publicOrigin + '/' + key + '.txt',
+            urlList: ready.map(x => publicOrigin + x.path) }),
+        });
+      } catch {
+        return NextResponse.json({ ...report, error: 'IndexNow endpoint unavailable; queue preserved' }, { status: 502 });
+      }
+      // A 202 remains queued until ownership is verified.
+      if (response.status !== 200) {
+        return NextResponse.json({ ...report, httpStatus: response.status,
+          error: response.status === 202 ? 'IndexNow key pending verification; queue preserved' : 'IndexNow rejected; queue preserved' }, { status: 502 });
+      }
+      const acknowledged: string[] = [];
+      for (const item of ready) {
+        if (!await acknowledgeIndexNowQueueRevision(execute, { id: item.id, changedAt: item.changedAt })) {
+          throw new Error('Acknowledgement did not match the locked revision');
+        }
+        acknowledged.push(publicOrigin + item.path);
+      }
+      return NextResponse.json({ ...report, dryRun: false, httpStatus: response.status, acknowledged });
+    });
+    if (locked.status === 'busy') return NextResponse.json({ ...report, error: 'Another IndexNow submission is in progress; queue preserved' }, { status: 409 });
+    if (locked.status === 'stale') return NextResponse.json({ ...report, error: 'Pending revisions changed; run a fresh preview' }, { status: 409 });
+    return locked.value;
+  } catch {
+    // An error after provider acceptance may be ambiguous. Never claim the
+    // provider rejected it; the database transaction preserves the queue.
+    return NextResponse.json({ ...report, error: 'Submission could not be confirmed; queue preserved' }, { status: 503 });
   }
-  return NextResponse.json({ ...report, dryRun: false, httpStatus: response.status, acknowledged });
 }
