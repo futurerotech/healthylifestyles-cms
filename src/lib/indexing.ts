@@ -145,15 +145,32 @@ import type { CollectionAfterChangeHook } from 'payload';
 import type { IndexingStatus } from '../collections/IndexingStatus';
 
 /**
- * Payload hook — fires after any document create/update.
- * Pings IndexNow + Google, then records results in IndexingStatus.
+ * Payload hook — records indexing attempts only for intentional changes to
+ * published content on the production CMS. Draft saves (including autosaves
+ * of already-published articles) must never contact search engines or write
+ * IndexingStatus records.
+ *
+ * This legacy hook is separate from the later publish-only IndexNow queue.
+ * Keep staging, maintenance and CI fail-closed until real provider isolation
+ * is verified.
  */
 export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, operation, collection, req }) => {
-  // P17 audit F1/F2 — bulk maintenance runs (scripts/recovery/reseed-versions.ts
-  // sends context.reseedVersions) must not ping engines and must not flood
-  // IndexingStatus with per-doc records. Real editorial saves are unaffected.
+  // Maintenance and non-write operations must remain side-effect free.
   if ((req?.context as { reseedVersions?: boolean } | undefined)?.reseedVersions) return doc;
   if (operation !== 'create' && operation !== 'update') return doc;
+
+  // Payload draft mode can save a new version of an already-published doc.
+  // Check BOTH the returned status and the explicit REST draft flag.
+  if (doc?._status !== 'published') return doc;
+  const draft = (req?.query as { draft?: unknown } | undefined)?.draft;
+  if (draft === true || draft === 'true') return doc;
+
+  // Avoid production-facing indexing on local builds, isolated Hostinger QA,
+  // or maintenance/CI runs. The legacy hook must honor the existing IndexNow
+  // kill switch for Google submissions and status writes as well.
+  if (process.env.NODE_ENV !== 'production' ||
+      process.env.HLS_ISOLATED_STAGING === 'true' ||
+      process.env.INDEXNOW_DISABLE === 'true') return doc;
 
   const slug = doc?.slug || doc?.id || '';
   if (!slug) return doc;

@@ -20,6 +20,23 @@ describe('trackPendingChange fail-closed publishing', () => {
     await trackPendingChange(args('categories'));
     expect(recordPublishedPendingChange).not.toHaveBeenCalled();
   });
+  it.each(['articles', 'tools'])('skips draft versions of published %s', async slug => {
+    for (const draft of [true, 'true']) {
+      vi.mocked(recordPublishedPendingChange).mockReset();
+      const input = args(slug);
+      input.req.query = { draft };
+      await trackPendingChange(input);
+      expect(recordPublishedPendingChange).not.toHaveBeenCalled();
+    }
+  });
+  it.each(['articles', 'tools'])('does not queue %s in isolated staging', async slug => {
+    vi.mocked(recordPublishedPendingChange).mockReset();
+    vi.stubEnv('HLS_ISOLATED_STAGING', 'true');
+    try {
+      await trackPendingChange(args(slug));
+      expect(recordPublishedPendingChange).not.toHaveBeenCalled();
+    } finally { vi.unstubAllEnvs(); }
+  });
   it('propagates queue write failure instead of silently publishing', async () => {
     vi.mocked(recordPublishedPendingChange).mockRejectedValueOnce(new Error('mock queue unavailable'));
     const input = args('articles');
@@ -35,3 +52,4 @@ describe('trackPendingChange fail-closed publishing', () => {
     }, 123);
   });
 });
+
