@@ -4,9 +4,8 @@ import type { PostgresAdapter } from '@payloadcms/db-postgres';
 import config from '@payload-config';
 import { isAllowedIndexNowPreviewOrigin, ISOLATED_STAGING_CMS_ORIGIN, CMS_ORIGIN } from '@/lib/allowedOrigins';
 import { SITE_BASE_URL } from '@/lib/site-config';
-import { acknowledgeIndexNowQueueRevision } from '@/lib/indexnow-queue-ack';
-import { withIndexNowSubmissionLock } from '@/lib/indexnow-submission-lock';
-import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, classifyIndexNowResponse, classifyIndexNowDispatchFailure, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from '@/lib/indexnow-postdeploy';
+import { reserveIndexNowAttempt, markIndexNowDispatching, finishIndexNowAttempt } from '@/lib/indexnow-attempts';
+import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowSnapshot, isExplicitIndexNowSubmitRequest, mapWithBoundedConcurrency, matchesIndexNowOwnershipProof, isTrustedIndexNowManifest, isIndexNowLiveSubmissionEnabled, classifyIndexNowResponse, fetchDirectIndexNowPublicResource, readBoundedIndexNowProofText } from '@/lib/indexnow-postdeploy';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,6 +35,16 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({
       error: 'Isolated staging permits admin preview only; IndexNow submission is disabled.',
     }, { status: 403 });
+  }
+  // CI-only defense in depth: preview would otherwise fetch the live site's
+  // content-manifest.json BEFORE the IndexNow live-submit guard. The offline
+  // container additionally has no external network interfaces or host gateway.
+  // Production's authenticated public-build verification is unchanged.
+  if (process.env.HLS_CI_OFFLINE_CONTAINER === '1' &&
+      process.env.HLS_CI_BLOCK_PUBLIC_MANIFEST === '1') {
+    return NextResponse.json({
+      error: 'Public manifest verification is disabled in network-isolated CI.',
+    }, { status: 503 });
   }
   const origin = new URL(SITE_BASE_URL);
   if (origin.protocol !== 'https:') return NextResponse.json({ error: 'HTTPS site required' }, { status: 503 });
@@ -165,49 +174,53 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ ...report, error: 'IndexNow key proof unavailable or does not match' }, { status: 503 });
   }
   const postgresDb = payload.db as unknown as PostgresAdapter;
-  let providerRequestStarted = false;
+  let reservation: Awaited<ReturnType<typeof reserveIndexNowAttempt>>;
   try {
-    const locked = await withIndexNowSubmissionLock(postgresDb, ready, async (execute) => {
-      let response: Response;
-      try {
-        providerRequestStarted = true;
-        response = await fetch('https://api.indexnow.org/indexnow', {
-          method: 'POST', redirect: 'error',
-          headers: { 'Content-Type': 'application/json; charset=utf-8' },
-          signal: AbortSignal.timeout(12000),
-          body: JSON.stringify({ host: origin.hostname, key, keyLocation: publicOrigin + '/' + key + '.txt',
-            urlList: ready.map(x => publicOrigin + x.path) }),
-        });
-      } catch {
-        return NextResponse.json({ ...report, delivery: 'unknown', error: 'Delivery is unknown: the provider may have received this request. Queue preserved; review before retrying.' }, { status: 502 });
-      }
-      // A 202 remains queued until ownership is verified.
-      if (response.status !== 200) {
-        const delivery = classifyIndexNowResponse(response.status);
-        return NextResponse.json({ ...report, httpStatus: response.status,
-          delivery,
-          error: delivery === 'pending' ? 'IndexNow receipt is pending key verification; queue preserved; review before retrying.'
-            : delivery === 'rejected' ? 'IndexNow rejected the request; queue preserved.'
-              : 'Delivery is unknown: the provider may have received this request. Queue preserved; review before retrying.' }, { status: 502 });
-      }
-      const acknowledged: string[] = [];
-      for (const item of ready) {
-        if (!await acknowledgeIndexNowQueueRevision(execute, { id: item.id, changedAt: item.changedAt })) {
-          throw new Error('Acknowledgement did not match the locked revision');
-        }
-        acknowledged.push(publicOrigin + item.path);
-      }
-      return NextResponse.json({ ...report, dryRun: false, delivery: 'received', httpStatus: response.status, acknowledged });
+    reservation = await reserveIndexNowAttempt(postgresDb, {
+      actorId: String(user.id), buildStartedAt: manifest.buildStartedAt,
+      items: ready.map(item => ({ id: item.id, changedAt: item.changedAt, url: publicOrigin + item.path })),
     });
-    if (locked.status === 'busy') return NextResponse.json({ ...report, error: 'Another IndexNow submission is in progress; queue preserved' }, { status: 409 });
-    if (locked.status === 'stale') return NextResponse.json({ ...report, error: 'Pending revisions changed; run a fresh preview' }, { status: 409 });
-    return locked.value;
   } catch {
-    if (classifyIndexNowDispatchFailure(providerRequestStarted) === 'not_sent') {
-      return NextResponse.json({ ...report, delivery: 'not_sent', error: 'Submission could not start; queue preserved.' }, { status: 503 });
-    }
-    // An error after provider acceptance may be ambiguous. Never claim the
-    // provider rejected it; the database transaction preserves the queue.
-    return NextResponse.json({ ...report, delivery: 'unknown', error: 'Delivery or acknowledgement is unknown. The provider may have received this request; review before retrying.' }, { status: 503 });
+    return NextResponse.json({ ...report, delivery: 'not_sent', error: 'Could not reserve an attempt; no provider request was started.' }, { status: 503 });
+  }
+  if (reservation.status !== 'reserved') {
+    return NextResponse.json({ ...report, delivery: 'not_sent', error: reservation.status === 'stale'
+      ? 'Pending revisions changed; run a fresh preview.'
+      : 'A previous submission requires administrator review before retrying.' }, { status: 409 });
+  }
+  const attemptId = reservation.attemptId;
+  try {
+    if (!await markIndexNowDispatching(postgresDb, attemptId)) throw new Error('Attempt no longer reserved');
+  } catch {
+    return NextResponse.json({ ...report, attemptId, delivery: 'not_sent',
+      error: 'The provider request was not started; the saved attempt requires review.' }, { status: 503 });
+  }
+  let providerStatus: number | null = null;
+  try {
+    const response = await fetch('https://api.indexnow.org/indexnow', {
+      method: 'POST', redirect: 'error',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      signal: AbortSignal.timeout(12000),
+      body: JSON.stringify({ host: origin.hostname, key, keyLocation: publicOrigin + '/' + key + '.txt',
+        urlList: ready.map(x => publicOrigin + x.path) }),
+    });
+    providerStatus = response.status;
+  } catch {
+    // Failure may occur after the provider received the request.
+  }
+  const delivery = classifyIndexNowResponse(providerStatus);
+  try {
+    const state = await finishIndexNowAttempt(postgresDb, attemptId, delivery, providerStatus);
+    if (state === 'acknowledged') return NextResponse.json({ ...report, attemptId, dryRun: false,
+      delivery: 'received', httpStatus: providerStatus, acknowledged: ready.map(x => publicOrigin + x.path) });
+    return NextResponse.json({ ...report, attemptId, delivery, httpStatus: providerStatus,
+      error: state === 'received' ? 'Provider received the old revision, but the queue changed; no entries were acknowledged. Review required.'
+        : state === 'pending' ? 'Provider received URLs; key validation is pending. Review required.'
+          : state === 'rejected' ? 'Provider rejected the request; queue preserved.'
+            : 'Delivery is unknown; the provider may have received this request. Review required.' }, { status: 502 });
+  } catch {
+    // The committed in_flight record continues blocking overlapping retries.
+    return NextResponse.json({ ...report, attemptId, delivery: 'unknown',
+      error: 'Provider delivery or database acknowledgement is unknown. Review required.' }, { status: 503 });
   }
 }

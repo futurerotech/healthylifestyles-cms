@@ -15,28 +15,9 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
-    # ══ D4 / SD2 — CI BUILD SAFETY (DO NOT "FIX" THIS BACK) ══════════════════
-    # The build below runs against a DISPOSABLE, EMPTY postgres service with
-    # publicly-visible mock credentials — BY DESIGN. Production credentials
-    # must NEVER enter CI: `build:ci` deliberately skips `payload migrate`, and
-    # this job exists only to prove the code compiles and the Next bundle
-    # builds. The mock DB satisfies payload.config's DATABASE_URI requirement
-    # and absorbs any lazy connection during `next build` without any real
-    # data being reachable. The "Secret-pattern guard" steps enforce this.
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: mock
-          POSTGRES_PASSWORD: mock
-          POSTGRES_DB: mock
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U mock"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    # PostgreSQL and the CMS test process run INSIDE a single Docker container
+    # with --network none. No host gateway, Docker socket, or production secrets.
+    # Network-enabled steps above this barrier may only install/audit dependencies.
 
     steps:
       - uses: actions/checkout@v4
@@ -82,9 +63,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Unit and access-control regression tests
-        run: npm test
-
       - name: Domain check
         run: npm run check:domain
 
@@ -103,120 +81,18 @@ jobs:
       - name: Migration safety lint
         run: node scripts/ci/migration-safety-lint.ts
 
-      # D6: apply the FULL committed migration chain to the disposable mock DB
-      # before building — proves every migration runs from zero AND gives the
-      # build real tables to query. This step failing = the job fails (a broken
-      # migration chain must never reach the production deploy pipeline).
-      - name: Apply migration chain (disposable mock DB — D6)
-        env:
-          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
-          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
-        run: npx payload migrate --force-accept-warning
+      - name: Verify isolated CI contract (static preflight)
+        run: node --test scripts/ci/test-offline-ci-contract.mjs
 
-      - name: Verify auth and media query schema (disposable mock DB)
-        env:
-          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
-        run: node scripts/ci/check-auth-schema.mjs
+      - name: Run real PostgreSQL and runtime tests without external networking
+        # Docker build prepares Node 22 + PostgreSQL 16 BEFORE entering the
+        # network namespace. All migrations, tests, backup, build and smoke
+        # then execute with only loopback enabled in docker --network none.
+        run: bash scripts/ci/run-offline-postgres.sh full
 
-      - name: Configure isolated PostgreSQL TLS certificate fixture
-        env:
-          RUN_DATABASE_TESTS: '1'
-          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
-        run: bash scripts/ci/postgres-tls-fixture.sh
-
-      - name: Real REST pSEO access and verified PostgreSQL TLS tests (disposable mock DB)
-        env:
-          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
-          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
-          INDEXNOW_DISABLE: 'true'
-          NODE_ENV: production
-          RUN_DATABASE_TESTS: '1'
-          ALLOW_DB_PUSH: 'true' # Prove production ignores the dev opt-in.
-        run: npx vitest run --config vitest.integration.config.ts
-
-      - name: Rehearse backup and restore (synthetic disposable data only)
-        env:
-          RUN_DATABASE_TESTS: '1'
-          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
-          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
-        run: bash scripts/ci/rehearse-backup.sh
-
-      - name: Rehearse Oct migration ledger drift and rollback (synthetic DBs only)
-        env:
-          RUN_DATABASE_TESTS: '1'
-          CI_MIGRATION_DRIFT_REHEARSAL: '1'
-          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
-          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
-          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
-          INDEXNOW_DISABLE: 'true'
-        run: bash scripts/ci/rehearse-migration-ledger-drift.sh
-
-      # D4: exercise the actual Hostinger build command against the mock DB.
-      # Database migrations are a separate, explicit operation after a backup;
-      # never mutate production data as a side effect of a deployment build.
-      # PAYLOAD_SECRET is a mock too: it only signs cookies of a server that
-      # never serves traffic. INDEXNOW_DISABLE per SD5 (no pings from CI).
-      - name: Build (production command, mock DB — SD2)
-        env:
-          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
-          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
-          INDEXNOW_DISABLE: 'true'
-        run: npm run build
-
-      # Authenticated staging roles use ephemeral mock-only Payload users.
-      # The following test generates a 0600 JWT fixture for the built runtime.
-      - name: Verify isolated staging admin/editor roles (disposable mock DB)
-        env:
-          GITHUB_ACTIONS: 'true'
-          CI_STAGING_ROLE_INTEGRATION: '1'
-          RUN_DATABASE_TESTS: '1'
-          NODE_ENV: production
-          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
-          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
-          HLS_ISOLATED_STAGING: 'true'
-          HLS_STAGING_CMS_ORIGIN: https://cms-qa.healthylifesstyles.com
-          SERVER_URL: https://cms-qa.healthylifesstyles.com
-          INDEXNOW_DISABLE: 'true'
-          INDEXNOW_LIVE_ENABLED: 'false'
-        run: npx vitest run --config vitest.integration.config.ts tests/integration/isolated-staging-roles.test.ts
-
-      # Boot the built CMS as a nonproduction isolated staging application on
-      # disposable CI PostgreSQL; no provider hooks or production credentials.
-      - name: Smoke-test isolated Hostinger staging mode (mock runtime only)
-        env:
-          GITHUB_ACTIONS: 'true'
-          CI_ISOLATED_STAGING_RUNTIME_SMOKE: '1'
-          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
-          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
-          HLS_ISOLATED_STAGING: 'true'
-          HLS_STAGING_CMS_ORIGIN: https://cms-qa.healthylifesstyles.com
-          SERVER_URL: https://cms-qa.healthylifesstyles.com
-          INDEXNOW_DISABLE: 'true'
-          INDEXNOW_LIVE_ENABLED: 'false'
-        run: node scripts/ci/isolated-staging-runtime-smoke.mjs
-
-      # D4/SD2 guard #2: the produced bundle must not embed real-looking secrets.
-      # HOST-AWARE by design (P17 fix): the old any-URI pattern false-positived
-      # on documentation placeholders that legitimately ship in bundles — our
-      # own DATABASE_URI error hint (a user:pass placeholder URI) and the
-      # canonical sixteen-character AWS doc key inside @aws-sdk. A real leaked
-      # credential necessarily carries its real infra host, so postgres URIs
-      # only trip on actual provider domains; placeholder hosts stay clean.
-      # (Never quote a full matching literal in these comments — guard #1
-      # scans this very file.)
-      # PEM check requires KEY MATERIAL after the header (≥40 base64ish chars,
-      # raw or JS-escaped newlines): crypto libs (jose, web-push) legitimately
-      # embed the bare header as a parser constant — run #36's false positive.
-      # -z scans whole files so multi-line keys can't hide across lines.
-      - name: Secret-pattern guard (build artifacts)
-        run: |
-          set -e
-          PATTERNS='postgres(ql)?://[^[:space:]"]+@[a-zA-Z0-9.-]*(supabase\.co|neon\.tech|rds\.amazonaws\.com|azure|render\.com|railway|digitalocean)|AKIA(?!IOSFODNN7EXAMPLE)[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----(\\\\n|\n|\r|[A-Za-z0-9+/=]){40,}'
-          if grep -rPznI --include='*.js' --include='*.json' -m1 -e "$PATTERNS" .next/ 2>/dev/null | head -5 | grep .; then
-            echo '::error::Real-credential fingerprint found in build output (SD2) — offending matches printed above.'
-            exit 1
-          fi
-          echo 'Build artifacts clean.'
+      # Build output exists only INSIDE the offline Docker runtime.
+      # The required secret-pattern gate runs there immediately after npm run build:ci.
+      # Never claim a host .next/ scan when the host did not build those artifacts.
 
       - name: Generate hash-only release traceability evidence (not a deploy)
         env:

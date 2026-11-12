@@ -27,6 +27,11 @@ interface IndexPreview {
  page: number;
  totalPages: number;
 }
+interface IndexAttempt {
+ id: string; state: string; provider_status: number | null; approved_build: string; created_at: string;
+ items: { id: number; changedAt: string; url: string; current: boolean }[];
+ reviews?: { decision: string; reasonCode: string; actorId: string; createdAt: string }[];
+}
 
 const DeployButton: React.FC = () => {
   const { user } = useAuth();
@@ -40,6 +45,7 @@ const DeployButton: React.FC = () => {
   const [indexPreview, setIndexPreview] = useState<IndexPreview | null>(null);
   const [indexBusy, setIndexBusy] = useState(false);
   const [indexPage, setIndexPage] = useState(1);
+  const [attempts, setAttempts] = useState<IndexAttempt[] | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -128,6 +134,46 @@ const DeployButton: React.FC = () => {
     } finally { setIndexBusy(false); }
   }
 
+  async function reviewAttempts() {
+    setIndexBusy(true);
+    try {
+      const res = await fetch('/api/seo/indexnow-attempts', { method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'list' }) });
+      const body = await res.json() as { attempts?: IndexAttempt[]; error?: string };
+      if (!res.ok || !Array.isArray(body.attempts)) throw new Error(body.error || 'Attempt review unavailable.');
+      setAttempts(body.attempts);
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Attempt review unavailable.'); }
+    finally { setIndexBusy(false); }
+  }
+
+  async function authorizeRetry(attempt: IndexAttempt, resolveChanged = false) {
+    if (!window.confirm('The provider may already have received these URLs. Authorizing a retry can create a duplicate. Continue after reviewing the exact revisions?')) return;
+    setIndexBusy(true);
+    try {
+      const res = await fetch('/api/seo/indexnow-attempts', { method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: resolveChanged ? 'resolve_changed' : 'authorize_retry',
+          attemptId: attempt.id, confirmRisk: true, items: attempt.items.map(({ id, changedAt, url }) => ({ id, changedAt, url })) }) });
+      const body = await res.json() as { message?: string; error?: string };
+      if (!res.ok) throw new Error(body.error || 'Review could not be recorded.');
+      setAttempts(null); setIndexPreview(null);
+      toast.success(body.message || 'Retry authorized; run a fresh preview.');
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Review could not be recorded.'); }
+    finally { setIndexBusy(false); }
+  }
+
+  async function cancelReservation(attempt: IndexAttempt) {
+    if (!window.confirm('Cancel this not-yet-dispatched reservation? If dispatch has begun, cancellation will be refused.')) return;
+    setIndexBusy(true);
+    try {
+      const res = await fetch('/api/seo/indexnow-attempts', { method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'cancel_reserved', attemptId: attempt.id, confirm: true }) });
+      const body = await res.json() as { message?: string; error?: string };
+      if (!res.ok) throw new Error(body.error || 'Reservation could not be cancelled.');
+      setAttempts(null); setIndexPreview(null); toast.success(body.message || 'Reservation cancelled.');
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Reservation could not be cancelled.'); }
+    finally { setIndexBusy(false); }
+  }
+
   // Only admins can deploy — hide the control entirely for everyone else.
   if (!isAdmin) return null;
 
@@ -188,6 +234,26 @@ const DeployButton: React.FC = () => {
           buttonStyle="secondary" size="small" aria-label="Preview IndexNow URLs">
           {indexBusy ? 'Checking…' : 'Preview IndexNow'}
         </Button>
+        <Button onClick={() => void reviewAttempts()} disabled={busy || indexBusy}
+          buttonStyle="secondary" size="small" aria-label="Review IndexNow attempts">Review attempts</Button>
+        {attempts && <div role="region" aria-label="IndexNow attempt review" style={{ fontSize: 12, overflowWrap: 'anywhere' }}>
+          {attempts.length === 0 && <p>No recorded attempts.</p>}
+          {attempts.map(attempt => <div key={attempt.id}>
+            <p>Attempt {attempt.id}: {attempt.state}; provider status {attempt.provider_status ?? 'unknown'}; build {attempt.approved_build}.</p>
+            <p>Provider receipt does not establish indexing. An interrupted in-flight request may have reached the provider and requires separately verified recovery.</p>
+            <ul>{attempt.items.map(item => <li key={String(item.id)}>{item.url} — revision {item.changedAt} — {item.current ? 'current' : 'changed or missing'}</li>)}</ul>
+            {(attempt.reviews?.length ?? 0) > 0 && <ul>{attempt.reviews!.map((review, i) =>
+              <li key={i}>Review {review.decision} ({review.reasonCode}) by administrator {review.actorId} at {review.createdAt}</li>)}</ul>}
+            {attempt.state === 'reserved' && !stagingPreviewOnly && <Button onClick={() => void cancelReservation(attempt)}
+              disabled={indexBusy} buttonStyle="secondary" size="small" aria-label={'Cancel reservation for ' + attempt.id}>Cancel unsent reservation</Button>}
+            {['unknown', 'pending', 'rejected', 'received'].includes(attempt.state) && attempt.items.length > 0 && attempt.items.every(item => item.current) && !stagingPreviewOnly &&
+              <Button onClick={() => void authorizeRetry(attempt)} disabled={indexBusy} buttonStyle="secondary" size="small"
+                aria-label={'Authorize retry for ' + attempt.id}>Authorize reviewed retry</Button>}
+            {['unknown', 'pending', 'rejected', 'received'].includes(attempt.state) && attempt.items.some(item => !item.current) && !stagingPreviewOnly &&
+              <Button onClick={() => void authorizeRetry(attempt, true)} disabled={indexBusy} buttonStyle="secondary" size="small"
+                aria-label={'Review changed attempt ' + attempt.id}>Resolve old changed attempt</Button>}
+          </div>)}
+        </div>}
         {indexPreview && <div role="region" aria-label="IndexNow preview" style={{ fontSize: 12, overflowWrap: 'anywhere' }}>
           <p>{indexPreview.ready.length} verified URL(s), {indexPreview.deferred.length} deferred. No URLs submitted.</p>
           <p>Queue page {indexPreview.page || indexPage} of {indexPreview.totalPages || 1}.</p>

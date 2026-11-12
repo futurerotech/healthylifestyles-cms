@@ -36,6 +36,7 @@ describe.skipIf(!enabled)('actual staging-mode CMS role isolation with disposabl
   let queue: (req: Request) => Promise<Response>;
   let deploy: (req: Request) => Promise<Response>;
   let indexNow: (req: Request) => Promise<Response>;
+  let attempts: (req: Request) => Promise<Response>;
 
   function request(path: string, method: 'GET' | 'POST', token?: string, origin = stage, confirm = false) {
     return new Request(stage + path, {
@@ -70,6 +71,7 @@ describe.skipIf(!enabled)('actual staging-mode CMS role isolation with disposabl
     queue = (await import('../../src/app/api/deploy/pending/route')).GET;
     deploy = (await import('../../src/app/api/deploy/route')).POST;
     indexNow = (await import('../../src/app/api/seo/reconcile-indexnow/route')).POST;
+    attempts = (await import('../../src/app/api/seo/indexnow-attempts/route')).POST;
 
     // Tokens are mock-only and never leave this ephemeral GitHub Actions runner.
     const temp = process.env.RUNNER_TEMP;
@@ -82,6 +84,19 @@ describe.skipIf(!enabled)('actual staging-mode CMS role isolation with disposabl
   }, 120000);
 
   afterAll(async () => { await payload?.destroy(); });
+
+  it('allows only an admin to inspect attempts and never authorizes a staging retry', async () => {
+    const make = (token: string | undefined, action: string) => new Request(stage + '/api/seo/indexnow-attempts', {
+      method: 'POST', headers: { Origin: stage, 'Content-Type': 'application/json',
+        ...(token ? { Authorization: 'JWT ' + token } : {}) }, body: JSON.stringify({ action }),
+    });
+    expect((await attempts(make(undefined, 'list'))).status).toBe(403);
+    expect((await attempts(make(editorToken, 'list'))).status).toBe(403);
+    const list = await attempts(make(adminToken, 'list'));
+    expect(list.status).toBe(200);
+    expect(Array.isArray((await list.json()).attempts)).toBe(true);
+    expect((await attempts(make(adminToken, 'authorize_retry'))).status).toBe(403);
+  });
 
   it('refuses subscriber synchronization in the handler even when its HTTP route is shadowed', async () => {
     const { subscriberSync } = await import('../../src/endpoints/subscriberSync');

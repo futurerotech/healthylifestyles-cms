@@ -197,6 +197,48 @@ describe('DeployButton IndexNow preview-and-approve workflow', () => {
     expect(screen.queryByRole('button', { name: 'Submit approved IndexNow URLs' })).not.toBeInTheDocument();
   });
 
+  it('requires explicit review before authorizing retry of an uncertain attempt', async () => {
+    const attempt = { id: 'd701b497-f379-45db-a105-b3002a91de96', state: 'unknown', provider_status: null,
+      approved_build: '2026-10-28T12:10:00Z', created_at: '2026-10-28T12:11:00Z',
+      items: [{ id: 7, changedAt: '2026-10-28T12:01:00Z', url: URL, current: true }] };
+    const decisions: unknown[] = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      if (String(input).includes('/api/deploy/pending')) return json({ count: 1 });
+      const body = JSON.parse(String(options?.body)) as { action: string };
+      if (body.action === 'list') return json({ attempts: [attempt] });
+      decisions.push(body);
+      return json({ ok: true, message: 'Retry authorized; run a fresh preview.' });
+    }));
+    const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+    vi.stubGlobal('confirm', confirm);
+    render(<DeployButton />);
+    fireEvent.click(screen.getByRole('button', { name: 'Review IndexNow attempts' }));
+    const authorize = await screen.findByRole('button', { name: 'Authorize retry for ' + attempt.id });
+    expect(screen.getByText(/provider status unknown/)).toBeInTheDocument();
+    fireEvent.click(authorize);
+    expect(decisions).toHaveLength(0);
+    fireEvent.click(authorize);
+    await waitFor(() => expect(decisions).toHaveLength(1));
+    expect(decisions[0]).toEqual({ action: 'authorize_retry', attemptId: attempt.id, confirmRisk: true,
+      items: [{ id: 7, changedAt: attempt.items[0].changedAt, url: URL }] });
+    expect(screen.queryByRole('button', { name: 'Submit approved IndexNow URLs' })).not.toBeInTheDocument();
+  });
+
+  it('keeps interrupted in-flight attempts blocked and distinguishes changed revisions', async () => {
+    const items = [{ id: 7, changedAt: '2026-10-28T12:01:00Z', url: URL, current: false }];
+    const common = { provider_status: null, approved_build: '2026-10-28T12:10:00Z', created_at: '2026-10-28T12:11:00Z', items };
+    const inFlight = { ...common, id: 'd701b497-f379-45db-a105-b3002a91de96', state: 'in_flight' };
+    const changed = { ...common, id: 'd701b497-f379-45db-a105-b3002a91de97', state: 'unknown' };
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) =>
+      String(input).includes('/api/deploy/pending') ? json({ count: 1 }) : json({ attempts: [inFlight, changed] })));
+    render(<DeployButton />);
+    fireEvent.click(screen.getByRole('button', { name: 'Review IndexNow attempts' }));
+    await screen.findByRole('button', { name: 'Review changed attempt ' + changed.id });
+    expect(screen.queryByRole('button', { name: 'Authorize retry for ' + inFlight.id })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review changed attempt ' + inFlight.id })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/changed or missing/)).toHaveLength(2);
+  });
+
   it('labels dry-run simulation honestly and never claims URL acceptance', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const path = String(input);

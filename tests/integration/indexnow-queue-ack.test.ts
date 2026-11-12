@@ -6,6 +6,7 @@ import { recordPublishedPendingChange } from '../../src/lib/indexnow-pending-que
 import { reserveManualDeployAttempt } from '../../src/lib/manual-deploy-reservation';
 import { trackPendingChange } from '../../src/hooks/trackPendingChange';
 import { withIndexNowSubmissionLock } from '../../src/lib/indexnow-submission-lock';
+import { reserveIndexNowAttempt, markIndexNowDispatching, cancelReservedIndexNowAttempt, finishIndexNowAttempt, authorizeIndexNowRetry } from '../../src/lib/indexnow-attempts';
 
 // The tests below write ONLY to CI's disposable local mock PostgreSQL service.
 // Fail before loading the CMS or opening a connection in every other environment.
@@ -48,6 +49,85 @@ describe('IndexNow exact-revision acknowledgement in real disposable PostgreSQL'
   });
 
   afterAll(async () => { await payload?.destroy(); });
+
+  it('persists an unresolved attempt and blocks overlapping confirmations on PostgreSQL', async () => {
+    const pending = await createPending('2026-11-11T10:00:00.000Z');
+    const input = { actorId: 'ci-admin', buildStartedAt: '2026-11-11T11:00:00.000Z', items: [{ id: pending.id,
+      changedAt: pending.changedAt, url: 'https://www.healthylifesstyles.com/wellness-hub/ci-test' }] };
+    const results = await Promise.all([reserveIndexNowAttempt(db, input), reserveIndexNowAttempt(db, input)]);
+    expect(results.filter(r => r.status === 'reserved')).toHaveLength(1);
+    expect(results.filter(r => r.status === 'review_required')).toHaveLength(1);
+    const reserved = results.find(r => r.status === 'reserved');
+    if (!reserved || reserved.status !== 'reserved') throw new Error('Reservation missing');
+    // Simulate interruption both before dispatch and after dispatch begins.
+    expect(await reserveIndexNowAttempt(db, input)).toEqual({ status: 'review_required' });
+    expect(await markIndexNowDispatching(db, reserved.attemptId)).toBe(true);
+    expect(await markIndexNowDispatching(db, reserved.attemptId)).toBe(false);
+    expect(await reserveIndexNowAttempt(db, input)).toEqual({ status: 'review_required' });
+    expect(await finishIndexNowAttempt(db, reserved.attemptId, 'unknown', null)).toBe('unknown');
+    expect(await reserveIndexNowAttempt(db, input)).toEqual({ status: 'review_required' });
+    expect((await payload.findByID({ collection: 'pending-deploys', id: pending.id })).changedAt).toBe(pending.changedAt);
+  });
+
+  it('acknowledges only an exact revision after a simulated provider receipt', async () => {
+    const pending = await createPending('2026-11-11T12:00:00.000Z');
+    const input = { actorId: 'ci-admin', buildStartedAt: '2026-11-11T13:00:00.000Z', items: [{ id: pending.id,
+      changedAt: pending.changedAt, url: 'https://www.healthylifesstyles.com/tools/bmr-calculator' }] };
+    const reserved = await reserveIndexNowAttempt(db, input);
+    if (reserved.status !== 'reserved') throw new Error('Reservation missing');
+    expect(await markIndexNowDispatching(db, reserved.attemptId)).toBe(true);
+    expect(await finishIndexNowAttempt(db, reserved.attemptId, 'received', 200)).toBe('acknowledged');
+    expect((await payload.find({ collection: 'pending-deploys', where: { id: { equals: pending.id } } })).totalDocs).toBe(0);
+  });
+
+  it('allows exactly one of dispatch or cancellation to win a reserved attempt', async () => {
+    const pending = await createPending('2026-11-11T12:30:00.000Z');
+    const input = { actorId: 'ci-admin', buildStartedAt: '2026-11-11T13:30:00.000Z', items: [{ id: pending.id,
+      changedAt: pending.changedAt, url: 'https://www.healthylifesstyles.com/tools/bmr-calculator' }] };
+    const reserved = await reserveIndexNowAttempt(db, input);
+    if (reserved.status !== 'reserved') throw new Error('Reservation missing');
+    const [sent, cancelled] = await Promise.all([
+      markIndexNowDispatching(db, reserved.attemptId),
+      cancelReservedIndexNowAttempt(db, reserved.attemptId, 'ci-admin'),
+    ]);
+    expect(Number(sent) + Number(cancelled)).toBe(1);
+    const next = await reserveIndexNowAttempt(db, input);
+    expect(next.status).toBe(sent ? 'review_required' : 'reserved');
+  });
+
+  it('preserves a newer revision if the provider receives an older reserved batch', async () => {
+    const pending = await createPending('2026-11-11T14:00:00.000Z');
+    const input = { actorId: 'ci-admin', buildStartedAt: '2026-11-11T15:00:00.000Z', items: [{ id: pending.id,
+      changedAt: pending.changedAt, url: 'https://www.healthylifesstyles.com/tools/bmr-calculator' }] };
+    const reserved = await reserveIndexNowAttempt(db, input);
+    if (reserved.status !== 'reserved') throw new Error('Reservation missing');
+    expect(await markIndexNowDispatching(db, reserved.attemptId)).toBe(true);
+    const newer = '2026-11-11T14:01:00.000Z';
+    await payload.update({ collection: 'pending-deploys', id: pending.id, data: { changedAt: newer } });
+    expect(await finishIndexNowAttempt(db, reserved.attemptId, 'received', 200)).toBe('received');
+    expect((await payload.findByID({ collection: 'pending-deploys', id: pending.id })).changedAt).toBe(newer);
+    const updated = { ...input, items: [{ ...input.items[0], changedAt: newer }] };
+    expect(await reserveIndexNowAttempt(db, updated)).toEqual({ status: 'review_required' });
+  });
+
+  it('requires an audited exact-snapshot decision before retrying an unknown outcome', async () => {
+    const pending = await createPending('2026-11-11T16:00:00.000Z');
+    const input = { actorId: 'ci-admin', buildStartedAt: '2026-11-11T17:00:00.000Z', items: [{ id: pending.id,
+      changedAt: pending.changedAt, url: 'https://www.healthylifesstyles.com/tools/bmr-calculator' }] };
+    const reserved = await reserveIndexNowAttempt(db, input);
+    if (reserved.status !== 'reserved') throw new Error('Reservation missing');
+    expect(await markIndexNowDispatching(db, reserved.attemptId)).toBe(true);
+    const review = { attemptId: reserved.attemptId, actorId: 'ci-admin', confirmRisk: true, items: input.items };
+    expect(await authorizeIndexNowRetry(db, review)).toBe('not_reviewable');
+    expect(await finishIndexNowAttempt(db, reserved.attemptId, 'unknown', null)).toBe('unknown');
+    expect(await reserveIndexNowAttempt(db, input)).toEqual({ status: 'review_required' });
+    expect(await authorizeIndexNowRetry(db, { ...review, confirmRisk: false })).toBe('stale');
+    expect(await authorizeIndexNowRetry(db, review)).toBe('authorized');
+    expect(await authorizeIndexNowRetry(db, review)).toBe('not_reviewable');
+    const audit = await db.pool.query('SELECT decision, reason_code FROM indexnow_attempt_reviews WHERE attempt_id=$1', [reserved.attemptId]);
+    expect(audit.rows).toEqual([{ decision: 'authorize_retry', reason_code: 'reviewed_duplicate_risk' }]);
+    expect((await reserveIndexNowAttempt(db, input)).status).toBe('reserved');
+  });
 
   it('serializes simultaneous confirmed submissions on real PostgreSQL and rejects a stale retry', async () => {
     const pending = await createPending('2026-10-28T10:00:00.000Z');
