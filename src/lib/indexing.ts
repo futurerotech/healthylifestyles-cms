@@ -32,11 +32,9 @@ export async function pingIndexNow(urls: string[]): Promise<{ engine: string; ok
     urlList: urls,
   };
 
-  const engines = [
-    'https://api.indexnow.org/indexnow',
-    'https://www.bing.com/indexnow',
-    'https://search.yandex.com/indexnow',
-  ];
+  // IndexNow participants forward accepted URLs to one another. Submitting to
+  // all three endpoints duplicates the same notification and status records.
+  const engines = ['https://api.indexnow.org/indexnow'];
 
   const results: { engine: string; ok: boolean; status: number }[] = [];
 
