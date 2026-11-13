@@ -57,11 +57,20 @@ export const Tools: CollectionConfig = {
         // request is not a publication attempt. No review flag is fabricated.
         if (data) {
           const inherited = { ...(originalDoc ?? {}), ...data };
-          if (inherited.riskLevel === 'high') data.medicalReviewRequired = true;
+          // A prior high-risk/review-required classification cannot be cleared
+          // by the same partial request that attempts a public risk downgrade.
+          // Save the proposed reclassification as a draft until a reviewer
+          // genuinely approves it; never auto-mark medicallyReviewed.
+          const previouslyRequired =
+            originalDoc?.riskLevel === 'high' || originalDoc?.medicalReviewRequired === true;
+          if (inherited.riskLevel === 'high' || previouslyRequired) {
+            data.medicalReviewRequired = true;
+          }
           const draft = (req?.query as { draft?: unknown } | undefined)?.draft;
           const isDraftRequest = draft === true || draft === 'true';
           const merged = { ...(originalDoc ?? {}), ...data };
-          const reviewRequired = merged.riskLevel === 'high' || merged.medicalReviewRequired === true;
+          const reviewRequired = previouslyRequired ||
+            merged.riskLevel === 'high' || merged.medicalReviewRequired === true;
           const goingLive = !isDraftRequest && merged.enabled === true && merged._status !== 'draft';
           if (reviewRequired && !merged.medicallyReviewed && goingLive) {
             throw new Error(

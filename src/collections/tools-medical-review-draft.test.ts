@@ -47,6 +47,21 @@ describe('Tools original medical review gate - draft and partial publish', () =>
     await expect(invoke({ enabled: false, _status: 'published' }, published)).resolves.toBeDefined();
     await expect(invoke({ enabled: true, _status: 'draft' }, published)).resolves.toBeDefined();
   });
+  it('cannot clear inherited medical review by downgrading an unreviewed live high-risk tool', async () => {
+    const data: Record<string, unknown> = {
+      enabled: true, _status: 'published', riskLevel: 'low', medicalReviewRequired: false,
+    };
+    await expect(invoke(data, published)).rejects.toThrow(/requires medical review/);
+    expect(data.medicalReviewRequired).toBe(true);
+  });
+  it('can save a proposed high-to-low reclassification as a draft, without releasing it', async () => {
+    const data: Record<string, unknown> = {
+      enabled: true, _status: 'published', riskLevel: 'low', medicalReviewRequired: false,
+    };
+    await expect(invoke(data, published, true)).resolves.toBe(data);
+    expect(data.medicalReviewRequired).toBe(true);
+    expect(data.medicallyReviewed).toBeUndefined();
+  });
   it('draft=true does not disable unsafe expression validation', async () => {
     const data = { enabled: true, _status: 'published', toolType: 'formula',
       outputs: [{ key: 'x', expression: 'process.exit(1)' }] };
