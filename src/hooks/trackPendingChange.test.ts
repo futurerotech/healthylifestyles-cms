@@ -7,8 +7,9 @@ vi.mock('../lib/indexnow-pending-queue', () => ({
 }));
 
 const doc = { id: 42, _status: 'published' };
-const args = (slug: string, status = 'published') => ({
-  req: { payload: { db: {}, logger: { error: vi.fn() } }, transactionID: 123 },
+const args = (slug: string, status = 'published', draft?: boolean | string) => ({
+  req: { payload: { db: {}, logger: { error: vi.fn() } }, transactionID: 123,
+    query: draft === undefined ? {} : { draft } },
   doc: { ...doc, _status: status },
   collection: { slug },
 }) as unknown as Parameters<typeof trackPendingChange>[0];
@@ -18,6 +19,12 @@ describe('trackPendingChange fail-closed publishing', () => {
     vi.mocked(recordPublishedPendingChange).mockReset();
     await trackPendingChange(args('articles', 'draft'));
     await trackPendingChange(args('categories'));
+    expect(recordPublishedPendingChange).not.toHaveBeenCalled();
+  });
+  it.each([true, 'true'] as const)('skips explicit draft=%s when parent _status is still published', async draft => {
+    vi.mocked(recordPublishedPendingChange).mockReset();
+    const input = args('articles', 'published', draft);
+    await expect(trackPendingChange(input)).resolves.toEqual(input.doc);
     expect(recordPublishedPendingChange).not.toHaveBeenCalled();
   });
   it('propagates queue write failure instead of silently publishing', async () => {

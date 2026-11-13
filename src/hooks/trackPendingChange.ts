@@ -7,6 +7,10 @@ import { recordPublishedPendingChange } from '../lib/indexnow-pending-queue'
  * Never queue an autosaved draft or silently remove historical entries.
  */
 export const trackPendingChange: CollectionAfterChangeHook = async ({ req, doc, collection }) => {
+  // A Payload draft version of an already-published parent may still expose
+  // parent _status='published'. Do not queue a future deployment for that save.
+  const draft = (req?.query as { draft?: unknown } | undefined)?.draft
+  if (draft === true || draft === 'true') return doc
   if ((doc as { _status?: string })?._status !== 'published') return doc
   const slug = collection.slug
   if (slug !== 'articles' && slug !== 'tools') return doc
