@@ -1,6 +1,7 @@
 /** Phase 14 P1 — IndexNow queue: dry-run, secrets hygiene, debounce collapse, chaos. */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { queueIndexNowPing, flushIndexNowQueue, __resetIndexNowForTests } from './indexnow';
+import { notifyIndexNow } from '../hooks/notifyIndexNow';
 
 const KEY = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'; // 32-hex test key (not a real secret)
 
@@ -70,5 +71,32 @@ describe('queueIndexNowPing / flushIndexNowQueue', () => {
     expect(logged).toContain('network-error');
     expect(logged).not.toContain(KEY);
     expect((logged.match(/network-error/g) || []).length).toBe(2); // 1 try + 1 bounded retry
+  });
+});
+
+
+describe('notifyIndexNow canonical public paths', () => {
+  it.each(['../escape', 'bad%2fpath', 'Bad-Case', 'space slug', ''])('rejects an unsafe published slug before queueing: %s', async (slug) => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const doc = { _status: 'published', slug };
+    expect(notifyIndexNow({
+      doc, previousDoc: { _status: 'draft' }, collection: { slug: 'articles' },
+      req: { query: {} }, operation: 'update',
+    } as never)).toBe(doc);
+    await flushIndexNowQueue();
+    expect(logSpy.mock.calls.map((c) => c.join(' ')).join('')).not.toContain('dryRun');
+  });
+
+  it('queues a legitimate newly published article with an unchanged canonical path', async () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const doc = { _status: 'published', slug: 'safe-wellness-guide' };
+    expect(notifyIndexNow({
+      doc, previousDoc: { _status: 'draft' }, collection: { slug: 'articles' },
+      req: { query: {} }, operation: 'update',
+    } as never)).toBe(doc);
+    await flushIndexNowQueue();
+    const logs = logSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(logs).toContain('/wellness-hub/safe-wellness-guide');
+    expect(logs).toContain('"dryRun":true');
   });
 });
