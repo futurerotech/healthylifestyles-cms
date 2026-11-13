@@ -77,8 +77,18 @@ export const publishGateHook: CollectionBeforeValidateHook = async ({ data, orig
   // An explicitly submitted noIndex:false still clears the old flag.
   const oldSeo = (originalDoc as GateDoc | undefined)?.seo;
   const incomingSeo = (data as GateDoc | undefined)?.seo;
-  if (oldSeo && incomingSeo && typeof oldSeo === 'object' && typeof incomingSeo === 'object') {
-    merged.seo = { ...oldSeo, ...incomingSeo };
+  if (oldSeo && typeof oldSeo === 'object' && incomingSeo !== undefined) {
+    if (incomingSeo && typeof incomingSeo === 'object') {
+      merged.seo = { ...oldSeo, ...incomingSeo };
+      // Only an explicit boolean false may clear an inherited noIndex=true.
+      // Null/undefined checkbox values are not proof of an editorial decision.
+      if (oldSeo.noIndex === true && incomingSeo.noIndex !== false) {
+        merged.seo.noIndex = true;
+      }
+    } else if (oldSeo.noIndex === true) {
+      // A null/invalid replacement SEO group must not silently undo noindex.
+      merged.seo = { noIndex: true };
+    }
   }
   if (merged._status !== 'published') return data; // drafts are free
 

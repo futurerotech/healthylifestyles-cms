@@ -39,7 +39,7 @@ describe('publish gate: published parent may have an independent draft version',
 });
 
 describe('publish gate on partial published SEO group updates', () => {
-  const make = (seo: { metaDescription: string; noIndex?: boolean }) => {
+  const make = (seo: { metaDescription: string; noIndex?: boolean | null } | null) => {
     const find = vi.fn(async () => ({ docs: [], hasNextPage: false, totalDocs: 0 }));
     const data = { seo };
     const args = {
@@ -65,6 +65,20 @@ describe('publish gate on partial published SEO group updates', () => {
   it('allows an explicit noIndex:false to clear the inherited block', async () => {
     const { args, data } = make({ metaDescription: 'Updated description', noIndex: false });
     await expect(publishGateHook(args)).resolves.toBe(data);
+  });
+
+  it.each([undefined, null] as const)(
+    'preserves inherited noIndex when a partial SEO checkbox is %s', async noIndex => {
+      const { args, find } = make({ metaDescription: 'Updated description', noIndex });
+      await expect(publishGateHook(args)).rejects.toThrow(/noindex is enabled/);
+      expect(find).toHaveBeenCalled();
+    },
+  );
+
+  it('does not allow a null SEO group to clear inherited noIndex', async () => {
+    const { args, find } = make(null);
+    await expect(publishGateHook(args)).rejects.toThrow(/noindex is enabled/);
+    expect(find).toHaveBeenCalled();
   });
 });
 
