@@ -43,6 +43,10 @@ export async function buildGateContext(
 
 export const publishGateHook: CollectionBeforeValidateHook = async ({ data, originalDoc, operation, req }) => {
   if (operation !== 'create' && operation !== 'update') return data;
+  // An explicit Payload draft version of a published article can inherit its
+  // parent's _status=published. Draft edits must not trigger publish checks.
+  const draft = (req?.query as { draft?: unknown } | undefined)?.draft;
+  if (draft === true || draft === 'true') return data;
   const context = req?.context as { reseedVersions?: boolean; seoAuditFix?: boolean } | undefined;
   if (context?.reseedVersions || context?.seoAuditFix) return data;
 
