@@ -65,6 +65,24 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
     expect(record).not.toHaveBeenCalled();
   });
 
+  it.each(['users', 'indexing-status', 'media'])('never indexes unrelated Payload collection %s', async (collectionSlug) => {
+    const send = vi.fn();
+    vi.stubGlobal('fetch', send);
+    const record = vi.fn();
+    const { afterChangeIndexingHook } = await import('./indexing');
+    const doc = { slug: 'synthetic-record', _status: 'published' };
+    const result = await afterChangeIndexingHook({
+      doc,
+      previousDoc: { _status: 'draft' },
+      operation: 'update',
+      collection: { slug: collectionSlug },
+      req: { context: {}, query: {}, payload: { create: record } },
+    } as never);
+    expect(result).toBe(doc);
+    expect(send).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
   it('ignores missing document status (fail closed)', async () => {
     const send = vi.fn();
     vi.stubGlobal('fetch', send);
