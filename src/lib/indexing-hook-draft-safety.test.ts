@@ -102,7 +102,7 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
   it('keeps intended production published updates indexable with isolated mock network', async () => {
     // A deliberate published edit remains on the existing IndexNow/Google
     // record path; NO external request is actually sent from this test.
-    vi.stubEnv('GOOGLE_INDEXING_KEY', '');
+    // Keep a configured (synthetic) Google key: the hook must still never use it.
     const send = vi.fn(async () => new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
     vi.stubGlobal('fetch', send);
     const record = vi.fn(async (_input: { collection: string; data: unknown }) => ({ id: 'synthetic-only' }));
@@ -117,13 +117,14 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
     } as never);
     expect(result).toBe(doc);
     expect(send).toHaveBeenCalledTimes(3);
-    expect(record).toHaveBeenCalledTimes(4);
+    expect(record).toHaveBeenCalledTimes(3);
     expect(record.mock.calls.every(([args]) => args.collection === 'indexing-status')).toBe(true);
-    expect(send.mock.calls.every(([endpoint]) => String(endpoint).startsWith('https://'))).toBe(true);
+    expect(record.mock.calls.every(([args]) => (args.data as { engine: string }).engine !== 'google')).toBe(true);
+    expect(send.mock.calls.every(([endpoint]) => String(endpoint).startsWith('https://') && !String(endpoint).includes('googleapis.com'))).toBe(true);
   });
 
   it('keeps intentional first publish on the existing published-only path with mock network', async () => {
-    vi.stubEnv('GOOGLE_INDEXING_KEY', '');
+    // Keep a configured (synthetic) Google key: the hook must still never use it.
     const send = vi.fn(async () => new Response('{}', { status: 200 }));
     vi.stubGlobal('fetch', send);
     const record = vi.fn(async (_input: { collection: string; data: unknown }) => ({ id: 'synthetic-only' }));
@@ -136,6 +137,26 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
       req: { context: {}, query: {}, payload: { create: record } },
     } as never);
     expect(send).toHaveBeenCalledTimes(3);
-    expect(record).toHaveBeenCalledTimes(4);
+    expect(record).toHaveBeenCalledTimes(3);
+  });
+
+  it('never submits an ordinary published tool to Google Indexing API, even with a configured key', async () => {
+    const send = vi.fn(async () => new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', send);
+    const record = vi.fn(async (_input: { collection: string; data: unknown }) => ({ id: 'synthetic-only' }));
+    const { afterChangeIndexingHook } = await import('./indexing');
+    const doc = { slug: 'ordinary-tool', _status: 'published' };
+    await afterChangeIndexingHook({
+      doc,
+      previousDoc: { _status: 'draft' },
+      operation: 'update',
+      collection: { slug: 'tools' },
+      req: { context: {}, query: {}, payload: { create: record } },
+    } as never);
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(record).toHaveBeenCalledTimes(3);
+    const statuses = record.mock.calls.map(([input]) => input.data as { engine: string; url: string });
+    expect(statuses.every(s => s.url.endsWith('/tools/ordinary-tool') && s.engine !== 'google')).toBe(true);
+    expect(send.mock.calls.some(([endpoint]) => String(endpoint).includes('googleapis.com'))).toBe(false);
   });
 });
