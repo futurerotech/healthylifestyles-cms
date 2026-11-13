@@ -159,4 +159,28 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
     expect(statuses.every(s => s.url.endsWith('/tools/ordinary-tool') && s.engine !== 'google')).toBe(true);
     expect(send.mock.calls.some(([endpoint]) => String(endpoint).includes('googleapis.com'))).toBe(false);
   });
+
+  it.each([
+    ['missing slug with numeric ID', { id: 42, slug: '' }],
+    ['missing slug with string ID', { id: 'database-42' }],
+    ['path traversal slug', { slug: '../not-a-canonical-page' }],
+    ['invalid uppercase slug', { slug: 'Not-Canonical' }],
+    ['URL-encoded separators', { slug: 'wellness%2fadmin' }],
+  ])('%s does not send noncanonical published URLs', async (_label, fields) => {
+    const send = vi.fn(async () => { throw new Error('A noncanonical URL must not be submitted'); });
+    vi.stubGlobal('fetch', send);
+    const record = vi.fn();
+    const { afterChangeIndexingHook } = await import('./indexing');
+    const doc = { ...fields, _status: 'published' };
+    const result = await afterChangeIndexingHook({
+      doc,
+      previousDoc: { _status: 'published' },
+      operation: 'update',
+      collection: { slug: 'articles' },
+      req: { context: {}, query: {}, payload: { create: record } },
+    } as never);
+    expect(result).toBe(doc);
+    expect(send).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
 });
