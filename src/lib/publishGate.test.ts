@@ -95,4 +95,22 @@ describe('link extraction + broken detection (deterministic, fail-safe)', () => 
   it('dedupes repeated broken targets', () => {
     expect(findBrokenInternalLinks(['/tools/nope', '/tools/nope/'], ctx())).toEqual(['/tools/nope']);
   });
+  it('skips links from failed tool lookup but still rejects verified broken article links', () => {
+    const c = ctx({ toolSlugs: new Set(), toolSlugsComplete: false });
+    expect(findBrokenInternalLinks(['/tools/unknown'], c)).toEqual([]);
+    expect(findBrokenInternalLinks(['/wellness-hub/missing-guide'], c)).toEqual(['/wellness-hub/missing-guide']);
+  });
+  it('requires both article and category catalogs complete for wellness-hub absences', () => {
+    const c = ctx({ articleSlugs: new Set(), categorySlugs: new Set(), articleSlugsComplete: false });
+    expect(findBrokenInternalLinks(['/wellness-hub/missing'], c)).toEqual([]);
+    c.articleSlugsComplete = true; c.categorySlugsComplete = false;
+    expect(findBrokenInternalLinks(['/wellness-hub/missing'], c)).toEqual([]);
+  });
+  it('still blocks missing links when complete fetched catalogs really are empty', () => {
+    const c = ctx({ toolSlugs: new Set(), articleSlugs: new Set(), categorySlugs: new Set(),
+      toolSlugsComplete: true, articleSlugsComplete: true, categorySlugsComplete: true });
+    expect(findBrokenInternalLinks(['/tools/missing', '/wellness-hub/missing'], c))
+      .toEqual(['/tools/missing', '/wellness-hub/missing']);
+  });
+
 });

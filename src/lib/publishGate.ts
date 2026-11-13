@@ -41,6 +41,11 @@ export interface GateContext {
   toolSlugs: Set<string>;
   articleSlugs: Set<string>;
   categorySlugs: Set<string>;
+  /** Missing catalog is unknown, not proof of absence. Omitted means complete
+   * for legacy pure-test callers that supply their own full slug sets. */
+  toolSlugsComplete?: boolean;
+  articleSlugsComplete?: boolean;
+  categorySlugsComplete?: boolean;
   /** Media alt for the hero: string = present, null/'' = missing, undefined = unknown (no warning). */
   heroImageAlt?: string | null;
 }
@@ -84,7 +89,13 @@ export function findBrokenInternalLinks(links: string[], ctx: GateContext): stri
       section === 'tools'
         ? ctx.toolSlugs.has(slug)
         : ctx.articleSlugs.has(slug) || ctx.categorySlugs.has(slug);
-    if (!known) broken.push(clean);
+    // An incomplete or failed catalog lookup cannot prove a link is broken.
+    // Wellness Hub targets may be articles OR categories, so both inventories
+    // must be complete before rejecting a missing target.
+    const complete = section === 'tools'
+      ? ctx.toolSlugsComplete !== false
+      : ctx.articleSlugsComplete !== false && ctx.categorySlugsComplete !== false;
+    if (complete && !known) broken.push(clean);
   }
   return [...new Set(broken)];
 }

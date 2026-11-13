@@ -99,9 +99,13 @@ export async function broadcast(
 export const afterPublishPushHook: CollectionAfterChangeHook = async ({
   doc,
   previousDoc,
-  req: { payload: p },
+  req,
 }) => {
-  const payload = p as any;
+  // Saving a draft of a published article must never notify subscribers.
+  // Staging may exercise the UI but may not send production push messages.
+  const draft = (req?.query as { draft?: unknown } | undefined)?.draft;
+  if (draft === true || draft === 'true' || process.env.HLS_ISOLATED_STAGING === 'true') return;
+  const payload = req.payload as any;
   const wasPublished = previousDoc?._status === 'published';
   const isPublished = doc._status === 'published';
   if (wasPublished || !isPublished) return;

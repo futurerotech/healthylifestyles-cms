@@ -3,9 +3,7 @@ import { isAdminOrEditor, publishedPublicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { validateFormula } from '../lib/formula';
-import { afterChangeIndexingHook } from '../lib/indexing';
 import { trackPendingChange } from '../hooks/trackPendingChange';
-import { notifyIndexNow } from '../hooks/notifyIndexNow';
 /** Lucide icon names used by the public tiles — a select "picker" for editors. */
 const ICON_OPTIONS = [
   'flame', 'pie-chart', 'egg', 'wheat', 'droplet', 'scale', 'percent', 'target',
@@ -42,10 +40,10 @@ export const Tools: CollectionConfig = {
   versions: { drafts: { autosave: { interval: 800 } }, maxPerDoc: 50 },
 
   hooks: {
-    afterChange: [afterChangeIndexingHook, trackPendingChange, notifyIndexNow],
+    afterChange: [trackPendingChange],
     beforeValidate: [
-      ({ data }) => {
-        // Enforce safe, valid formulas at save time for formula tools.
+      ({ data, originalDoc, req }) => {
+        // Validate formulas even when editing a draft of a published tool.
         if (data?.toolType !== 'coded' && Array.isArray(data?.outputs)) {
           for (const o of data.outputs) {
             if (!o?.expression) continue;
@@ -54,14 +52,27 @@ export const Tools: CollectionConfig = {
           }
         }
 
-        // YMYL safety gate. High risk ALWAYS requires medical review, and a
-        // review-required tool cannot go live (enabled + published) until a
-        // human ticks "Medically reviewed". Save it as draft/disabled instead —
-        // the review flag is a human attestation, never set automatically.
+        // A partial update must NOT clear inherited high-risk requirements.
+        // A draft version can have a published parent, so an explicit draft
+        // request is not a publication attempt. No review flag is fabricated.
         if (data) {
-          if (data.riskLevel === 'high') data.medicalReviewRequired = true;
-          const goingLive = data.enabled === true && data._status !== 'draft';
-          if (data.medicalReviewRequired && !data.medicallyReviewed && goingLive) {
+          const inherited = { ...(originalDoc ?? {}), ...data };
+          // A prior high-risk/review-required classification cannot be cleared
+          // by the same partial request that attempts a public risk downgrade.
+          // Save the proposed reclassification as a draft until a reviewer
+          // genuinely approves it; never auto-mark medicallyReviewed.
+          const previouslyRequired =
+            originalDoc?.riskLevel === 'high' || originalDoc?.medicalReviewRequired === true;
+          if (inherited.riskLevel === 'high' || previouslyRequired) {
+            data.medicalReviewRequired = true;
+          }
+          const draft = (req?.query as { draft?: unknown } | undefined)?.draft;
+          const isDraftRequest = draft === true || draft === 'true';
+          const merged = { ...(originalDoc ?? {}), ...data };
+          const reviewRequired = previouslyRequired ||
+            merged.riskLevel === 'high' || merged.medicalReviewRequired === true;
+          const goingLive = !isDraftRequest && merged.enabled === true && merged._status !== 'draft';
+          if (reviewRequired && !merged.medicallyReviewed && goingLive) {
             throw new Error(
               'This tool requires medical review before it can be enabled and published. ' +
                 'Save it as a draft (or untick "Enabled") until a qualified reviewer has checked it, ' +
