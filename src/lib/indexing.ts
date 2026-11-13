@@ -159,6 +159,10 @@ export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, 
   if ((req?.context as { reseedVersions?: boolean } | undefined)?.reseedVersions) return doc;
   if (operation !== 'create' && operation !== 'update') return doc;
 
+  // This hook is intentionally limited to the two public wellness collections.
+  // Never derive an IndexNow URL for unrelated Payload collections if reused.
+  if (collection?.slug !== 'articles' && collection?.slug !== 'tools') return doc;
+
   // Payload draft mode can save a new version of an already-published doc.
   // Check BOTH the returned status and the explicit REST draft flag.
   if (doc?._status !== 'published') return doc;
