@@ -38,7 +38,50 @@ describe('publish gate: published parent may have an independent draft version',
   });
 });
 
+describe('publish gate on partial published SEO group updates', () => {
+  const make = (seo: { metaDescription: string; noIndex?: boolean }) => {
+    const find = vi.fn(async () => ({ docs: [], hasNextPage: false, totalDocs: 0 }));
+    const data = { seo };
+    const args = {
+      data,
+      originalDoc: {
+        id: 41, _status: 'published', title: 'Existing published article',
+        seo: { noIndex: true, metaDescription: 'Old description' },
+      },
+      operation: 'update',
+      req: { query: {}, context: {}, payload: {
+        find, findByID: vi.fn(), logger: { warn: vi.fn() },
+      } },
+    } as unknown as Parameters<typeof publishGateHook>[0];
+    return { args, data, find };
+  };
+
+  it('preserves inherited noIndex when a partial SEO edit omits it', async () => {
+    const { args, find } = make({ metaDescription: 'Updated description' });
+    await expect(publishGateHook(args)).rejects.toThrow(/noindex is enabled/);
+    expect(find).toHaveBeenCalled();
+  });
+
+  it('allows an explicit noIndex:false to clear the inherited block', async () => {
+    const { args, data } = make({ metaDescription: 'Updated description', noIndex: false });
+    await expect(publishGateHook(args)).resolves.toBe(data);
+  });
+});
+
 describe('publish gate completeness with failed and paginated catalog queries', () => {
+  it('treats catalogs lacking pagination receipts as unknown, not proven complete', async () => {
+    const find = vi.fn(async () => ({ docs: [{ slug: 'one' }] }));
+    const c = await buildGateContext({ find, findByID: vi.fn() } as never, null);
+    expect(c.toolSlugsComplete).toBe(false);
+    expect(findBrokenInternalLinks(['/tools/possibly-later'], c)).toEqual([]);
+  });
+
+  it('treats contradictory more-results evidence as incomplete', async () => {
+    const find = vi.fn(async () => ({ docs: [{ slug: 'one' }], hasNextPage: false, totalDocs: 3 }));
+    const c = await buildGateContext({ find, findByID: vi.fn() } as never, null);
+    expect(c.toolSlugsComplete).toBe(false);
+    expect(findBrokenInternalLinks(['/tools/possibly-later'], c)).toEqual([]);
+  });
   it('treats one failed source as unknown without suppressing other known link failures', async () => {
     const find = vi.fn(async ({ collection }: { collection: string }) => {
       if (collection === 'tools') throw new Error('simulated tools database error');

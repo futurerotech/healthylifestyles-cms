@@ -22,9 +22,15 @@ export async function buildGateContext(
     try {
       const r = await payload.find({ collection, limit, depth: 0, select: { slug: true } } as never);
       if (!Array.isArray(r.docs)) throw new Error('Missing slug lookup docs');
-      const complete = r.hasNextPage !== true &&
-        !(typeof r.totalPages === 'number' && r.totalPages > 1) &&
-        !(typeof r.totalDocs === 'number' && r.totalDocs > r.docs.length);
+      // A missing pagination receipt is not evidence of a complete catalog.
+      // Contradictory positive "more pages" evidence takes precedence.
+      const hasMore = r.hasNextPage === true ||
+        (typeof r.totalPages === 'number' && r.totalPages > 1) ||
+        (typeof r.totalDocs === 'number' && r.totalDocs > r.docs.length);
+      const terminal = r.hasNextPage === false ||
+        (typeof r.totalPages === 'number' && r.totalPages >= 0 && r.totalPages <= 1) ||
+        (typeof r.totalDocs === 'number' && r.totalDocs === r.docs.length);
+      const complete = !hasMore && terminal;
       return {
         values: new Set(r.docs.map((d) => d.slug).filter((s): s is string => typeof s === 'string')),
         complete,
@@ -66,6 +72,14 @@ export const publishGateHook: CollectionBeforeValidateHook = async ({ data, orig
 
   // Partial updates (e.g. data:{} republish) must be judged on the merged doc.
   const merged = { ...(originalDoc ?? {}), ...(data ?? {}) } as GateDoc & { _status?: string; heroImage?: number | { id?: number } };
+  // A partial Payload SEO group update may omit noIndex. Merge its known
+  // siblings for validation so the previous robots directive is not lost.
+  // An explicitly submitted noIndex:false still clears the old flag.
+  const oldSeo = (originalDoc as GateDoc | undefined)?.seo;
+  const incomingSeo = (data as GateDoc | undefined)?.seo;
+  if (oldSeo && incomingSeo && typeof oldSeo === 'object' && typeof incomingSeo === 'object') {
+    merged.seo = { ...oldSeo, ...incomingSeo };
+  }
   if (merged._status !== 'published') return data; // drafts are free
 
   const heroId = typeof merged.heroImage === 'object' && merged.heroImage !== null ? merged.heroImage.id : merged.heroImage;
