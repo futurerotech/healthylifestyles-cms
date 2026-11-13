@@ -28,7 +28,7 @@ export const notifyIndexNow: CollectionAfterChangeHook = ({ doc, previousDoc, co
 
     const build = PATH_BUILDERS[collection?.slug || ''];
     const slug = (doc as { slug?: unknown })?.slug;
-    if (build && typeof slug === 'string' && slug) {
+    if (build && typeof slug === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       queueIndexNowPing([build(slug)]);
     }
   } catch {
