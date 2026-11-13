@@ -136,6 +136,47 @@ export async function checkHostingerStagingReadOnly(input, fetcher = fetch) {
   }
   report.checks.push({ name: 'anonymous-article-draft-not-seen-in-sample', status: articles.status });
 
+  // Sampling the first three public articles alone cannot prove drafts are
+  // private. Ask explicitly for draft-only results in BOTH original collections.
+  // Payload must either deny the anonymous query or return an empty page.
+  // These are GET-only, credentials-free checks with no publish side effects.
+  for (const collection of ['articles', 'tools']) {
+    const label = collection === 'articles' ? 'Article draft filter' : 'Tool draft filter';
+    const response = await get(
+      `/api/${collection}?where[_status][equals]=draft&limit=1&depth=0&select[_status]=true`,
+      label,
+    );
+    if (response.status === 200) {
+      const body = await jsonWithin(response, label);
+      if (!body || !Array.isArray(body.docs) || body.docs.length !== 0) {
+        throw new Error(label + ': anonymous draft exposed or malformed response');
+      }
+    } else if (![401, 403].includes(response.status)) {
+      throw new Error(label + ': unexpected HTTP ' + response.status);
+    }
+    report.checks.push({
+      name: `anonymous-${collection}-draft-filter-denied`,
+      status: response.status,
+    });
+  }
+
+  // Verify that the ordinary public tools read (even with draft=true)
+  // cannot return a draft or hide the status of a returned record.
+  const tools = await get(
+    '/api/tools?draft=true&limit=3&depth=0&select[_status]=true&select[slug]=true',
+    'Tool visibility',
+  );
+  if (tools.status === 200) {
+    const body = await jsonWithin(tools, 'Tool visibility');
+    if (!body || !Array.isArray(body.docs) ||
+        body.docs.some(doc => !doc || doc._status !== 'published')) {
+      throw new Error('Tool visibility: draft exposed, status unknown, or malformed response');
+    }
+  } else if (![401, 403].includes(tools.status)) {
+    throw new Error('Tool visibility: unexpected HTTP ' + tools.status);
+  }
+  report.checks.push({ name: 'anonymous-tool-draft-not-seen-in-sample', status: tools.status });
+
   const pseo = await get('/api/pseo-pages?where[status][equals]=draft&limit=3&depth=0', 'pSEO draft');
   if (pseo.status === 200) {
     const body = await jsonWithin(pseo, 'pSEO draft');

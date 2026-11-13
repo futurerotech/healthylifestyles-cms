@@ -13,13 +13,19 @@ function mock(overrides = {}) {
   const calls = [];
   const fetcher = async (url, options) => {
     calls.push({ url, options });
-    const path = new URL(url).pathname;
-    const result = overrides[path] || (
+    const parsed = new URL(url);
+    const path = parsed.pathname;
+    const draftOnly = parsed.searchParams.get('where[_status][equals]') === 'draft';
+    // A separate override key lets tests inject a leaked draft on an explicit
+    // filter without also triggering the preceding public sample request.
+    const overrideKey = draftOnly ? `${path}#draft` : path;
+    const result = overrides[overrideKey] || overrides[path] || (
       path === '/admin/login' ? [200, null] :
       path === '/api/deploy/pending' ? [403, null] :
       path === '/api/users' ? [403, null] :
       path === '/api/users/me' ? [200, { user: null }] :
-      path === '/api/articles' ? [200, { docs: [{ _status: 'published' }] }] :
+      path === '/api/articles' || path === '/api/tools'
+        ? [200, { docs: draftOnly ? [] : [{ _status: 'published' }] }] :
       path === '/api/pseo-pages' ? [200, { docs: [] }] : [500, null]
     );
     return makeResponse(url, ...result);
@@ -50,8 +56,10 @@ test('refuses live origins, local hosts and unsafe staging targets before fetchi
 test('valid staging performs only credential-free GET with manual redirect mode', async () => {
   const client = mock();
   const report = await checkHostingerStagingReadOnly(origin, client.fetcher);
-  assert.equal(report.checks.length, 6);
-  assert.equal(client.calls.length, 6);
+  assert.equal(report.checks.length, 9);
+  assert.equal(client.calls.length, 9);
+  assert.deepEqual(report.checks.map(c => c.name).filter(n => n.includes('draft-filter')),
+    ['anonymous-articles-draft-filter-denied', 'anonymous-tools-draft-filter-denied']);
   for (const { url, options } of client.calls) {
     assert.equal(options.method, 'GET');
     assert.equal(options.credentials, 'omit');
@@ -89,4 +97,34 @@ test('rejects outside redirect, malformed envelope and server error', async () =
   await assert.rejects(() => checkHostingerStagingReadOnly(origin, malformed.fetcher), /malformed/);
   const serverError = mock({ '/api/users/me': [500, null] });
   await assert.rejects(() => checkHostingerStagingReadOnly(origin, serverError.fetcher), /unexpected HTTP 500/);
+});
+test('rejects exposed draft anywhere in an explicit articles/tools draft filter', async () => {
+  for (const collection of ['/api/articles', '/api/tools']) {
+    const client = mock({ [`${collection}#draft`]: [200, { docs: [{ _status: 'draft' }] }] });
+    await assert.rejects(
+      () => checkHostingerStagingReadOnly(origin, client.fetcher),
+      /anonymous draft exposed/,
+    );
+    assert.equal(client.calls.every(c => c.options.method === 'GET'), true);
+  }
+});
+test('rejects a draft or missing status from the ordinary public tool sample', async () => {
+  for (const doc of [{ _status: 'draft' }, { slug: 'unknown-status' }]) {
+    const client = mock({ '/api/tools': [200, { docs: [doc] }] });
+    await assert.rejects(
+      () => checkHostingerStagingReadOnly(origin, client.fetcher),
+      /draft exposed, status unknown/,
+    );
+  }
+});
+test('an anonymous draft filter may be denied with 403 without leaking data', async () => {
+  const client = mock({
+    '/api/articles#draft': [403, null],
+    '/api/tools#draft': [403, null],
+  });
+  const report = await checkHostingerStagingReadOnly(origin, client.fetcher);
+  assert.equal(report.checks.length, 9);
+  const draftChecks = report.checks.filter(c => c.name.includes('draft-filter'));
+  assert.equal(draftChecks.length, 2);
+  assert.ok(draftChecks.every(c => c.status === 403));
 });
