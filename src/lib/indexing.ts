@@ -1,9 +1,8 @@
 /**
- * Omnichannel indexing: IndexNow (Bing/Yandex) + Google Indexing API.
- *
- * IndexNow: free, no auth — just POST the URL list to any participating engine.
- * Google Indexing API: requires a service-account JSON key (GOOGLE_INDEXING_KEY).
- * Both are fire-and-forget; failures are logged to the IndexingStatus collection.
+ * Published wellness articles/tools: IndexNow notifications only. Google Indexing
+ * API is restricted to qualifying JobPosting or BroadcastEvent-in-VideoObject
+ * pages, so this hook must never call it for ordinary health content.
+ * IndexNow failures are logged to the IndexingStatus collection.
  */
 
 const SITE_URL = process.env.SITE_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com';
@@ -67,9 +66,10 @@ interface GoogleIndexingResult { ok: boolean; status: number; error?: string }
 const GOOGLE_KEY_JSON = process.env.GOOGLE_INDEXING_KEY || '';
 
 /**
- * Submit a URL to Google Indexing API.
- * Requires GOOGLE_INDEXING_KEY env var — a service-account JSON string.
- * Falls back silently if not configured.
+ * Legacy Google Indexing API helper. Do not use for ordinary articles/tools.
+ * Google's API is limited to qualifying job postings or livestreaming videos;
+ * this project's wellness pages do not meet those criteria. The afterChange
+ * indexing hook below deliberately does not invoke this helper.
  */
 export async function pingGoogle(url: string): Promise<GoogleIndexingResult> {
   if (!GOOGLE_KEY_JSON) {
@@ -184,10 +184,10 @@ export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, 
 
   const payload = req.payload;
 
-  const [indexNowResults, googleResult] = await Promise.all([
-    pingIndexNow([url]),
-    pingGoogle(url).catch(() => ({ ok: false, status: 0, error: 'Request failed' })),
-  ]);
+  // Ordinary wellness content is outside Google's Indexing API eligibility.
+  // Keep Google discovery on the public sitemap/Search Console path instead.
+  // Do not create misleading Google indexing-status rows for these pages.
+  const indexNowResults = await pingIndexNow([url]);
 
   const records: Record<string, unknown>[] = [];
 
@@ -202,17 +202,6 @@ export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, 
       submittedAt: new Date().toISOString(),
     });
   }
-
-  records.push({
-    docType: collection.slug,
-    docSlug: slug,
-    url,
-    engine: 'google',
-    status: googleResult.ok ? 'success' : 'failed',
-    httpStatus: googleResult.status,
-    error: googleResult.error,
-    submittedAt: new Date().toISOString(),
-  });
 
   for (const data of records) {
     try {
