@@ -1,9 +1,8 @@
 /**
- * Omnichannel indexing: IndexNow (Bing/Yandex) + Google Indexing API.
- *
- * IndexNow: free, no auth — just POST the URL list to any participating engine.
- * Google Indexing API: requires a service-account JSON key (GOOGLE_INDEXING_KEY).
- * Both are fire-and-forget; failures are logged to the IndexingStatus collection.
+ * Published wellness articles/tools: IndexNow notifications only. Google Indexing
+ * API is restricted to qualifying JobPosting or BroadcastEvent-in-VideoObject
+ * pages, so this hook must never call it for ordinary health content.
+ * IndexNow failures are logged to the IndexingStatus collection.
  */
 
 const SITE_URL = process.env.SITE_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://www.healthylifesstyles.com';
@@ -33,11 +32,9 @@ export async function pingIndexNow(urls: string[]): Promise<{ engine: string; ok
     urlList: urls,
   };
 
-  const engines = [
-    'https://api.indexnow.org/indexnow',
-    'https://www.bing.com/indexnow',
-    'https://search.yandex.com/indexnow',
-  ];
+  // IndexNow participants forward accepted URLs to one another. Submitting to
+  // all three endpoints duplicates the same notification and status records.
+  const engines = ['https://api.indexnow.org/indexnow'];
 
   const results: { engine: string; ok: boolean; status: number }[] = [];
 
@@ -67,9 +64,10 @@ interface GoogleIndexingResult { ok: boolean; status: number; error?: string }
 const GOOGLE_KEY_JSON = process.env.GOOGLE_INDEXING_KEY || '';
 
 /**
- * Submit a URL to Google Indexing API.
- * Requires GOOGLE_INDEXING_KEY env var — a service-account JSON string.
- * Falls back silently if not configured.
+ * Legacy Google Indexing API helper. Do not use for ordinary articles/tools.
+ * Google's API is limited to qualifying job postings or livestreaming videos;
+ * this project's wellness pages do not meet those criteria. The afterChange
+ * indexing hook below deliberately does not invoke this helper.
  */
 export async function pingGoogle(url: string): Promise<GoogleIndexingResult> {
   if (!GOOGLE_KEY_JSON) {
@@ -145,18 +143,43 @@ import type { CollectionAfterChangeHook } from 'payload';
 import type { IndexingStatus } from '../collections/IndexingStatus';
 
 /**
- * Payload hook — fires after any document create/update.
- * Pings IndexNow + Google, then records results in IndexingStatus.
+ * Payload hook — records indexing attempts only for intentional changes to
+ * published content on the production CMS. Draft saves (including autosaves
+ * of already-published articles) must never contact search engines or write
+ * IndexingStatus records.
+ *
+ * This legacy hook is separate from the later publish-only IndexNow queue.
+ * Keep staging, maintenance and CI fail-closed until real provider isolation
+ * is verified.
  */
 export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, operation, collection, req }) => {
-  // P17 audit F1/F2 — bulk maintenance runs (scripts/recovery/reseed-versions.ts
-  // sends context.reseedVersions) must not ping engines and must not flood
-  // IndexingStatus with per-doc records. Real editorial saves are unaffected.
+  // Maintenance and non-write operations must remain side-effect free.
   if ((req?.context as { reseedVersions?: boolean } | undefined)?.reseedVersions) return doc;
   if (operation !== 'create' && operation !== 'update') return doc;
 
-  const slug = doc?.slug || doc?.id || '';
-  if (!slug) return doc;
+  // This hook is intentionally limited to the two public wellness collections.
+  // Never derive an IndexNow URL for unrelated Payload collections if reused.
+  if (collection?.slug !== 'articles' && collection?.slug !== 'tools') return doc;
+
+  // Payload draft mode can save a new version of an already-published doc.
+  // Check BOTH the returned status and the explicit REST draft flag.
+  if (doc?._status !== 'published') return doc;
+  const draft = (req?.query as { draft?: unknown } | undefined)?.draft;
+  if (draft === true || draft === 'true') return doc;
+
+  // Avoid production-facing indexing on local builds, isolated Hostinger QA,
+  // or maintenance/CI runs. The legacy hook must honor the existing IndexNow
+  // kill switch for Google submissions and status writes as well.
+  if (process.env.NODE_ENV !== 'production' ||
+      process.env.HLS_ISOLATED_STAGING === 'true' ||
+      process.env.INDEXNOW_DISABLE === 'true' ||
+      process.env.INDEXNOW_DRY_RUN === 'true') return doc;
+
+  // Never fabricate a supposedly canonical URL from a database ID. The
+  // collection slug field emits lowercase hyphenated segments; malformed or
+  // missing values are not eligible for indexing notifications.
+  const slug = typeof doc?.slug === 'string' ? doc.slug : '';
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return doc;
 
   // Never ping search engines from a local environment — Google rejects
   // localhost URLs and it just floods the IndexingStatus dashboard with
@@ -167,10 +190,10 @@ export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, 
 
   const payload = req.payload;
 
-  const [indexNowResults, googleResult] = await Promise.all([
-    pingIndexNow([url]),
-    pingGoogle(url).catch(() => ({ ok: false, status: 0, error: 'Request failed' })),
-  ]);
+  // Ordinary wellness content is outside Google's Indexing API eligibility.
+  // Keep Google discovery on the public sitemap/Search Console path instead.
+  // Do not create misleading Google indexing-status rows for these pages.
+  const indexNowResults = await pingIndexNow([url]);
 
   const records: Record<string, unknown>[] = [];
 
@@ -185,17 +208,6 @@ export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, 
       submittedAt: new Date().toISOString(),
     });
   }
-
-  records.push({
-    docType: collection.slug,
-    docSlug: slug,
-    url,
-    engine: 'google',
-    status: googleResult.ok ? 'success' : 'failed',
-    httpStatus: googleResult.status,
-    error: googleResult.error,
-    submittedAt: new Date().toISOString(),
-  });
 
   for (const data of records) {
     try {
