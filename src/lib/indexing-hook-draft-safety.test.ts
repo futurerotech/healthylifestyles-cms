@@ -126,7 +126,7 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
   });
 
   it('keeps intended production published updates indexable with isolated mock network', async () => {
-    // A deliberate published edit remains on the existing IndexNow/Google
+    // A deliberate published edit remains on the existing IndexNow-only
     // record path; NO external request is actually sent from this test.
     // Keep a configured (synthetic) Google key: the hook must still never use it.
     const send = vi.fn(async () => new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
@@ -142,8 +142,8 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
       req: { context: {}, query: {}, payload: { create: record } },
     } as never);
     expect(result).toBe(doc);
-    expect(send).toHaveBeenCalledTimes(3);
-    expect(record).toHaveBeenCalledTimes(3);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledTimes(1);
     expect(record.mock.calls.every(([args]) => args.collection === 'indexing-status')).toBe(true);
     expect(record.mock.calls.every(([args]) => (args.data as { engine: string }).engine !== 'google')).toBe(true);
     expect(send.mock.calls.every(([endpoint]) => String(endpoint).startsWith('https://') && !String(endpoint).includes('googleapis.com'))).toBe(true);
@@ -162,8 +162,8 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
       collection: { slug: 'articles' },
       req: { context: {}, query: {}, payload: { create: record } },
     } as never);
-    expect(send).toHaveBeenCalledTimes(3);
-    expect(record).toHaveBeenCalledTimes(3);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledTimes(1);
   });
 
   it('never submits an ordinary published tool to Google Indexing API, even with a configured key', async () => {
@@ -179,8 +179,8 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
       collection: { slug: 'tools' },
       req: { context: {}, query: {}, payload: { create: record } },
     } as never);
-    expect(send).toHaveBeenCalledTimes(3);
-    expect(record).toHaveBeenCalledTimes(3);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledTimes(1);
     const statuses = record.mock.calls.map(([input]) => input.data as { engine: string; url: string });
     expect(statuses.every(s => s.url.endsWith('/tools/ordinary-tool') && s.engine !== 'google')).toBe(true);
     expect(send.mock.calls.some(([endpoint]) => String(endpoint).includes('googleapis.com'))).toBe(false);
