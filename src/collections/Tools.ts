@@ -42,8 +42,8 @@ export const Tools: CollectionConfig = {
   hooks: {
     afterChange: [trackPendingChange],
     beforeValidate: [
-      ({ data }) => {
-        // Enforce safe, valid formulas at save time for formula tools.
+      ({ data, originalDoc, req }) => {
+        // Validate formulas even when editing a draft of a published tool.
         if (data?.toolType !== 'coded' && Array.isArray(data?.outputs)) {
           for (const o of data.outputs) {
             if (!o?.expression) continue;
@@ -52,14 +52,18 @@ export const Tools: CollectionConfig = {
           }
         }
 
-        // YMYL safety gate. High risk ALWAYS requires medical review, and a
-        // review-required tool cannot go live (enabled + published) until a
-        // human ticks "Medically reviewed". Save it as draft/disabled instead —
-        // the review flag is a human attestation, never set automatically.
+        // A partial update must NOT clear inherited high-risk requirements.
+        // A draft version can have a published parent, so an explicit draft
+        // request is not a publication attempt. No review flag is fabricated.
         if (data) {
-          if (data.riskLevel === 'high') data.medicalReviewRequired = true;
-          const goingLive = data.enabled === true && data._status !== 'draft';
-          if (data.medicalReviewRequired && !data.medicallyReviewed && goingLive) {
+          const inherited = { ...(originalDoc ?? {}), ...data };
+          if (inherited.riskLevel === 'high') data.medicalReviewRequired = true;
+          const draft = (req?.query as { draft?: unknown } | undefined)?.draft;
+          const isDraftRequest = draft === true || draft === 'true';
+          const merged = { ...(originalDoc ?? {}), ...data };
+          const reviewRequired = merged.riskLevel === 'high' || merged.medicalReviewRequired === true;
+          const goingLive = !isDraftRequest && merged.enabled === true && merged._status !== 'draft';
+          if (reviewRequired && !merged.medicallyReviewed && goingLive) {
             throw new Error(
               'This tool requires medical review before it can be enabled and published. ' +
                 'Save it as a draft (or untick "Enabled") until a qualified reviewer has checked it, ' +
