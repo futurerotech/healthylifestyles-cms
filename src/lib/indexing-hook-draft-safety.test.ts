@@ -110,6 +110,14 @@ describe('general afterChange indexing hook: draft-safe fail-closed gate', () =>
     expect(record).not.toHaveBeenCalled();
   });
 
+  it('blocks legacy direct IndexNow requests in explicit dry-run mode', async () => {
+    vi.stubEnv('INDEXNOW_DRY_RUN', 'true');
+    const { send, record, result, doc } = await runChange({ status: 'published' });
+    expect(result).toBe(doc);
+    expect(send).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+
   it('blocks published updates outside production NODE_ENV even with configured keys', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     const { send, record } = await runChange({ status: 'published' });
