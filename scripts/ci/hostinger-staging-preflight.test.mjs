@@ -19,7 +19,9 @@ function mock(overrides = {}) {
     // A separate override key lets tests inject a leaked draft on an explicit
     // filter without also triggering the preceding public sample request.
     const overrideKey = draftOnly ? `${path}#draft` : path;
-    const result = overrides[overrideKey] || overrides[path] || (
+    // A normal-sample override must not leak into the independent
+    // explicit-draft query; only an intentional #draft override applies.
+    const result = (draftOnly ? overrides[overrideKey] : overrides[path]) || (
       path === '/admin/login' ? [200, null] :
       path === '/api/deploy/pending' ? [403, null] :
       path === '/api/users' ? [403, null] :
