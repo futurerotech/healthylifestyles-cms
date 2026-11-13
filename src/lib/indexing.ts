@@ -174,7 +174,8 @@ export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, 
   // kill switch for Google submissions and status writes as well.
   if (process.env.NODE_ENV !== 'production' ||
       process.env.HLS_ISOLATED_STAGING === 'true' ||
-      process.env.INDEXNOW_DISABLE === 'true') return doc;
+      process.env.INDEXNOW_DISABLE === 'true' ||
+      process.env.INDEXNOW_DRY_RUN === 'true') return doc;
 
   // Never fabricate a supposedly canonical URL from a database ID. The
   // collection slug field emits lowercase hyphenated segments; malformed or
