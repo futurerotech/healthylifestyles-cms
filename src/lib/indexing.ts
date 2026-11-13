@@ -172,8 +172,11 @@ export const afterChangeIndexingHook: CollectionAfterChangeHook = async ({ doc, 
       process.env.HLS_ISOLATED_STAGING === 'true' ||
       process.env.INDEXNOW_DISABLE === 'true') return doc;
 
-  const slug = doc?.slug || doc?.id || '';
-  if (!slug) return doc;
+  // Never fabricate a supposedly canonical URL from a database ID. The
+  // collection slug field emits lowercase hyphenated segments; malformed or
+  // missing values are not eligible for indexing notifications.
+  const slug = typeof doc?.slug === 'string' ? doc.slug : '';
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) return doc;
 
   // Never ping search engines from a local environment — Google rejects
   // localhost URLs and it just floods the IndexingStatus dashboard with
