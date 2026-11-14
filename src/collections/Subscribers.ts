@@ -1,5 +1,6 @@
-import type { Access, CollectionConfig } from 'payload';
+import type { Access, CollectionBeforeChangeHook, CollectionConfig } from 'payload';
 import { isAdmin } from '../access/roles';
+import { CURRENT_NOTICE_VERSION } from '../lib/newsletter-suppression';
 
 /**
  * Server-only `create`: the Astro proxy (and admin tools) must include the
@@ -15,6 +16,24 @@ const internalKeyCreate: Access = ({ req }) => {
   return req.headers.get('x-internal-key') === secret;
 };
 
+/**
+ * Consent evidence. Only web-form signups record consent, with the server's own time
+ * and the current notice version. Values supplied by a client are ignored. Imports
+ * (CSV, n8n, API) never get consent stamped on their behalf. On update the fields are
+ * frozen, so an edit cannot rewrite the evidence.
+ */
+export const recordConsent: CollectionBeforeChangeHook = ({ data, operation, originalDoc }) => {
+  if (operation === 'create') {
+    const fromForm = (data.source ?? 'web-form') === 'web-form';
+    return {
+      ...data,
+      consentAt: fromForm ? new Date().toISOString() : null,
+      consentNoticeVersion: fromForm ? CURRENT_NOTICE_VERSION : null,
+    };
+  }
+  return { ...data, consentAt: originalDoc?.consentAt ?? null, consentNoticeVersion: originalDoc?.consentNoticeVersion ?? null };
+};
+
 export const Subscribers: CollectionConfig = {
   slug: 'subscribers',
   admin: {
@@ -25,6 +44,7 @@ export const Subscribers: CollectionConfig = {
     description: 'Email subscribers captured via lead forms, CSV imports, or n8n sync.',
   },
   access: { read: isAdmin, create: internalKeyCreate, update: isAdmin, delete: isAdmin },
+  hooks: { beforeChange: [recordConsent] },
   fields: [
     {
       name: 'email',
@@ -74,7 +94,20 @@ export const Subscribers: CollectionConfig = {
     {
       name: 'unsubscribedAt',
       type: 'date',
-      admin: { description: 'Set when the subscriber opts out.' },
+      admin: { description: 'Set when the subscriber opts out. Suppressed records must never be emailed or forwarded to email automation.' },
+    },
+    {
+      name: 'consentAt',
+      type: 'date',
+      admin: {
+        readOnly: true,
+        description: 'When the person submitted the signup form. Empty for CSV and API imports, whose consent is not recorded here.',
+      },
+    },
+    {
+      name: 'consentNoticeVersion',
+      type: 'text',
+      admin: { readOnly: true, description: 'Version of the signup privacy notice shown at the time of consent.' },
     },
     {
       name: 'metadata',

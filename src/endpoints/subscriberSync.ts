@@ -1,5 +1,6 @@
 import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
+import { isSendable } from '../lib/newsletter-suppression';
 
 /**
  * Strict CORS allow-list. Echoing `origin || '*'` is the classic
@@ -130,11 +131,11 @@ export const subscriberSync: Endpoint = {
         };
 
         try {
-          await p.create({ collection: 'subscribers', data });
+          const created = await p.create({ collection: 'subscribers', data });
           imported++;
 
-          // Forward to n8n on each new subscriber
-          if (n8nUrl && audience?.forwardOnCreate) {
+          // Forward to n8n on each new subscriber. Suppression: an opted-out record is never forwarded.
+          if (n8nUrl && audience?.forwardOnCreate && isSendable(created)) {
             const n8nHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
             if (n8nKey) n8nHeaders['Authorization'] = `Bearer ${n8nKey}`;
 
