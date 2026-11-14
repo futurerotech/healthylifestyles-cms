@@ -1,8 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import {
   screenHostingerStagingRuntime as screen,
   verifyHostingerStagingDatabaseReadOnly as check,
+  FORBIDDEN_STAGING_CREDENTIALS,
 } from './hostinger-staging-runtime-evidence.mjs';
 
 const stageHost = 'ep-plain-forest-bca0vqud.c-16.us-east-1.aws.neon.tech';
@@ -20,9 +23,9 @@ const safe = Object.freeze({
   ALLOW_DB_PUSH: 'false',
   S3_ENDPOINT: 'https://c401e58f54e7278facea9f55e4186da6.r2.cloudflarestorage.com',
   S3_REGION: 'auto',
-  S3_BUCKET: 'healthylifesstyles-staging-media',
-  HLS_STAGING_R2_BUCKET: 'healthylifesstyles-staging-media',
-  HLS_PRODUCTION_R2_BUCKET: 'healthylifesstyles-media',
+  S3_BUCKET: 'healthylifestyles-staging-media',
+  HLS_STAGING_R2_BUCKET: 'healthylifestyles-staging-media',
+  HLS_PRODUCTION_R2_BUCKET: 'healthylifestyles-media',
   S3_ACCESS_KEY_ID: 'synthetic-access',
   S3_SECRET_ACCESS_KEY: 'synthetic-secret',
   DATABASE_URI: 'postgres://neondb_owner:synthetic-password@' + stageHost +
@@ -101,9 +104,9 @@ test('production host, credential/query injection and missing staging safety all
     { GOOGLE_INDEXING_CREDENTIALS_B64: 'synthetic-indexing-key' },
     { VERCEL_DEPLOY_HOOK_URL: 'https://deploy.example.test' },
     { CHATGPT_DRAFT_BRIDGE_TOKEN: 'synthetic' },
-    { S3_BUCKET: 'healthylifesstyles-media' },
-    { HLS_STAGING_R2_BUCKET: 'healthylifesstyles-media' },
-    { HLS_PRODUCTION_R2_BUCKET: 'healthylifesstyles-staging-media' },
+    { S3_BUCKET: 'healthylifestyles-media' },
+    { HLS_STAGING_R2_BUCKET: 'healthylifestyles-media' },
+    { HLS_PRODUCTION_R2_BUCKET: 'healthylifestyles-staging-media' },
     { S3_ENDPOINT: 'https://other.example.test' },
     { S3_REGION: 'us-east-1' },
     { S3_ACCESS_KEY_ID: '' },
@@ -155,4 +158,36 @@ test('all failure paths sanitize secrets and never return the input connection U
     throw new Error('credential=' + leak);
   }), error => !String(error).includes(leak) && error.message.startsWith('NO-GO'));
   assert.doesNotMatch(JSON.stringify(screen(env)), /synthetic|postgres:\/\//);
+});
+
+
+test('bucket names match the real R2 buckets and the CMS config, not the domain spelling', () => {
+  const config = readFileSync(new URL('../../payload.config.ts', import.meta.url), 'utf8');
+  assert.match(config, /process\.env\.S3_BUCKET \|\| 'healthylifestyles-media'/);
+  assert.equal(safe.HLS_PRODUCTION_R2_BUCKET, 'healthylifestyles-media');
+  assert.equal(safe.S3_BUCKET, 'healthylifestyles-staging-media');
+  assert.equal(screen(safe).configuredR2StagingBucketScreened, true);
+  // The previous three-s spelling (domain spelling) must now be rejected.
+  for (const wrong of ['healthylifesstyles-staging-media', 'healthylifestyles-media']) {
+    assert.throws(() => screen({ ...safe, S3_BUCKET: wrong, HLS_STAGING_R2_BUCKET: wrong }), /NO-GO/);
+  }
+});
+
+test('any search-engine or deploy credential in the staging runtime is NO-GO', () => {
+  for (const name of FORBIDDEN_STAGING_CREDENTIALS) {
+    assert.throws(() => screen({ ...safe, [name]: 'present' }), /NO-GO/, name);
+    assert.doesNotThrow(() => screen({ ...safe, [name]: '   ' }), name);
+  }
+});
+
+test('every indexing/deploy credential the CMS source reads is screened (drift guard)', () => {
+  const files = execFileSync('git', ['ls-files', 'src', 'payload.config.ts'], { encoding: 'utf8' })
+    .split('\n').filter((f) => /\.(ts|tsx|mjs|js)$/.test(f) && !/\.test\./.test(f));
+  const read = new Set();
+  for (const f of files) {
+    for (const m of readFileSync(new URL('../../' + f, import.meta.url), 'utf8').matchAll(/process\.env\.([A-Z0-9_]+)/g)) read.add(m[1]);
+  }
+  const outbound = [...read].filter((n) => /^(INDEXNOW_(API_)?KEY|GOOGLE_INDEXING_|VERCEL_DEPLOY_HOOK|CHATGPT_DRAFT_BRIDGE)/.test(n));
+  assert.ok(outbound.includes('INDEXNOW_API_KEY'), 'live IndexNow key name not found in source');
+  for (const name of outbound) assert.ok(FORBIDDEN_STAGING_CREDENTIALS.includes(name), name + ' is read by src but not screened');
 });

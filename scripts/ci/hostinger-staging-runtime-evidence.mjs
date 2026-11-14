@@ -16,9 +16,31 @@ const EXPECTED = Object.freeze({
   database: 'neondb',
   role: 'neondb_owner',
   r2Endpoint: 'https://c401e58f54e7278facea9f55e4186da6.r2.cloudflarestorage.com',
-  stagingBucket: 'healthylifesstyles-staging-media',
-  productionBucket: 'healthylifesstyles-media',
+  // R2 bucket names use the brand spelling (two s's), unlike the public domain
+  // healthylifesstyles.com. Verified against the Cloudflare bucket list and the
+  // payload.config.ts default on 2026-11-14.
+  stagingBucket: 'healthylifestyles-staging-media',
+  productionBucket: 'healthylifestyles-media',
 });
+
+/**
+ * Every credential that lets this CMS contact a search engine or trigger a
+ * production deploy. A staging runtime must not hold any of them. Kept in sync
+ * with src/ by hostinger-staging-runtime-evidence.test.mjs.
+ *   INDEXNOW_API_KEY  – live post-deploy reconciliation (src/lib/indexnow.ts,
+ *                       src/app/api/seo/reconcile-indexnow/route.ts)
+ *   INDEXNOW_KEY      – legacy afterChange hook (src/lib/indexing.ts)
+ *   GOOGLE_INDEXING_* – Google auth (src/lib/google-auth.ts, src/lib/indexing.ts)
+ */
+export const FORBIDDEN_STAGING_CREDENTIALS = Object.freeze([
+  'INDEXNOW_API_KEY',
+  'INDEXNOW_KEY',
+  'GOOGLE_INDEXING_KEY',
+  'GOOGLE_INDEXING_CREDENTIALS',
+  'GOOGLE_INDEXING_CREDENTIALS_B64',
+  'VERCEL_DEPLOY_HOOK_URL',
+  'CHATGPT_DRAFT_BRIDGE_TOKEN',
+]);
 
 const noGo = () => { throw new Error('NO-GO: staging runtime identity or read-only safety could not be verified.'); };
 const has = value => typeof value === 'string' && value.trim().length > 0;
@@ -64,10 +86,7 @@ export function screenHostingerStagingRuntime(env) {
       env.INDEXNOW_DISABLE !== 'true' ||
       env.INDEXNOW_LIVE_ENABLED !== 'false' ||
       env.ALLOW_DB_PUSH !== 'false' ||
-      has(env.INDEXNOW_KEY) || has(env.GOOGLE_INDEXING_KEY) ||
-      has(env.GOOGLE_INDEXING_CREDENTIALS_B64) ||
-      has(env.VERCEL_DEPLOY_HOOK_URL) ||
-      has(env.CHATGPT_DRAFT_BRIDGE_TOKEN) ||
+      FORBIDDEN_STAGING_CREDENTIALS.some(name => has(env[name])) ||
       env.S3_ENDPOINT !== EXPECTED.r2Endpoint ||
       env.S3_REGION !== 'auto' ||
       env.S3_BUCKET !== EXPECTED.stagingBucket ||
