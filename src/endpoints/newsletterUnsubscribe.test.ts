@@ -85,7 +85,7 @@ describe('sendCheck (pre-send suppression for any provider)', () => {
     const page = new URL((r.body as any).unsubscribeUrl);
     const oneClick = new URL((r.body as any).oneClickUrl);
     expect(page.origin + page.pathname).toBe('https://www.example.com/unsubscribe');
-    expect(oneClick.origin + oneClick.pathname).toBe('https://cms.example.com/api/subscribers/unsubscribe');
+    expect(oneClick.origin + oneClick.pathname).toBe('https://cms.example.com/api/subscriber-unsubscribe');
     const t = page.searchParams.get('t')!;
     expect(t).toBe(oneClick.searchParams.get('t'));
     expect(verifyUnsubscribeToken(t, SECRET, { now: NOW })).toEqual({ ok: true, subscriberId: '1' });

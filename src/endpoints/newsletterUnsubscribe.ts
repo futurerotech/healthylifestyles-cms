@@ -62,7 +62,7 @@ export async function sendCheck(email: unknown, providedSecret: string | null, s
       unsubscribeUrl: unsubscribeUrl(token, env.SITE_BASE_URL || env.NEXT_PUBLIC_SITE_URL || undefined),
       // RFC 8058 one-click target for the List-Unsubscribe header, used with
       // "List-Unsubscribe-Post: List-Unsubscribe=One-Click".
-      oneClickUrl: `${base}/api/subscribers/unsubscribe?t=${encodeURIComponent(token)}`,
+      oneClickUrl: `${base}/api/subscriber-unsubscribe?t=${encodeURIComponent(token)}`,
     },
   };
 }
@@ -95,9 +95,9 @@ async function readToken(req: PayloadRequest): Promise<unknown> {
   return undefined;
 }
 
-/** POST /api/subscribers/unsubscribe — public; the signed token is the only credential. */
+/** POST /api/subscriber-unsubscribe — public; the signed token is the only credential. */
 export const newsletterUnsubscribe: Endpoint = {
-  path: '/subscribers/unsubscribe',
+  path: '/subscriber-unsubscribe',
   method: 'post',
   handler: async (req) => {
     const r = await applyUnsubscribe(await readToken(req), payloadStore(req), tokenSecret());
@@ -105,9 +105,9 @@ export const newsletterUnsubscribe: Endpoint = {
   },
 };
 
-/** POST /api/subscribers/send-check — server-to-server, x-sync-secret required. */
+/** POST /api/subscriber-send-check — server-to-server, x-sync-secret required. */
 export const newsletterSendCheck: Endpoint = {
-  path: '/subscribers/send-check',
+  path: '/subscriber-send-check',
   method: 'post',
   handler: async (req) => {
     let email: unknown;
