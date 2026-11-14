@@ -43,10 +43,13 @@ export async function sendCheck(email: unknown, providedSecret: string | null, s
   const secret = tokenSecret(env);
   if (!shared || !secret) return { status: 503, body: { ok: false, message: 'Unsubscribe links are not configured.' } };
   if (!providedSecret || !safeEqual(providedSecret, shared)) return { status: 401, body: { ok: false, message: 'Unauthorized.' } };
-  if (typeof email !== 'string' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // Normalize exactly as signup does (trim + lowercase) before validating, so a padded or
+  // mixed-case address is matched to the same suppression record.
+  const normalized = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  if (!normalized || normalized.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
     return { status: 400, body: { ok: false, message: 'Valid email is required.' } };
   }
-  const sub = await store.findByEmail(email.toLowerCase().trim());
+  const sub = await store.findByEmail(normalized);
   if (!isSendable(sub)) return { status: 200, body: { ok: true, sendable: false } };
   const token = createUnsubscribeToken(sub!.id, secret, { now });
   const base = (env.SERVER_URL || CMS_ORIGIN).replace(/\/$/, '');
