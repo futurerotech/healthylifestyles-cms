@@ -130,3 +130,6 @@ test('an anonymous draft filter may be denied with 403 without leaking data', as
   assert.equal(draftChecks.length, 2);
   assert.ok(draftChecks.every(c => c.status === 403));
 });
+
+// Runtime env/Neon read-only smoke uses synthetic credentials in CI only.
+import './hostinger-staging-runtime-evidence.test.mjs';
