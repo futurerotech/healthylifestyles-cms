@@ -16,15 +16,19 @@ const PATH_BUILDERS: Record<string, (slug: string) => string> = {
   tools: (s) => `/tools/${s}`,
 };
 
-export const notifyIndexNow: CollectionAfterChangeHook = ({ doc, previousDoc, collection }) => {
+export const notifyIndexNow: CollectionAfterChangeHook = ({ doc, previousDoc, collection, req }) => {
   try {
+    // The same published document can receive a draft-version update.
+    // Never enqueue search indexing for explicit draft requests or staging.
+    const draft = (req?.query as { draft?: unknown } | undefined)?.draft;
+    if (draft === true || draft === 'true' || process.env.HLS_ISOLATED_STAGING === 'true') return doc;
     const isPublished = (doc as { _status?: string })?._status === 'published';
     const wasPublished = (previousDoc as { _status?: string })?._status === 'published';
     if (!isPublished || wasPublished) return doc;
 
     const build = PATH_BUILDERS[collection?.slug || ''];
     const slug = (doc as { slug?: unknown })?.slug;
-    if (build && typeof slug === 'string' && slug) {
+    if (build && typeof slug === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       queueIndexNowPing([build(slug)]);
     }
   } catch {
