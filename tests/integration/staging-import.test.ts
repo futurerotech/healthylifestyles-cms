@@ -124,6 +124,8 @@ describe.skipIf(!enabled)('staging mirror importer, durable journal and guarded 
     expect(row.entries.map((e: any) => e.id)).toEqual([ids.category, ids.author, ids.tool, ids.article, ids.article2]);
     expect(row.signature).toBe(err.report.journal.signature);
     expect(JSON.stringify(row.entries)).not.toMatch(/Synthetic|@/); // fingerprints only, no content
+    const rls = (await raw.query(`SELECT relname, relrowsecurity FROM pg_class WHERE relname IN ('hls_staging_identity','hls_staging_import_journal') ORDER BY relname`)).rows;
+    expect(rls).toEqual([{ relname: 'hls_staging_identity', relrowsecurity: true }, { relname: 'hls_staging_import_journal', relrowsecurity: true }]);
     const durable = await lib.loadJournal(payload, importId);
     expect(durable?.signature).toBe(row.signature);
     // The same import_id cannot be written twice (no overwrite).

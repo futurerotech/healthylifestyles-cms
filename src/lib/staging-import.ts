@@ -212,6 +212,8 @@ const JOURNAL_DDL = [
   `CREATE TABLE IF NOT EXISTS hls_staging_import_journal (import_id uuid PRIMARY KEY, version int NOT NULL, status text NOT NULL CHECK (status IN ('committed','cleaned','failed')), db_identity uuid, target_host text NOT NULL, database_name text NOT NULL, started_at timestamptz NOT NULL, finished_at timestamptz, entries jsonb NOT NULL, signature text, cleaned_at timestamptz, cleanup_receipt jsonb, error text)`,
 ];
 /** Non-blocking: a concurrent import or cleanup makes this one refuse instead of waiting. */
+// Same row-level-security posture as every other public table (owners are unaffected).
+JOURNAL_DDL.push('ALTER TABLE hls_staging_identity ENABLE ROW LEVEL SECURITY', 'ALTER TABLE hls_staging_import_journal ENABLE ROW LEVEL SECURITY');
 const LOCK_SQL = `SELECT pg_try_advisory_xact_lock(hashtext('hls-staging-import')) AS locked`;
 const takeLock = async (q: (s: string) => Promise<any[]>) => { const [r] = await q(LOCK_SQL); if (r?.locked !== true) throw new Error('Refusing: another staging import or cleanup is in progress.'); };
 

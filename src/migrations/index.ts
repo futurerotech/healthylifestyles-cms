@@ -15,6 +15,7 @@ import * as migration_20260711_184910 from './20260711_184910';
 import * as migration_20261008_190423_add_reset_password_requested_at from './20261008_190423_add_reset_password_requested_at';
 import * as migration_20261008_225200_add_media_object_key from './20261008_225200_add_media_object_key';
 import * as migration_20261115_120000_subscriber_consent_fields from './20261115_120000_subscriber_consent_fields';
+import * as migration_20261115_170000_enable_rls_missing_public_tables from './20261115_170000_enable_rls_missing_public_tables';
 
 export const migrations = [
   {
@@ -101,5 +102,10 @@ export const migrations = [
     up: migration_20261115_120000_subscriber_consent_fields.up,
     down: migration_20261115_120000_subscriber_consent_fields.down,
     name: '20261115_120000_subscriber_consent_fields',
+  },
+  {
+    up: migration_20261115_170000_enable_rls_missing_public_tables.up,
+    down: migration_20261115_170000_enable_rls_missing_public_tables.down,
+    name: '20261115_170000_enable_rls_missing_public_tables',
   },
 ];
