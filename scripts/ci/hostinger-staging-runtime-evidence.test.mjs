@@ -2,10 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+const fp = (v) => createHash('sha256').update(v).digest('hex');
+const PROD_PAYLOAD_SECRET = 'synthetic-production-payload-secret-0123456789';
 import {
   screenHostingerStagingRuntime as screen,
   verifyHostingerStagingDatabaseReadOnly as check,
   FORBIDDEN_STAGING_CREDENTIALS,
+  STAGING_UNIQUE_SECRETS,
 } from './hostinger-staging-runtime-evidence.mjs';
 
 const stageHost = 'ep-plain-forest-bca0vqud.c-16.us-east-1.aws.neon.tech';
@@ -28,6 +32,11 @@ const safe = Object.freeze({
   HLS_PRODUCTION_R2_BUCKET: 'healthylifestyles-media',
   S3_ACCESS_KEY_ID: 'synthetic-access',
   S3_SECRET_ACCESS_KEY: 'synthetic-secret',
+  PAYLOAD_SECRET: 'synthetic-staging-payload-secret-0123456789ab',
+  INTERNAL_API_KEY: 'synthetic-staging-internal-key-0123456789abcd',
+  UNSUBSCRIBE_TOKEN_SECRET: 'synthetic-staging-unsubscribe-0123456789abc',
+  HLS_STAGING_IMPORT_JOURNAL_KEY: 'synthetic-staging-journal-key-0123456789abc',
+  HLS_PRODUCTION_SECRET_SHA256: fp(PROD_PAYLOAD_SECRET),
   DATABASE_URI: 'postgres://neondb_owner:synthetic-password@' + stageHost +
     '/neondb?sslmode=require&channel_binding=require',
 });
@@ -44,7 +53,7 @@ function fixture(patch = {}) {
         calls.push({ action: 'query', sql });
         return { rows: [{
           database_name: 'neondb', role_name: 'neondb_owner',
-          version_num: 180006, read_only: 'on', ...(patch.row || {}),
+          version_num: 180006, read_only: 'on', outbound_settings: 0, private_rows: 0, ...(patch.row || {}),
         }] };
       },
       async end() { ended = true; calls.push({ action: 'end' }); },
@@ -190,4 +199,36 @@ test('every indexing/deploy credential the CMS source reads is screened (drift g
   const outbound = [...read].filter((n) => /^(INDEXNOW_(API_)?KEY|GOOGLE_INDEXING_|VERCEL_DEPLOY_HOOK|CHATGPT_DRAFT_BRIDGE)/.test(n));
   assert.ok(outbound.includes('INDEXNOW_API_KEY'), 'live IndexNow key name not found in source');
   for (const name of outbound) assert.ok(FORBIDDEN_STAGING_CREDENTIALS.includes(name), name + ' is read by src but not screened');
+});
+
+test('staging secrets must be set, long, mutually distinct and not a production fingerprint', () => {
+  assert.equal(screen(safe).stagingSecretsDistinctFromProductionFingerprints, true);
+  const bad = [
+    { HLS_PRODUCTION_SECRET_SHA256: undefined },
+    { HLS_PRODUCTION_SECRET_SHA256: 'not-a-hash' },
+    { PAYLOAD_SECRET: PROD_PAYLOAD_SECRET },
+    { PAYLOAD_SECRET: 'short' },
+    { INTERNAL_API_KEY: safe.PAYLOAD_SECRET },
+    { UNSUBSCRIBE_TOKEN_SECRET: undefined },
+    { SYNC_SHARED_SECRET: PROD_PAYLOAD_SECRET },
+  ];
+  for (const patch of bad) assert.throws(() => screen({ ...safe, ...patch }), /NO-GO/, JSON.stringify(Object.keys(patch)));
+  assert.deepEqual([...STAGING_UNIQUE_SECRETS].sort(), ['HLS_STAGING_IMPORT_JOURNAL_KEY', 'INTERNAL_API_KEY', 'PAYLOAD_SECRET', 'UNSUBSCRIBE_TOKEN_SECRET']);
+  try { screen({ ...safe, PAYLOAD_SECRET: PROD_PAYLOAD_SECRET }); } catch (e) { assert.ok(!String(e.message).includes('synthetic')); }
+});
+
+test('configured push or webhook globals, or any private audience row, is NO-GO', async () => {
+  for (const row of [{ outbound_settings: 1 }, { private_rows: 1 }, { outbound_settings: undefined }]) {
+    const client = fixture({ row });
+    await assert.rejects(check(safe, client.makeClient), /NO-GO/);
+    assert.equal(client.ended, true);
+  }
+  const ok = await check(safe, fixture().makeClient);
+  assert.equal(ok.databaseOutboundSettingsEmpty, true);
+  assert.equal(ok.databasePrivateAudienceEmpty, true);
+});
+
+test('the outbound email recipient is screened like a credential', () => {
+  assert.ok(FORBIDDEN_STAGING_CREDENTIALS.includes('DRIFT_REPORT_EMAIL_TO'));
+  assert.throws(() => screen({ ...safe, DRIFT_REPORT_EMAIL_TO: 'owner@example.org' }), /NO-GO/);
 });

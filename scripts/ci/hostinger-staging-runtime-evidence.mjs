@@ -6,6 +6,7 @@
  * HLS_STAGING_READ_ONLY_APPROVED=yes \
  *   node scripts/ci/hostinger-staging-runtime-evidence.mjs --read-only
  */
+import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -40,7 +41,25 @@ export const FORBIDDEN_STAGING_CREDENTIALS = Object.freeze([
   'GOOGLE_INDEXING_CREDENTIALS_B64',
   'VERCEL_DEPLOY_HOOK_URL',
   'CHATGPT_DRAFT_BRIDGE_TOKEN',
+  // Outbound email: the schema-drift cron mails this recipient. Staging must not email anyone.
+  'DRIFT_REPORT_EMAIL_TO',
 ]);
+/**
+ * Secrets that must be unique to staging. The owner supplies HLS_PRODUCTION_SECRET_SHA256,
+ * a comma-separated list of SHA-256 fingerprints of the PRODUCTION values, which are not
+ * secret. Each staging value must be set, at least 32 characters, distinct from the others,
+ * and absent from that list. No value or fingerprint is ever printed.
+ */
+export const STAGING_UNIQUE_SECRETS = Object.freeze(['PAYLOAD_SECRET', 'INTERNAL_API_KEY', 'UNSUBSCRIBE_TOKEN_SECRET', 'HLS_STAGING_IMPORT_JOURNAL_KEY']);
+const sha256 = (v) => createHash('sha256').update(v).digest('hex');
+function screenSecrets(env) {
+  const prod = String(env.HLS_PRODUCTION_SECRET_SHA256 || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  if (prod.length < 1 || prod.some((h) => !/^[0-9a-f]{64}$/.test(h))) noGo();
+  const values = STAGING_UNIQUE_SECRETS.map((n) => env[n]);
+  if (values.some((v) => !has(v) || v.length < 32) || new Set(values).size !== values.length) noGo();
+  if (values.some((v) => prod.includes(sha256(v)))) noGo();
+  if (has(env.SYNC_SHARED_SECRET) && (values.includes(env.SYNC_SHARED_SECRET) || prod.includes(sha256(env.SYNC_SHARED_SECRET)))) noGo();
+}
 
 const noGo = () => { throw new Error('NO-GO: staging runtime identity or read-only safety could not be verified.'); };
 const has = value => typeof value === 'string' && value.trim().length > 0;
@@ -95,11 +114,13 @@ export function screenHostingerStagingRuntime(env) {
       !has(env.S3_ACCESS_KEY_ID) || !has(env.S3_SECRET_ACCESS_KEY) ||
       env.S3_ACCESS_KEY_ID === env.S3_SECRET_ACCESS_KEY ||
       has(env.S3_PUBLIC_URL)) noGo();
+  screenSecrets(env);
 
   safeDatabaseUri(env.DATABASE_URI);
   return Object.freeze({
     kind: 'hostinger-staging-runtime-read-only-evidence',
     stagingRuntimeEnvironmentScreened: true,
+    stagingSecretsDistinctFromProductionFingerprints: true,
     configuredNeonStagingTargetScreened: true,
     configuredR2StagingBucketScreened: true,
     postgresSessionVerified: false,
@@ -134,7 +155,12 @@ export async function verifyHostingerStagingDatabaseReadOnly(env, makeClient) {
     const data = await client.query(
       "SELECT current_database() AS database_name, current_user AS role_name, " +
       "current_setting('server_version_num')::integer AS version_num, " +
-      "current_setting('default_transaction_read_only') AS read_only"
+      "current_setting('default_transaction_read_only') AS read_only, " +
+      // Push and webhook settings live in database globals, not env: none may be configured.
+      "(SELECT count(*)::int FROM audience WHERE coalesce(n8n_webhook_url,'') <> '' OR coalesce(n8n_api_key,'') <> '' OR coalesce(vapid_private_key,'') <> '') + " +
+      "(SELECT count(*)::int FROM lead_gen WHERE coalesce(n8n_webhook_url,'') <> '' OR coalesce(n8n_api_key,'') <> '') AS outbound_settings, " +
+      // Staging holds no private audience data (the importer never copies it).
+      "(SELECT count(*)::int FROM subscribers) + (SELECT count(*)::int FROM push_subscriptions) + (SELECT count(*)::int FROM leads) AS private_rows"
     );
     const row = data?.rows?.[0];
     if (data?.rows?.length !== 1 ||
@@ -142,11 +168,12 @@ export async function verifyHostingerStagingDatabaseReadOnly(env, makeClient) {
         row?.role_name !== EXPECTED.role ||
         !Number.isInteger(row?.version_num) ||
         row.version_num < 180000 || row.version_num >= 190000 ||
-        row.read_only !== 'on') noGo();
+        row.read_only !== 'on' ||
+        row.outbound_settings !== 0 || row.private_rows !== 0) noGo();
 
     return Object.freeze({
       ...config, postgresSessionVerified: true, postgresClientTlsVerified: true,
-      readOnlySessionVerified: true, hostingerApplicationIdentityVerified: false,
+      readOnlySessionVerified: true, databaseOutboundSettingsEmpty: true, databasePrivateAudienceEmpty: true, hostingerApplicationIdentityVerified: false,
       r2BucketPermissionBoundaryVerified: false,
       productionReleaseAuthorized: false,
     });
