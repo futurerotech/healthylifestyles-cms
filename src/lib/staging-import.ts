@@ -11,11 +11,13 @@
  * - turns populated relations into IDs and keeps block rows intact;
  * - never imports globals, so no production webhook, email, push or indexing settings are
  *   copied. Staging keeps its own safe defaults;
- * - runs in ONE database transaction. Any failure rolls back everything, so a partial
- *   import cannot persist;
+ * - enforces its runtime guard and the full bundle validation inside importBundle itself,
+ *   before any query (denied paths write nothing);
+ * - runs content inserts AND sequence reconciliation in ONE transaction. A failure before
+ *   commit rolls back everything. A failure after commit (verification) throws
+ *   ImportCommittedError with the exact report, and cleanupImport removes exactly that;
  * - is idempotent: an existing record with the same ID and the same content is skipped,
  *   and an existing record with different content is a conflict that aborts the import;
- * - moves each serial sequence past the highest imported ID;
  * - returns before and after checksums for independent verification, and supports cleanup
  *   of exactly what it created.
  * Hooks see context { reseedVersions, stagingImport }. The existing maintenance flag
@@ -83,72 +85,160 @@ export function assertImportRuntime({ env }: RuntimeIdentity): void {
   for (const k of ['INDEXNOW_API_KEY', 'GOOGLE_INDEXING_CREDENTIALS', 'VERCEL_DEPLOY_HOOK_URL']) if (env[k]) throw new Error(`Refusing: ${k} must not be set in staging.`);
 }
 
-/** Validate a bundle before touching the database. */
-export function validateBundle(bundle: Bundle): void {
-  if (!bundle || bundle.version !== 1 || typeof bundle.collections !== 'object') throw new Error('Invalid bundle.');
-  for (const c of Object.keys(bundle.collections)) if (!ALLOWED.has(c)) throw new Error(`Collection not allowed: ${c}`);
+/** Production public CMS: the only allowed bundle source. */
+export const ALLOWED_SOURCE_ORIGINS = ['https://cms.healthylifesstyles.com'];
+const BUNDLE_KEYS = new Set(['version', 'sourceOrigin', 'capturedAt', 'scope', 'collections', 'globals', 'checksums', 'dropped', 'findings', 'counts']);
+const SECRET_KEY = /(secret|token|password|passwd|api[-_]?key|apikey|private[-_]?key|privatekey|webhook|vapid|credentials|auth(?!or))/i;
+/** The 16 coupled article records a release mirror must contain (RELEASE_PROCEDURE §6). */
+export const RELEASE_ARTICLE_IDS = [5, 7, 8, 10, 21, 25, 27, 28, 29, 32, 37, 46, 56, 57, 58, 69];
+
+/**
+ * Validate a bundle completely before any database I/O. Rejected: wrong version, source or
+ * scope; unknown top-level keys; non-allowlisted collections; a record whose recomputed
+ * canonical checksum differs from the export (tampering); a checksum with no record, or a
+ * record with no checksum; duplicate or missing IDs; secret-looking keys anywhere; unreviewed
+ * sensitive-value findings; missing required articles.
+ */
+export function validateBundle(bundle: Bundle, { requiredArticleIds = RELEASE_ARTICLE_IDS }: { requiredArticleIds?: readonly number[] } = {}): void {
+  if (!bundle || typeof bundle !== 'object' || bundle.version !== 1 || typeof bundle.collections !== 'object' || !bundle.collections) throw new Error('Invalid bundle.');
+  for (const k of Object.keys(bundle)) if (!BUNDLE_KEYS.has(k)) throw new Error(`Unauthorized bundle field: ${k}`);
+  if (!ALLOWED_SOURCE_ORIGINS.includes(bundle.sourceOrigin)) throw new Error('Bundle source origin is not the allowlisted production public CMS.');
+  if ((bundle as any).scope !== 'published public content only') throw new Error('Bundle scope must be published public content only.');
+  if (Array.isArray((bundle as any).findings) && (bundle as any).findings.length) throw new Error('Bundle has unreviewed sensitive-value findings.');
+  const checksums = bundle.checksums || {};
+  const seen = new Set<string>();
   for (const [c, docs] of Object.entries(bundle.collections)) {
+    if (!ALLOWED.has(c)) throw new Error(`Collection not allowed: ${c}`);
+    if (!Array.isArray(docs)) throw new Error(`${c}: not a list`);
     const ids = new Set<string>();
     for (const d of docs) {
       if (d?.id === undefined || d.id === null) throw new Error(`${c}: record without id`);
       if (ids.has(String(d.id))) throw new Error(`${c}: duplicate id ${d.id}`);
       ids.add(String(d.id));
-      if (bundle.checksums?.[`${c}:${d.id}`] === undefined) throw new Error(`${c}:${d.id} has no export checksum`);
+      const key = `${c}:${d.id}`;
+      seen.add(key);
+      if (checksums[key] === undefined) throw new Error(`${key} has no export checksum`);
+      if (checksums[key] !== checksum(d)) throw new Error(`${key} does not match its export checksum (tampered or re-serialized)`);
+      const secret = findSecretKey(d);
+      if (secret) throw new Error(`${key} contains a secret-looking field: ${secret}`);
     }
   }
+  for (const key of Object.keys(checksums)) if (!key.startsWith('global:') && !seen.has(key)) throw new Error(`Checksum without a record: ${key}`);
+  const articleIds = new Set((bundle.collections.articles || []).map((a) => Number(a.id)));
+  const missing = requiredArticleIds.filter((id) => !articleIds.has(id));
+  if (missing.length) throw new Error(`Bundle is missing required article records: ${missing.join(', ')}`);
+}
+
+function findSecretKey(v: unknown, path = ''): string | null {
+  if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) { const r = findSecretKey(v[i], `${path}[${i}]`); if (r) return r; } return null; }
+  if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) {
+    const p = path ? `${path}.${k}` : k;
+    if (SECRET_KEY.test(k)) return p;
+    const r = findSecretKey(x, p); if (r) return r;
+  }
+  return null;
 }
 
 type PayloadLike = any;
 
-/** Import the bundle in one transaction. `failAt` is a test hook to prove rollback. */
-export async function importBundle(payload: PayloadLike, bundle: Bundle, { failAt }: { failAt?: string } = {}): Promise<ImportReport> {
-  validateBundle(bundle);
+/** The connection string the Payload adapter actually uses (never logged). */
+function connectedUri(payload: PayloadLike): string | null {
+  return payload?.db?.poolOptions?.connectionString ?? payload?.db?.pool?.options?.connectionString ?? null;
+}
+
+/**
+ * Runtime gate for the import ENTRYPOINT. It checks the environment AND the database the
+ * Payload adapter is actually connected to, before any query, flag change or transaction.
+ */
+export function assertImportTarget(payload: PayloadLike, env: NodeJS.ProcessEnv): void {
+  assertImportRuntime({ env });
+  const actual = connectedUri(payload);
+  if (!actual) throw new Error('Refusing: cannot determine the connected database.');
+  if (actual.includes(PRODUCTION_DB_HOST_FRAGMENT)) throw new Error('Refusing: the connected database is the production Neon compute.');
+  const host = (u: string) => { try { return new URL(u).hostname.replace(/-pooler(?=\.)/, ''); } catch { return ''; } };
+  if (!host(actual) || host(actual) !== host(env.DATABASE_URI || '')) throw new Error('Refusing: the connected database differs from the declared DATABASE_URI.');
+}
+
+export interface ImportOptions {
+  env?: NodeJS.ProcessEnv;
+  requiredArticleIds?: readonly number[];
+  /** Test hooks: inject a failure at "<collection>:<id>", "sequences" or "after-commit". */
+  failAt?: string;
+}
+export class ImportCommittedError extends Error {
+  constructor(message: string, public report: ImportReport) { super(message); }
+}
+
+/**
+ * Import the bundle. Order of guarantees:
+ *   1. Target and bundle are fully validated BEFORE any database access (zero writes if denied).
+ *   2. Content inserts AND sequence reconciliation run inside ONE transaction. setval() is
+ *      non-transactional in PostgreSQL; if the transaction rolls back, only an advanced
+ *      sequence value remains (an ID gap). That is harmless and never reuses an ID.
+ *   3. After commit, the import is verified. If verification fails, the committed content
+ *      is NOT silently kept: ImportCommittedError carries the exact report, and
+ *      cleanupImport(report) removes precisely those records (tested). A re-run is
+ *      idempotent.
+ *   4. allowIDOnCreate is restored in every path, including a failing beginTransaction.
+ */
+export async function importBundle(payload: PayloadLike, bundle: Bundle, opts: ImportOptions = {}): Promise<ImportReport> {
+  const env = opts.env ?? process.env;
+  assertImportTarget(payload, env);
+  validateBundle(bundle, { requiredArticleIds: opts.requiredArticleIds });
   const report: ImportReport = { created: [], skipped: [], checksums: {} };
   const db = payload.db;
   const previousAllow = db.allowIDOnCreate;
-  db.allowIDOnCreate = true; // this process only; never in the shared config
-  const transactionID = await db.beginTransaction();
-  const req = { transactionID, context: { reseedVersions: true, stagingImport: true } } as any;
   try {
-    for (const collection of IMPORT_ORDER) {
-      for (const doc of bundle.collections[collection] || []) {
-        if (failAt === `${collection}:${doc.id}`) throw new Error(`injected failure at ${failAt}`);
-        const existing = await payload.findByID({ collection, id: doc.id, depth: 0, overrideAccess: true, req, disableErrors: true });
-        const want = checksum(comparable(doc));
-        if (existing) {
-          if (!subsetEqual(comparable(doc), comparable(existing))) throw new Error(`Conflict: ${collection}:${doc.id} exists with different content.`);
-          report.skipped.push({ collection, id: doc.id });
+    db.allowIDOnCreate = true; // this process only; never in the shared config
+    const transactionID = await db.beginTransaction();
+    if (!transactionID) throw new Error('Refusing: the database adapter did not open a transaction.');
+    const req = { transactionID, context: { reseedVersions: true, stagingImport: true } } as any;
+    try {
+      for (const collection of IMPORT_ORDER) {
+        for (const doc of bundle.collections[collection] || []) {
+          if (opts.failAt === `${collection}:${doc.id}`) throw new Error(`injected failure at ${opts.failAt}`);
+          const existing = await payload.findByID({ collection, id: doc.id, depth: 0, overrideAccess: true, req, disableErrors: true });
+          const want = checksum(comparable(doc));
+          if (existing) {
+            if (!subsetEqual(comparable(doc), comparable(existing))) throw new Error(`Conflict: ${collection}:${doc.id} exists with different content.`);
+            report.skipped.push({ collection, id: doc.id });
+            report.checksums[`${collection}:${doc.id}`] = want;
+            continue;
+          }
+          const data = toWritable(doc);
+          const created = collection === 'media'
+            // Media rows are metadata only (no binary copy, no production bucket access).
+            ? await db.create({ collection, data, req })
+            : await payload.create({ collection, data: { ...data, ...(doc._status ? { _status: doc._status } : {}) }, overrideAccess: true, req, depth: 0 });
+          if (String(created.id) !== String(doc.id)) throw new Error(`ID not preserved for ${collection}:${doc.id} (got ${created.id}).`);
+          report.created.push({ collection, id: doc.id });
           report.checksums[`${collection}:${doc.id}`] = want;
-          continue;
         }
-        const data = toWritable(doc);
-        const created = collection === 'media'
-          // Media rows are metadata only (no binary copy, no production bucket access).
-          ? await db.create({ collection, data, req })
-          : await payload.create({ collection, data: { ...data, ...(doc._status ? { _status: doc._status } : {}) }, overrideAccess: true, req, depth: 0 });
-        if (String(created.id) !== String(doc.id)) throw new Error(`ID not preserved for ${collection}:${doc.id} (got ${created.id}).`);
-        report.created.push({ collection, id: doc.id });
-        report.checksums[`${collection}:${doc.id}`] = want;
       }
+      if (opts.failAt === 'sequences') throw new Error('injected failure at sequences');
+      await reconcileSequences(payload, transactionID);
+      await db.commitTransaction(transactionID);
+    } catch (e) {
+      await db.rollbackTransaction(transactionID);
+      throw e;
     }
-    await db.commitTransaction(transactionID);
-    await reconcileSequences(payload);
-    return report;
-  } catch (e) {
-    await db.rollbackTransaction(transactionID);
-    throw e;
   } finally {
     db.allowIDOnCreate = previousAllow;
   }
+  const problems = opts.failAt === 'after-commit' ? ['injected post-commit verification failure'] : await verifyImport(payload, bundle);
+  if (problems.length) throw new ImportCommittedError(`Import committed but failed verification (${problems.length}); run cleanupImport(error.report).`, report);
+  return report;
 }
 
-/** Move each imported table's serial sequence past its highest ID. */
-export async function reconcileSequences(payload: PayloadLike): Promise<void> {
+/** Move each imported table's serial sequence past its highest ID, inside the import transaction. */
+export async function reconcileSequences(payload: PayloadLike, transactionID: string | number): Promise<void> {
+  const session = payload.db.sessions?.[transactionID as any];
+  const exec = session?.db;
+  if (!exec?.execute) throw new Error('Refusing: no transaction session for sequence reconciliation.');
   for (const collection of IMPORT_ORDER) {
     const table = collection.replace(/-/g, '_');
     if (!/^[a-z_]+$/.test(table)) throw new Error('bad table name');
-    // Idempotent: safe to re-run after a crash between commit and this step.
-    await payload.db.drizzle.execute(sql.raw(`SELECT setval(pg_get_serial_sequence('"${table}"', 'id'), GREATEST((SELECT COALESCE(MAX(id), 0) FROM "${table}"), 1), (SELECT COUNT(*) > 0 FROM "${table}"))`));
+    await exec.execute(sql.raw(`SELECT setval(pg_get_serial_sequence('"${table}"', 'id'), GREATEST((SELECT COALESCE(MAX(id), 0) FROM "${table}"), 1), (SELECT COUNT(*) > 0 FROM "${table}"))`));
   }
 }
 

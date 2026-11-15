@@ -32,7 +32,7 @@ describe.skipIf(!enabled)('staging mirror importer on the committed schema (disp
     };
     const checksums: Record<string, string> = {};
     for (const [c, docs] of Object.entries(collections)) for (const d of docs) checksums[`${c}:${d.id}`] = lib.checksum(d);
-    return { version: 1, sourceOrigin: 'https://cms.healthylifesstyles.com', collections, checksums };
+    return { version: 1, sourceOrigin: 'https://cms.healthylifesstyles.com', scope: 'published public content only', collections, checksums };
   };
 
   beforeAll(async () => {
@@ -40,11 +40,59 @@ describe.skipIf(!enabled)('staging mirror importer on the committed schema (disp
     const config = (await import('../../payload.config')).default;
     payload = await getPayload({ config });
     lib = await import('../../src/lib/staging-import');
-    lib.assertImportRuntime({ env: process.env });
+  });
+
+  const opts = () => ({ requiredArticleIds: [ids.article, ids.article2] });
+  const countAll = async () => {
+    let n = 0;
+    for (const [collection, id] of [['categories', ids.category], ['authors', ids.author], ['tools', ids.tool], ['articles', ids.article], ['articles', ids.article2]] as const) {
+      if (await payload.findByID({ collection, id, depth: 0, overrideAccess: true, disableErrors: true })) n++;
+    }
+    return n;
+  };
+
+  it('denied entrypoint paths write nothing against the real database', async () => {
+    const prod = 'postgres://u:p@ep-lucky-voice-ad5egz8d.c-2.us-east-1.aws.neon.tech/neondb';
+    const staging = { HLS_ISOLATED_STAGING: 'true', HLS_STAGING_IMPORT_APPROVED: 'yes', HLS_STAGING_DB_HOST: 'ep-plain-forest-bca0vqud.c-16.us-east-1.aws.neon.tech', DATABASE_URI: 'postgres://u:p@ep-plain-forest-bca0vqud.c-16.us-east-1.aws.neon.tech/neondb' } as NodeJS.ProcessEnv;
+    const before = payload.db.allowIDOnCreate;
+    for (const env of [
+      { ...staging, DATABASE_URI: prod },                    // production URI
+      staging,                                                // env says staging, connection is the CI DB
+      { ...staging, HLS_STAGING_IMPORT_APPROVED: undefined }, // no owner approval
+      { ...staging, HLS_ISOLATED_STAGING: undefined },        // not isolated staging
+      { ...staging, INDEXNOW_API_KEY: 'x' },                  // outbound credential present
+    ]) await expect(lib.importBundle(payload, bundle() as any, { ...opts(), env })).rejects.toThrow(/Refusing/);
+    expect(await countAll()).toBe(0);
+    expect(payload.db.allowIDOnCreate).toBe(before);
+  });
+
+  it('a failing transaction start restores allowIDOnCreate and writes nothing', async () => {
+    const original = payload.db.beginTransaction;
+    const before = payload.db.allowIDOnCreate;
+    payload.db.beginTransaction = async () => { throw new Error('begin failed (injected)'); };
+    try { await expect(lib.importBundle(payload, bundle() as any, opts())).rejects.toThrow(/begin failed/); }
+    finally { payload.db.beginTransaction = original; }
+    expect(payload.db.allowIDOnCreate).toBe(before);
+    expect(await countAll()).toBe(0);
+  });
+
+  it('failure during sequence reconciliation rolls back all content', async () => {
+    await expect(lib.importBundle(payload, bundle() as any, { ...opts(), failAt: 'sequences' })).rejects.toThrow(/sequences/);
+    expect(await countAll()).toBe(0);
+  });
+
+  it('failure after commit is reported with the exact report; cleanup removes it; re-run is clean', async () => {
+    let err: any;
+    try { await lib.importBundle(payload, bundle() as any, { ...opts(), failAt: 'after-commit' }); } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(lib.ImportCommittedError);
+    expect(err.report.created).toHaveLength(5);
+    expect(await countAll()).toBe(5);
+    await lib.cleanupImport(payload, err.report);
+    expect(await countAll()).toBe(0);
   });
 
   it('partial failure rolls back everything (injected failure at the second article)', async () => {
-    await expect(lib.importBundle(payload, bundle() as any, { failAt: `articles:${ids.article2}` })).rejects.toThrow(/injected failure/);
+    await expect(lib.importBundle(payload, bundle() as any, { ...opts(), failAt: `articles:${ids.article2}` })).rejects.toThrow(/injected failure/);
     for (const [collection, id] of [['categories', ids.category], ['tools', ids.tool], ['articles', ids.article]] as const) {
       expect(await payload.findByID({ collection, id, depth: 0, overrideAccess: true, disableErrors: true })).toBeNull();
     }
@@ -52,7 +100,7 @@ describe.skipIf(!enabled)('staging mirror importer on the committed schema (disp
 
   let report: any;
   it('imports with original IDs and relations, then verifies against the export', async () => {
-    report = await lib.importBundle(payload, bundle() as any);
+    report = await lib.importBundle(payload, bundle() as any, opts());
     expect(report.created.map((c: any) => c.id)).toEqual([ids.category, ids.author, ids.tool, ids.article, ids.article2]);
     const art = await payload.findByID({ collection: 'articles', id: ids.article, depth: 0, overrideAccess: true });
     expect(art.primaryTool).toBe(ids.tool);
@@ -70,13 +118,13 @@ describe.skipIf(!enabled)('staging mirror importer on the committed schema (disp
   });
 
   it('is idempotent, and refuses a conflicting existing record', async () => {
-    const again = await lib.importBundle(payload, bundle() as any);
+    const again = await lib.importBundle(payload, bundle() as any, opts());
     expect(again.created).toEqual([]);
     expect(again.skipped).toHaveLength(5);
     const changed = bundle();
     changed.collections.articles[1] = { ...changed.collections.articles[1], title: 'Different title' };
     changed.checksums[`articles:${ids.article2}`] = lib.checksum(changed.collections.articles[1]);
-    await expect(lib.importBundle(payload, changed as any)).rejects.toThrow(/Conflict/);
+    await expect(lib.importBundle(payload, changed as any, opts())).rejects.toThrow(/Conflict/);
   });
 
   it('cleanup removes exactly what was imported', async () => {
