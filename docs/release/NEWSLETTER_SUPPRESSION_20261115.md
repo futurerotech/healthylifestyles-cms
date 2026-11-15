@@ -11,7 +11,7 @@
 | `POST /api/subscriber-send-check` | Server-to-server, requiring `x-sync-secret`. It is the **pre-send eligibility check** for any provider. It returns `sendable: true` only when the record is not suppressed AND has complete consent evidence from an accepted method (`isEligibleForMarketing`). Unknown, suppressed, legacy and imported addresses all get the same `sendable: false`. An eligible address gets a fresh page link and a one-click link. If either secret is missing, it returns 503. |
 | `subscriberSync` | Forwards a new record to n8n only when `isEligibleForMarketing(created)` is true. Sync imports never carry consent, so they are never forwarded (fail-closed). |
 | `Subscribers` | Adds `consentAt`, `consentNoticeVersion` and `consentMethod`. They are recorded only when the create comes from the trusted signup proxy, which presents `INTERNAL_API_KEY` and `x-consent-capture: newsletter-form-v1`. A client-controlled `source` or any body field never counts. Imports and legacy records get none. Evidence is frozen on update, and `unsubscribedAt` is one-way. Read, update and delete stay admin-only. |
-| Migration `20261115_120000_subscriber_consent_fields` | Additive: 2 nullable columns. The down migration intentionally keeps them, so the consent record is never destroyed. |
+| Migration `20261115_120000_subscriber_consent_fields` | Additive: 3 nullable columns (`consent_at`, `consent_notice_version`, `consent_method`), added with `IF NOT EXISTS`. The down migration intentionally keeps them, so the consent record is never destroyed. |
 
 ## Irreducible dependency
 
