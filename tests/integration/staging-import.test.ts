@@ -42,7 +42,9 @@ describe.skipIf(!enabled)('staging mirror importer on the committed schema (disp
     lib = await import('../../src/lib/staging-import');
   });
 
-  const opts = () => ({ requiredArticleIds: [ids.article, ids.article2] });
+  const env = { ...process.env, HLS_STAGING_IMPORT_JOURNAL_KEY: 'test-only-journal-key-0123456789abcdef' } as NodeJS.ProcessEnv;
+  const journals: any[] = [];
+  const opts = () => ({ env, requiredArticleIds: [ids.article, ids.article2], writeJournal: (j: any) => { journals.push(structuredClone(j)); } });
   const countAll = async () => {
     let n = 0;
     for (const [collection, id] of [['categories', ids.category], ['authors', ids.author], ['tools', ids.tool], ['articles', ids.article], ['articles', ids.article2]] as const) {
@@ -55,13 +57,13 @@ describe.skipIf(!enabled)('staging mirror importer on the committed schema (disp
     const prod = 'postgres://u:p@ep-lucky-voice-ad5egz8d.c-2.us-east-1.aws.neon.tech/neondb';
     const staging = { HLS_ISOLATED_STAGING: 'true', HLS_STAGING_IMPORT_APPROVED: 'yes', HLS_STAGING_DB_HOST: 'ep-plain-forest-bca0vqud.c-16.us-east-1.aws.neon.tech', DATABASE_URI: 'postgres://u:p@ep-plain-forest-bca0vqud.c-16.us-east-1.aws.neon.tech/neondb' } as NodeJS.ProcessEnv;
     const before = payload.db.allowIDOnCreate;
-    for (const env of [
+    for (const denied of [
       { ...staging, DATABASE_URI: prod },                    // production URI
       staging,                                                // env says staging, connection is the CI DB
       { ...staging, HLS_STAGING_IMPORT_APPROVED: undefined }, // no owner approval
       { ...staging, HLS_ISOLATED_STAGING: undefined },        // not isolated staging
       { ...staging, INDEXNOW_API_KEY: 'x' },                  // outbound credential present
-    ]) await expect(lib.importBundle(payload, bundle() as any, { ...opts(), env })).rejects.toThrow(/Refusing/);
+    ]) await expect(lib.importBundle(payload, bundle() as any, { ...opts(), env: denied })).rejects.toThrow(/Refusing/);
     expect(await countAll()).toBe(0);
     expect(payload.db.allowIDOnCreate).toBe(before);
   });
@@ -87,7 +89,27 @@ describe.skipIf(!enabled)('staging mirror importer on the committed schema (disp
     expect(err).toBeInstanceOf(lib.ImportCommittedError);
     expect(err.report.created).toHaveLength(5);
     expect(await countAll()).toBe(5);
-    await lib.cleanupImport(payload, err.report);
+    // The durable receipt was written before commit and equals the one in the error.
+    expect(journals.at(-1)).toEqual(err.report.journal);
+    // Guarded cleanup refuses a forged journal and a wrong environment, deleting nothing.
+    await expect(lib.cleanupImport(payload, { ...err.report.journal, signature: '0'.repeat(64) }, { env })).rejects.toThrow(/signature/);
+    await expect(lib.cleanupImport(payload, err.report.journal, { env: { ...env, DATABASE_URI: 'postgres://u:p@ep-lucky-voice-ad5egz8d.c-2.us-east-1.aws.neon.tech/neondb' } })).rejects.toThrow(/production/);
+    expect(await countAll()).toBe(5);
+    // An editor change blocks the whole cleanup.
+    await payload.update({ collection: 'categories', id: ids.category, data: { name: 'Edited after import' }, overrideAccess: true });
+    await expect(lib.cleanupImport(payload, err.report.journal, { env })).rejects.toMatchObject({ records: [`categories:${ids.category}`] });
+    expect(await countAll()).toBe(5);
+    await payload.update({ collection: 'categories', id: ids.category, data: { name: 'Synthetic category' }, overrideAccess: true });
+    // Partial cleanup failure, then resume.
+    const realDelete = payload.delete.bind(payload);
+    let n = 0;
+    payload.delete = async (a: any) => { if (n++ === 2) throw new Error('delete failed (injected)'); return realDelete(a); };
+    try { await expect(lib.cleanupImport(payload, err.report.journal, { env })).rejects.toThrow(/delete failed/); }
+    finally { payload.delete = realDelete; }
+    expect(await countAll()).toBe(3);
+    const resumed = await lib.cleanupImport(payload, err.report.journal, { env });
+    expect(resumed.deleted).toHaveLength(3);
+    expect(resumed.alreadyAbsent).toHaveLength(2);
     expect(await countAll()).toBe(0);
   });
 
@@ -121,6 +143,10 @@ describe.skipIf(!enabled)('staging mirror importer on the committed schema (disp
     const again = await lib.importBundle(payload, bundle() as any, opts());
     expect(again.created).toEqual([]);
     expect(again.skipped).toHaveLength(5);
+    // A re-run journals nothing, so its cleanup can never delete pre-existing records.
+    expect(again.journal.created).toEqual([]);
+    expect((await lib.cleanupImport(payload, again.journal, { env })).deleted).toEqual([]);
+    expect(await countAll()).toBe(5);
     const changed = bundle();
     changed.collections.articles[1] = { ...changed.collections.articles[1], title: 'Different title' };
     changed.checksums[`articles:${ids.article2}`] = lib.checksum(changed.collections.articles[1]);
@@ -128,7 +154,7 @@ describe.skipIf(!enabled)('staging mirror importer on the committed schema (disp
   });
 
   it('cleanup removes exactly what was imported', async () => {
-    await lib.cleanupImport(payload, report);
+    await lib.cleanupImport(payload, report.journal, { env });
     for (const { collection, id } of report.created) {
       expect(await payload.findByID({ collection, id, depth: 0, overrideAccess: true, disableErrors: true })).toBeNull();
     }

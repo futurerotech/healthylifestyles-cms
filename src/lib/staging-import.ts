@@ -18,13 +18,14 @@
  *   ImportCommittedError with the exact report, and cleanupImport removes exactly that;
  * - is idempotent: an existing record with the same ID and the same content is skipped,
  *   and an existing record with different content is a conflict that aborts the import;
- * - returns before and after checksums for independent verification, and supports cleanup
- *   of exactly what it created.
+ * - returns a signed creation journal. cleanupImport, independently guarded, deletes only
+ *   journaled records that are unchanged. It is resumable, and it never touches skipped or
+ *   pre-existing records.
  * Hooks see context { reseedVersions, stagingImport }. The existing maintenance flag
  * already disables the publish gate and indexing hooks, and isolated-staging mode disables
  * the queue and push.
  */
-import { createHash } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { sql } from '@payloadcms/db-postgres';
 
 export const IMPORT_ORDER = ['categories', 'authors', 'tags', 'media', 'tools', 'articles', 'pages', 'pseo-pages', 'redirects'] as const;
@@ -35,7 +36,14 @@ const DROP_TOP = new Set(['createdAt', 'updatedAt', '_status', 'url', 'thumbnail
 export const PRODUCTION_DB_HOST_FRAGMENT = 'ep-lucky-voice-ad5egz8d';
 
 export interface Bundle { version: number; sourceOrigin: string; collections: Record<string, any[]>; globals?: Record<string, unknown>; checksums?: Record<string, string> }
-export interface ImportReport { created: { collection: string; id: string | number }[]; skipped: { collection: string; id: string | number }[]; checksums: Record<string, string> }
+export interface JournalEntry { collection: string; id: string | number; checksum: string }
+/**
+ * Signed creation journal, scoped to one import invocation. It lists ONLY records this import
+ * created, each with the checksum of the record as stored by this import. It is written
+ * through ImportOptions.writeJournal BEFORE commit, so it survives a crash after commit.
+ */
+export interface ImportJournal { version: 1; importId: string; targetHost: string; startedAt: string; finishedAt: string; created: JournalEntry[]; signature: string }
+export interface ImportReport { created: { collection: string; id: string | number }[]; skipped: { collection: string; id: string | number }[]; checksums: Record<string, string>; journal?: ImportJournal }
 
 /** Canonical JSON with sorted keys, so checksums do not depend on key order. */
 const canon = (v: unknown): unknown => Array.isArray(v) ? v.map(canon)
@@ -146,6 +154,15 @@ function connectedUri(payload: PayloadLike): string | null {
   return payload?.db?.poolOptions?.connectionString ?? payload?.db?.pool?.options?.connectionString ?? null;
 }
 
+/** Signing key for creation journals (staging-only secret, at least 32 characters). */
+function journalKey(env: NodeJS.ProcessEnv): string {
+  const k = env.HLS_STAGING_IMPORT_JOURNAL_KEY?.trim();
+  if (!k || k.length < 32) throw new Error('Refusing: HLS_STAGING_IMPORT_JOURNAL_KEY (at least 32 characters) is required.');
+  return k;
+}
+export const signJournal = (j: Omit<ImportJournal, 'signature'>, key: string) => createHmac('sha256', key).update(JSON.stringify(canon(j))).digest('hex');
+const connectedHost = (payload: PayloadLike) => { try { return new URL(connectedUri(payload) || '').hostname.replace(/-pooler(?=\.)/, ''); } catch { return ''; } };
+
 /**
  * Runtime gate for the import ENTRYPOINT. It checks the environment AND the database the
  * Payload adapter is actually connected to, before any query, flag change or transaction.
@@ -162,6 +179,8 @@ export function assertImportTarget(payload: PayloadLike, env: NodeJS.ProcessEnv)
 export interface ImportOptions {
   env?: NodeJS.ProcessEnv;
   requiredArticleIds?: readonly number[];
+  /** Durable, owner-reviewable receipt sink (for example a file). Required; called before commit. */
+  writeJournal?: (journal: ImportJournal) => Promise<void> | void;
   /** Test hooks: inject a failure at "<collection>:<id>", "sequences" or "after-commit". */
   failAt?: string;
 }
@@ -184,8 +203,13 @@ export class ImportCommittedError extends Error {
 export async function importBundle(payload: PayloadLike, bundle: Bundle, opts: ImportOptions = {}): Promise<ImportReport> {
   const env = opts.env ?? process.env;
   assertImportTarget(payload, env);
+  const key = journalKey(env);
+  if (typeof opts.writeJournal !== 'function') throw new Error('Refusing: a durable writeJournal receipt sink is required.');
   validateBundle(bundle, { requiredArticleIds: opts.requiredArticleIds });
   const report: ImportReport = { created: [], skipped: [], checksums: {} };
+  const journalEntries: JournalEntry[] = [];
+  const startedAt = new Date().toISOString();
+  const importId = randomUUID();
   const db = payload.db;
   const previousAllow = db.allowIDOnCreate;
   try {
@@ -211,12 +235,19 @@ export async function importBundle(payload: PayloadLike, bundle: Bundle, opts: I
             ? await db.create({ collection, data, req })
             : await payload.create({ collection, data: { ...data, ...(doc._status ? { _status: doc._status } : {}) }, overrideAccess: true, req, depth: 0 });
           if (String(created.id) !== String(doc.id)) throw new Error(`ID not preserved for ${collection}:${doc.id} (got ${created.id}).`);
+          const stored = await payload.findByID({ collection, id: doc.id, depth: 0, overrideAccess: true, req, disableErrors: true });
+          if (!stored) throw new Error(`${collection}:${doc.id} not readable after create.`);
+          journalEntries.push({ collection, id: doc.id, checksum: checksum(comparable(stored)) });
           report.created.push({ collection, id: doc.id });
           report.checksums[`${collection}:${doc.id}`] = want;
         }
       }
       if (opts.failAt === 'sequences') throw new Error('injected failure at sequences');
       await reconcileSequences(payload, transactionID);
+      const unsigned = { version: 1 as const, importId, targetHost: connectedHost(payload), startedAt, finishedAt: new Date().toISOString(), created: journalEntries };
+      report.journal = { ...unsigned, signature: signJournal(unsigned, key) };
+      // Durable receipt BEFORE commit: if the process dies after commit, cleanup still has it.
+      await opts.writeJournal(report.journal);
       await db.commitTransaction(transactionID);
     } catch (e) {
       await db.rollbackTransaction(transactionID);
@@ -226,7 +257,7 @@ export async function importBundle(payload: PayloadLike, bundle: Bundle, opts: I
     db.allowIDOnCreate = previousAllow;
   }
   const problems = opts.failAt === 'after-commit' ? ['injected post-commit verification failure'] : await verifyImport(payload, bundle);
-  if (problems.length) throw new ImportCommittedError(`Import committed but failed verification (${problems.length}); run cleanupImport(error.report).`, report);
+  if (problems.length) throw new ImportCommittedError(`Import committed but failed verification (${problems.length}); run cleanupImport(payload, error.report.journal).`, report);
   return report;
 }
 
@@ -253,9 +284,56 @@ export async function verifyImport(payload: PayloadLike, bundle: Bundle): Promis
   return errors;
 }
 
-/** Remove exactly what a report created, in reverse dependency order. */
-export async function cleanupImport(payload: PayloadLike, report: ImportReport): Promise<void> {
-  for (const { collection, id } of [...report.created].reverse()) {
-    await payload.delete({ collection, id, overrideAccess: true, context: { reseedVersions: true, stagingImport: true } });
+export class CleanupRefusedError extends Error {
+  constructor(message: string, public records: string[] = []) { super(message); }
+}
+export interface CleanupReceipt { importId: string; deleted: string[]; alreadyAbsent: string[] }
+
+/**
+ * COMPENSATING cleanup after a COMMITTED import. A failure before commit needs no cleanup:
+ * the transaction rollback already removed everything. Cleanup is guarded independently:
+ *   1. same runtime and connected-database gate as import, before any DB access;
+ *   2. the journal must be well-formed, signed with the staging journal key, recorded for
+ *      this exact connected host, and list only allowlisted collections with unique IDs;
+ *   3. pre-check pass: each record must be absent (already cleaned) or byte-identical to the
+ *      state this import stored. If ANY record changed, nothing is deleted (manual review);
+ *   4. delete in reverse dependency order. It is resumable and idempotent: absent records
+ *      are reported, never an error. Skipped or pre-existing records are never journaled,
+ *      so they are never deleted.
+ */
+export async function cleanupImport(payload: PayloadLike, journal: ImportJournal, { env = process.env }: { env?: NodeJS.ProcessEnv } = {}): Promise<CleanupReceipt> {
+  assertImportTarget(payload, env);
+  const key = journalKey(env);
+  if (!journal || journal.version !== 1 || typeof journal.importId !== 'string' || !Array.isArray(journal.created) || typeof journal.signature !== 'string') throw new CleanupRefusedError('Refusing: malformed cleanup journal.');
+  const { signature, ...unsigned } = journal;
+  const expected = Buffer.from(signJournal(unsigned, key), 'hex');
+  const given = Buffer.from(signature, 'hex');
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) throw new CleanupRefusedError('Refusing: cleanup journal signature is invalid (forged, edited or from another key).');
+  if (journal.targetHost !== connectedHost(payload)) throw new CleanupRefusedError('Refusing: cleanup journal was recorded for a different database.');
+  const keys = new Set<string>();
+  for (const e of journal.created) {
+    if (!ALLOWED.has(e.collection) || e.id === undefined || e.id === null || !/^[0-9a-f]{64}$/.test(String(e.checksum))) throw new CleanupRefusedError(`Refusing: invalid journal entry ${e.collection}:${e.id}`);
+    const k = `${e.collection}:${e.id}`;
+    if (keys.has(k)) throw new CleanupRefusedError(`Refusing: duplicate journal entry ${k}`);
+    keys.add(k);
   }
+  const absent: string[] = [], changed: string[] = [];
+  for (const e of journal.created) {
+    const current = await payload.findByID({ collection: e.collection, id: e.id, depth: 0, overrideAccess: true, disableErrors: true });
+    if (!current) absent.push(`${e.collection}:${e.id}`);
+    else if (checksum(comparable(current)) !== e.checksum) changed.push(`${e.collection}:${e.id}`);
+  }
+  if (changed.length) throw new CleanupRefusedError(`Refusing: ${changed.length} record(s) changed since import; nothing deleted. Review manually.`, changed);
+  const deleted: string[] = [];
+  for (const e of [...journal.created].reverse()) {
+    const k = `${e.collection}:${e.id}`;
+    if (absent.includes(k)) continue;
+    // Re-verify immediately before deleting, so an edit made during cleanup is never lost.
+    const now = await payload.findByID({ collection: e.collection, id: e.id, depth: 0, overrideAccess: true, disableErrors: true });
+    if (!now) { absent.push(k); continue; }
+    if (checksum(comparable(now)) !== e.checksum) throw new CleanupRefusedError(`Refusing: ${k} changed during cleanup; stopped. Re-run after review; already deleted: ${deleted.join(', ') || 'none'}.`, [k]);
+    await payload.delete({ collection: e.collection, id: e.id, overrideAccess: true, context: { reseedVersions: true, stagingImport: true } });
+    deleted.push(k);
+  }
+  return { importId: journal.importId, deleted, alreadyAbsent: absent };
 }
