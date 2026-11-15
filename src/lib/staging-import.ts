@@ -219,7 +219,11 @@ const txExec = (payload: PayloadLike, transactionID: any) => {
   const exec = payload.db.sessions?.[transactionID]?.db;
   if (!exec?.execute) throw new Error('Refusing: no transaction session.');
   return async (q: string, ...params: unknown[]) => {
-    const query = params.length ? sql.join([sql.raw(q.split('$$')[0]), ...params.flatMap((p, i) => [sql`${p}`, sql.raw(q.split('$$')[i + 1])])], sql.raw('')) : sql.raw(q);
+    // "$$" marks a bound parameter; values are never interpolated into SQL text.
+    const parts = q.split('$$');
+    if (parts.length !== params.length + 1) throw new Error('Internal: SQL parameter count mismatch.');
+    const chunks = parts.flatMap((p, i) => (i < params.length ? [sql.raw(p), sql`${params[i]}`] : [sql.raw(p)]));
+    const query = sql.join(chunks, sql.raw(''));
     const r: any = await exec.execute(query);
     return (r?.rows ?? r) as any[];
   };
