@@ -6,12 +6,17 @@ import { createUnsubscribeToken, verifyUnsubscribeToken } from '../lib/newslette
 const SECRET = 'test-only-secret-0123456789abcdef-0123'; // not a real secret
 const SYNC = 'test-only-sync-secret';
 const NOW = Date.UTC(2026, 10, 15);
+const CONSENT = { consentAt: '2026-11-15T10:00:00.000Z', consentNoticeVersion: '2026-11-15', consentMethod: 'form-single-opt-in' };
 const env = { UNSUBSCRIBE_TOKEN_SECRET: SECRET, SYNC_SHARED_SECRET: SYNC, SITE_BASE_URL: 'https://www.example.com', SERVER_URL: 'https://cms.example.com' } as NodeJS.ProcessEnv;
 
 function memoryStore() {
-  const rows = new Map<string, { id: string; email: string; unsubscribedAt?: string | null }>([
-    ['1', { id: '1', email: 'a@example.com' }],
-    ['2', { id: '2', email: 'b@example.com', unsubscribedAt: '2026-01-01T00:00:00.000Z' }],
+  const rows = new Map<string, Record<string, any>>([
+    ['1', { id: '1', email: 'a@example.com', ...CONSENT }],
+    ['2', { id: '2', email: 'b@example.com', unsubscribedAt: '2026-01-01T00:00:00.000Z', ...CONSENT }],
+    // Legacy or imported: never unsubscribed, but no recorded consent.
+    ['3', { id: '3', email: 'legacy@example.com' }],
+    // Consent present but from an unaccepted method.
+    ['4', { id: '4', email: 'import@example.com', ...CONSENT, consentMethod: 'csv-import' }],
   ]);
   const writes: string[] = [];
   const store: SubscriberStore = {
@@ -76,6 +81,13 @@ describe('sendCheck (pre-send suppression for any provider)', () => {
     const unknown = await sendCheck('nobody@example.com', SYNC, m.store, env, NOW);
     expect(suppressed).toEqual({ status: 200, body: { ok: true, sendable: false } });
     expect(unknown).toEqual(suppressed);
+  });
+
+  it('fails closed for legacy and imported records: not unsubscribed is not eligible', async () => {
+    const m = memoryStore();
+    const blocked = { status: 200, body: { ok: true, sendable: false } };
+    expect(await sendCheck('legacy@example.com', SYNC, m.store, env, NOW)).toEqual(blocked);
+    expect(await sendCheck('import@example.com', SYNC, m.store, env, NOW)).toEqual(blocked);
   });
 
   it('returns working links for a sendable address; using one suppresses later sends', async () => {

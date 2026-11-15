@@ -1,14 +1,14 @@
 import type { Endpoint, PayloadRequest } from 'payload';
 import { timingSafeEqual } from 'node:crypto';
 import {
-  createUnsubscribeToken, isSendable, tokenSecret, unsubscribeUrl, verifyUnsubscribeToken,
+  createUnsubscribeToken, isEligibleForMarketing, tokenSecret, unsubscribeUrl, verifyUnsubscribeToken,
 } from '../lib/newsletter-suppression';
 import { CMS_ORIGIN } from '../lib/allowedOrigins';
 
 /** Minimal data access used by the handlers, so the logic is testable without a database. */
 export interface SubscriberStore {
   findById(id: string): Promise<{ id: string | number; unsubscribedAt?: string | null } | null>;
-  findByEmail(email: string): Promise<{ id: string | number; unsubscribedAt?: string | null } | null>;
+  findByEmail(email: string): Promise<{ id: string | number; unsubscribedAt?: string | null; consentAt?: string | null; consentNoticeVersion?: string | null; consentMethod?: string | null } | null>;
   markUnsubscribed(id: string | number, at: string): Promise<void>;
 }
 
@@ -50,7 +50,9 @@ export async function sendCheck(email: unknown, providedSecret: string | null, s
     return { status: 400, body: { ok: false, message: 'Valid email is required.' } };
   }
   const sub = await store.findByEmail(normalized);
-  if (!isSendable(sub)) return { status: 200, body: { ok: true, sendable: false } };
+  // Fail-closed: unknown, suppressed and no-consent (legacy or imported) addresses all get
+  // the same answer, so nothing reveals which reason applied.
+  if (!isEligibleForMarketing(sub)) return { status: 200, body: { ok: true, sendable: false } };
   const token = createUnsubscribeToken(sub!.id, secret, { now });
   const base = (env.SERVER_URL || CMS_ORIGIN).replace(/\/$/, '');
   return {
