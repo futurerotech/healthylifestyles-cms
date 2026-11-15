@@ -11,9 +11,10 @@ const KEY = 'test-only-internal-key'; // not a real secret
 const run = (args: Record<string, unknown>) => (recordConsent as any)(args);
 const headers = (h: Record<string, string>) => new Headers(h);
 const trusted = () => headers({ 'x-internal-key': KEY, [CONSENT_CAPTURE_HEADER]: CONSENT_CAPTURE_VALUE });
-const withKey = <T>(fn: () => T, key: string | undefined = KEY): T => {
+// null means "no key configured" (undefined would fall back to the default parameter).
+const withKey = <T>(fn: () => T, key: string | null = KEY): T => {
   const saved = process.env.INTERNAL_API_KEY;
-  if (key === undefined) delete process.env.INTERNAL_API_KEY; else process.env.INTERNAL_API_KEY = key;
+  if (key === null) delete process.env.INTERNAL_API_KEY; else process.env.INTERNAL_API_KEY = key;
   try { return fn(); } finally { if (saved === undefined) delete process.env.INTERNAL_API_KEY; else process.env.INTERNAL_API_KEY = saved; }
 };
 const create = (data: Record<string, unknown>, h?: Headers) => run({ operation: 'create', data, req: { headers: h } });
@@ -38,7 +39,7 @@ describe('consent provenance', () => {
 
   it('trusted key with a wrong capture value, or no key configured at all, never captures consent', () => {
     withKey(() => expect(isTrustedConsentCapture(headers({ 'x-internal-key': KEY, [CONSENT_CAPTURE_HEADER]: 'other' }))).toBe(false));
-    withKey(() => expect(isTrustedConsentCapture(trusted())).toBe(false), undefined);
+    withKey(() => expect(isTrustedConsentCapture(trusted())).toBe(false), null);
     withKey(() => expect(isTrustedConsentCapture(headers({ 'x-internal-key': '', [CONSENT_CAPTURE_HEADER]: CONSENT_CAPTURE_VALUE }))).toBe(false), '');
   });
 
