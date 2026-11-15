@@ -8,7 +8,7 @@
  *
  * Suppression: a subscriber with `unsubscribedAt` set must never be emailed or forwarded
  * to an email automation. Every sending or forwarding path must go through
- * `isSendable` / `SENDABLE_WHERE`.
+ * `isEligibleForMarketing` / `ELIGIBLE_WHERE`, which also require recorded consent.
  */
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
@@ -60,12 +60,62 @@ export function verifyUnsubscribeToken(token: unknown, secret: string | null, { 
   }
 }
 
-/** Payload `where` clause for the only subscribers any sender may contact. */
-export const SENDABLE_WHERE = { unsubscribedAt: { exists: false } } as const;
+/**
+ * Consent methods the CMS can record itself. `form-single-opt-in` means the trusted
+ * server-side signup proxy created the record after a person submitted the newsletter
+ * form, with the privacy notice shown. It is NOT verified mailbox ownership (there is
+ * no double opt-in) and NOT a legal review. It is evidence of a form submission only.
+ */
+export const CONSENT_METHODS = ['form-single-opt-in'] as const;
+export type ConsentMethod = (typeof CONSENT_METHODS)[number];
 
-export function isSendable(sub: { unsubscribedAt?: string | Date | null } | null | undefined): boolean {
-  return !!sub && !sub.unsubscribedAt;
+/**
+ * Methods accepted as affirmative eligibility for marketing email. Fail-closed: anything
+ * not listed here (unknown, imported, legacy, null) is ineligible. Widening this list,
+ * or adding a confirmed double-opt-in method, is an owner and legal decision.
+ */
+export const ELIGIBLE_CONSENT_METHODS: readonly ConsentMethod[] = ['form-single-opt-in'];
+
+/** Header the trusted signup proxy sends with x-internal-key to request consent capture. */
+export const CONSENT_CAPTURE_HEADER = 'x-consent-capture';
+export const CONSENT_CAPTURE_VALUE = 'newsletter-form-v1';
+
+type SubLike = {
+  unsubscribedAt?: string | Date | null;
+  consentAt?: string | Date | null;
+  consentNoticeVersion?: string | null;
+  consentMethod?: string | null;
+} | null | undefined;
+
+/** Unsubscribed (suppressed). Suppression always wins over any consent record. */
+export function isSuppressed(sub: SubLike): boolean {
+  return !!sub?.unsubscribedAt;
 }
+
+/** True only when the record carries complete consent evidence from an eligible method. */
+export function hasEligibleConsent(sub: SubLike): boolean {
+  return !!sub && !!sub.consentAt && !!sub.consentNoticeVersion
+    && (ELIGIBLE_CONSENT_METHODS as readonly string[]).includes(String(sub.consentMethod ?? ''));
+}
+
+/**
+ * Affirmative eligibility to receive marketing email: present, not suppressed, AND with
+ * eligible consent evidence. "Not unsubscribed" alone is never enough, so legacy and
+ * imported records without recorded consent are ineligible.
+ */
+export function isEligibleForMarketing(sub: SubLike): boolean {
+  return !!sub && !isSuppressed(sub) && hasEligibleConsent(sub);
+}
+
+/** Payload `where` clause equivalent of isEligibleForMarketing, for any bulk selection. */
+export const ELIGIBLE_WHERE = {
+  and: [
+    { unsubscribedAt: { exists: false } },
+    { consentAt: { exists: true } },
+    { consentNoticeVersion: { exists: true } },
+    { consentMethod: { in: [...ELIGIBLE_CONSENT_METHODS] } },
+  ],
+} as const;
 
 /** Public unsubscribe page URL for a token (the site's /unsubscribe page posts it back). */
 export function unsubscribeUrl(token: string, siteBase = process.env.SITE_BASE_URL || 'https://www.healthylifesstyles.com'): string {

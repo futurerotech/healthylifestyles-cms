@@ -1,6 +1,6 @@
 import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
-import { isSendable } from '../lib/newsletter-suppression';
+import { isEligibleForMarketing } from '../lib/newsletter-suppression';
 
 /**
  * Strict CORS allow-list. Echoing `origin || '*'` is the classic
@@ -134,8 +134,10 @@ export const subscriberSync: Endpoint = {
           const created = await p.create({ collection: 'subscribers', data });
           imported++;
 
-          // Forward to n8n on each new subscriber. Suppression: an opted-out record is never forwarded.
-          if (n8nUrl && audience?.forwardOnCreate && isSendable(created)) {
+          // Forward to n8n only records that are eligible for marketing email: not suppressed AND
+          // with recorded consent. Sync imports never carry consent, so they are never forwarded.
+          // This is deliberately fail-closed until the owner sets an import consent policy.
+          if (n8nUrl && audience?.forwardOnCreate && isEligibleForMarketing(created)) {
             const n8nHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
             if (n8nKey) n8nHeaders['Authorization'] = `Bearer ${n8nKey}`;
 

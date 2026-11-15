@@ -1,7 +1,8 @@
 /** Newsletter safety: signed expiring unsubscribe tokens and suppression. */
 import { describe, it, expect } from 'vitest';
 import {
-  createUnsubscribeToken, verifyUnsubscribeToken, isSendable, SENDABLE_WHERE, tokenSecret, unsubscribeUrl, MIN_SECRET_LENGTH,
+  createUnsubscribeToken, verifyUnsubscribeToken, tokenSecret, unsubscribeUrl, MIN_SECRET_LENGTH,
+  isSuppressed, hasEligibleConsent, isEligibleForMarketing, ELIGIBLE_WHERE, ELIGIBLE_CONSENT_METHODS,
 } from './newsletter-suppression';
 
 const SECRET = 'test-only-secret-0123456789abcdef-0123'; // not a real secret
@@ -54,12 +55,40 @@ describe('unsubscribe tokens', () => {
   });
 });
 
-describe('suppression', () => {
-  it('never treats an unsubscribed record as sendable', () => {
-    expect(isSendable({ unsubscribedAt: '2026-11-15T00:00:00.000Z' })).toBe(false);
-    expect(isSendable({ unsubscribedAt: null })).toBe(true);
-    expect(isSendable({})).toBe(true);
-    expect(isSendable(null)).toBe(false);
-    expect(SENDABLE_WHERE).toEqual({ unsubscribedAt: { exists: false } });
+describe('suppression vs affirmative eligibility', () => {
+  const consent = { consentAt: '2026-11-15T10:00:00.000Z', consentNoticeVersion: '2026-11-15', consentMethod: 'form-single-opt-in' };
+
+  it('a record that is merely not unsubscribed is NOT eligible (legacy and imported records)', () => {
+    for (const legacy of [{}, { unsubscribedAt: null }, { consentAt: null, consentNoticeVersion: null, consentMethod: null }]) {
+      expect(isSuppressed(legacy)).toBe(false);
+      expect(isEligibleForMarketing(legacy)).toBe(false);
+    }
+  });
+
+  it('eligible only with complete consent evidence from an accepted method', () => {
+    expect(isEligibleForMarketing(consent)).toBe(true);
+    expect(isEligibleForMarketing({ ...consent, consentAt: null })).toBe(false);
+    expect(isEligibleForMarketing({ ...consent, consentNoticeVersion: '' })).toBe(false);
+    for (const m of [null, '', 'csv-import', 'api', 'n8n-sync', 'web-form', 'FORM-SINGLE-OPT-IN']) {
+      expect(hasEligibleConsent({ ...consent, consentMethod: m })).toBe(false);
+    }
+  });
+
+  it('suppression always wins over consent', () => {
+    const s = { ...consent, unsubscribedAt: '2026-11-16T00:00:00.000Z' };
+    expect(isSuppressed(s)).toBe(true);
+    expect(hasEligibleConsent(s)).toBe(true);
+    expect(isEligibleForMarketing(s)).toBe(false);
+    expect(isEligibleForMarketing(null)).toBe(false);
+  });
+
+  it('the bulk selection clause matches the per-record rule', () => {
+    expect(ELIGIBLE_WHERE).toEqual({ and: [
+      { unsubscribedAt: { exists: false } },
+      { consentAt: { exists: true } },
+      { consentNoticeVersion: { exists: true } },
+      { consentMethod: { in: ['form-single-opt-in'] } },
+    ] });
+    expect(ELIGIBLE_CONSENT_METHODS).toEqual(['form-single-opt-in']);
   });
 });
