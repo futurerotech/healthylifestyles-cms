@@ -35,6 +35,10 @@ pg_exec "$POSTGRES_CONTAINER" createdb -U mock -T mock_restore "$DB"
 
 AUTH=20261008_190423_add_reset_password_requested_at
 MEDIA=20261008_225200_add_media_object_key
+# The additive newsletter consent migration (CMS #66) is the 17th indexed entry. It is
+# applied on the fresh mock and is not part of the October drift, so it must stay recorded
+# through the rehearsal and its rollback, and must never be re-run.
+CONSENT=20261115_120000_subscriber_consent_fields
 # The Payload CLI scans migrationDir and also discovers seo-audit-fix.ts,
 # whose inert up/down exports make it a registered no-op on the empty mock DB.
 BASE_LEDGER="$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')"
@@ -44,6 +48,8 @@ BASE_LEDGER="$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')"
   { echo 'NO-GO: IndexNow migration missing from synthetic ledger'; exit 1; }
 [[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] ||
   { echo 'NO-GO: expected the inert manual script to be recorded on fresh mock'; exit 1; }
+[[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name='$CONSENT'")" == 1 ]] ||
+  { echo 'NO-GO: consent migration not recorded on fresh mock'; exit 1; }
 [[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name IN ('$AUTH','$MEDIA')")" == 2 ]] ||
   { echo 'NO-GO: mock database has no two October migrations'; exit 1; }
 [[ "$(query "$DB" "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='public' AND ((table_name='users' AND column_name='reset_password_requested_at') OR (table_name='media' AND column_name='_objectkey'))")" == 2 ]] ||
@@ -170,6 +176,7 @@ pg_exec "$POSTGRES_CONTAINER" createdb -U mock "$ROLLBACK"
 pg_exec -i "$POSTGRES_CONTAINER" pg_restore -U mock -d "$ROLLBACK" \
   --exit-on-error --no-owner --no-acl < "$SNAPSHOT"
 [[ "$(query "$ROLLBACK" 'SELECT COUNT(*) FROM payload_migrations')" == "$((BASE_LEDGER - 2))" ]] || exit 1
+[[ "$(query "$ROLLBACK" "SELECT COUNT(*) FROM payload_migrations WHERE name='$CONSENT'")" == 1 ]] || exit 1
 [[ "$(query "$ROLLBACK" "SELECT COUNT(*) FROM payload_migrations WHERE name IN ('$AUTH','$MEDIA')")" == 0 ]] || exit 1
 [[ "$(query "$ROLLBACK" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] || exit 1
 [[ "$(query "$ROLLBACK" 'SELECT COUNT(*) FROM pseo_pages')" == "$BEFORE_PSEO" ]] || exit 1
