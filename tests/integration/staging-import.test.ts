@@ -206,5 +206,11 @@ describe.skipIf(!enabled)('staging mirror importer, durable journal and guarded 
   it('final cleanup leaves the disposable database empty of synthetic records', async () => {
     await lib.cleanupImport(payload, report.journal.importId, { env });
     expect(await countAll()).toBe(0);
+    // Owner audit view: status and counts only, never entries or content.
+    const list = await lib.listImportJournals(payload);
+    expect(list.some((j) => j.status === 'failed')).toBe(true);
+    expect(list.filter((j) => j.status === 'cleaned').length).toBeGreaterThanOrEqual(3);
+    expect(list.find((j) => j.importId === report.journal.importId)).toMatchObject({ status: 'cleaned', created: 5 });
+    expect(JSON.stringify(list)).not.toMatch(/Synthetic|checksum|signature/);
   });
 });

@@ -358,6 +358,19 @@ export async function loadJournal(payload: PayloadLike, importId: string): Promi
   } catch (e) { await payload.db.rollbackTransaction(transactionID); throw e; }
 }
 
+/** Owner audit view of the journal: status and counts only, never entries or content. */
+export async function listImportJournals(payload: PayloadLike): Promise<{ importId: string; status: string; startedAt: string; created: number; cleanedAt: string | null }[]> {
+  const transactionID = await payload.db.beginTransaction();
+  if (!transactionID) throw new Error('Refusing: no transaction for journal read.');
+  try {
+    const q = txExec(payload, transactionID);
+    const [{ t }] = await q(`SELECT to_regclass('public.hls_staging_import_journal') IS NOT NULL AS t`);
+    const rows = t ? await q(`SELECT import_id::text AS id, status, to_char(started_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS started, jsonb_array_length(entries) AS n, to_char(cleaned_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS cleaned FROM hls_staging_import_journal ORDER BY started_at`) : [];
+    await payload.db.commitTransaction(transactionID);
+    return rows.map((r: any) => ({ importId: r.id, status: r.status, startedAt: r.started, created: Number(r.n), cleanedAt: r.cleaned ?? null }));
+  } catch (e) { await payload.db.rollbackTransaction(transactionID); throw e; }
+}
+
 /** Move each imported table's serial sequence past its highest ID, inside the import transaction. */
 export async function reconcileSequences(payload: PayloadLike, transactionID: string | number): Promise<void> {
   const q = txExec(payload, transactionID);
