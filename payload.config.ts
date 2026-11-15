@@ -55,6 +55,7 @@ import { profileIdentify, profileRecordUsage, profileGet } from './src/endpoints
 import { csvImport } from './src/endpoints/csvImport';
 import { sendPush } from './src/endpoints/sendPush';
 import { subscriberSync, subscriberSyncDirect } from './src/endpoints/subscriberSync';
+import { newsletterSendCheck, newsletterUnsubscribe } from './src/endpoints/newsletterUnsubscribe';
 import { generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint } from './src/endpoints/generateArticle';
 import { trackEmbed } from './src/endpoints/trackEmbed';
 import { checkBacklinks, checkBacklinksDirect } from './src/endpoints/checkBacklinks';
@@ -240,7 +241,7 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   sharp,
-  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, subscriberSyncDirect, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks, checkBacklinksDirect, runAudit, analyzeRecipe, schemaFlagsCron],
+  endpoints: [aiAssist, trackUsage, aiWriting, aiSeo, pseoGenerate, profileIdentify, profileRecordUsage, profileGet, csvImport, sendPush, subscriberSync, subscriberSyncDirect, newsletterUnsubscribe, newsletterSendCheck, generateArticleEndpoint, regenerateSectionEndpoint, suggestTitlesEndpoint, verifySourcesEndpoint, trackEmbed, checkBacklinks, checkBacklinksDirect, runAudit, analyzeRecipe, schemaFlagsCron],
   // Seed the four default outreach templates once (idempotent: only when the
   // collection is empty). Runs at server boot, never during `payload migrate`.
   onInit: async (payload) => {
