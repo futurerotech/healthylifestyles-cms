@@ -125,80 +125,27 @@ SQL
 snapshot "$POSTGRES_CONTAINER" > "$work/source.snapshot" || hold 'SOURCE_SNAPSHOT_FAILED'
 snapshot "$target" > "$work/target.snapshot" || hold 'TARGET_SNAPSHOT_FAILED'
 [[ -s "$work/source.snapshot" && -s "$work/target.snapshot" ]] || hold 'SNAPSHOT_EMPTY'
-cmp -s "$work/source.snapshot" "$work/target.snapshot" || hold 'GLOBAL_OR_DATABASE_METADATA_MISMATCH'
-
-# Actual non-bypass role can still see exactly the single policy-permitted row.
-for container in "$POSTGRES_CONTAINER" "$target"; do
-  visible="$(docker exec -i "$container" psql -XqAt -v ON_ERROR_STOP=1 -U mock -d mock <<'SQL'
-BEGIN READ ONLY;
-SET LOCAL ROLE hls_ci_restore_reader;
-SELECT CASE WHEN current_user='hls_ci_restore_reader'
- AND pg_catalog.row_security_active('public.hls_ci_owner_acl_probe'::regclass)
- AND has_schema_privilege(current_user,'public','USAGE')
- AND has_table_privilege(current_user,'public.hls_ci_owner_acl_probe','SELECT')
- AND NOT has_table_privilege(current_user,'public.hls_ci_owner_acl_probe','INSERT')
- AND (SELECT count(*) FROM public.hls_ci_owner_acl_probe)=1
- AND (SELECT NOT rolsuper AND NOT rolbypassrls FROM pg_catalog.pg_roles WHERE rolname=current_user)
- AND pg_has_role('hls_ci_restore_reader','hls_ci_global_group','MEMBER')
- THEN 'RESTRICTED_ROLE_PASS' ELSE 'HOLD' END;
-ROLLBACK;
-SQL
-)" || hold 'RESTRICTED_ROLE_QUERY_FAILED'
-  [[ "$visible" == 'RESTRICTED_ROLE_PASS' ]] || hold 'RESTRICTED_ROLE_ACCESS_CHANGED'
-done
-
-echo 'GLOBAL_ROLES_FRESH_CLUSTER_RESTORE_PASS: pg_dumpall globals and database restored to network-disabled independent PostgreSQL cluster'
-echo 'GLOBAL_ROLES_RLS_ACL_RESTORE_PASS: role membership, ownership, grants, policies, and restricted-row visibility preserved'
- "$work/global-memberships.sql" || hold 'UNEXPECTED_GRANTOR'
-sed -E 's/ GRANTED BY "?mock"?;$/;/' "$work/global-memberships.sql" > "$work/global-memberships-replay.sql"
-cmp -s "$work/global-memberships.sql" "$work/global-memberships-replay.sql" && hold 'MEMBERSHIP_REWRITE_NOT_APPLIED'
-grep -q 'GRANTED BY' "$work/global-memberships-replay.sql" && hold 'UNEXPECTED_REPLAY_GRANTOR'
-docker exec -i "$target" psql -Xq -v ON_ERROR_STOP=1 -U mock -d postgres < "$work/global-memberships-replay.sql" >/dev/null || hold 'GLOBAL_ROLE_MEMBERSHIPS_RESTORE_FAILED'
-docker exec "$target" createdb -U hls_ci_bootstrap -O mock mock || hold 'NEW_DATABASE_FAILED'
-# Intentionally preserves owner and ACL (no --no-owner / --no-acl).
-docker exec -i "$target" pg_restore -U hls_ci_bootstrap -d mock --exit-on-error < "$work/database.dump" >/dev/null || hold 'DATABASE_RESTORE_FAILED'
-
-# Compare global role flags, memberships, all public relation owners/ACL/RLS
-# states and policies, public schema grants, and synthetic data fingerprints.
-snapshot() {
-  docker exec -i "$1" psql -XqAt -v ON_ERROR_STOP=1 -U mock -d mock <<'SQL'
-WITH roles AS (
- SELECT rolname, rolsuper, rolinherit, rolcreaterole, rolcreatedb,
-        rolcanlogin, rolreplication, rolbypassrls, rolconnlimit
- FROM pg_catalog.pg_roles
- WHERE rolname IN ('mock','hls_ci_restore_owner','hls_ci_restore_reader','hls_ci_global_group')
-), memberships AS (
- SELECT member.rolname AS member_name, granted.rolname AS role_name,
-        m.admin_option, m.inherit_option, m.set_option
- FROM pg_catalog.pg_auth_members m
- JOIN pg_catalog.pg_roles member ON member.oid=m.member
- JOIN pg_catalog.pg_roles granted ON granted.oid=m.roleid
- WHERE member.rolname IN ('hls_ci_restore_owner','hls_ci_restore_reader','hls_ci_global_group')
-), relations AS (
- SELECT c.relname AS name, c.relkind AS kind,
-        pg_catalog.pg_get_userbyid(c.relowner) AS owner, c.relacl::text AS acl,
-        c.relrowsecurity AS rls, c.relforcerowsecurity AS force_rls
- FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
- WHERE n.nspname='public' AND c.relkind IN ('r','p')
-), policies AS (
- SELECT tablename, policyname, permissive, roles, cmd, qual, with_check
- FROM pg_catalog.pg_policies WHERE schemaname='public'
-)
-SELECT jsonb_build_object(
- 'roles', (SELECT jsonb_agg(to_jsonb(r) ORDER BY r.rolname) FROM roles r),
- 'memberships', (SELECT jsonb_agg(to_jsonb(m) ORDER BY m.member_name,m.role_name) FROM memberships m),
- 'relations', (SELECT jsonb_agg(to_jsonb(t) ORDER BY t.name,t.kind) FROM relations t),
- 'policies', (SELECT jsonb_agg(to_jsonb(p) ORDER BY p.tablename,p.policyname) FROM policies p),
- 'public_schema_acl', (SELECT nspacl::text FROM pg_catalog.pg_namespace WHERE nspname='public'),
- 'fixture_rows', (SELECT jsonb_build_object('count',count(*),'digest',md5(coalesce(string_agg(id::text||':'||marker,'|' ORDER BY id),'')))
-                  FROM public.hls_ci_owner_acl_probe)
-)::text;
-SQL
+if ! cmp -s "$work/source.snapshot" "$work/target.snapshot"; then
+  node - "$work/source.snapshot" "$work/target.snapshot" <<'NODE'
+const fs = require('node:fs')
+const [a,b] = process.argv.slice(2).map(p => JSON.parse(fs.readFileSync(p,'utf8')))
+for (const key of Object.keys(a)) {
+  if (JSON.stringify(a[key]) !== JSON.stringify(b[key])) {
+    console.error('GLOBAL_RESTORE_DIFF_SECTION=' + key)
+    if (Array.isArray(a[key]) && Array.isArray(b[key])) {
+      console.error('GLOBAL_RESTORE_DIFF_COUNTS=' + key + ':' + a[key].length + ':' + b[key].length)
+      for (let i = 0; i < Math.max(a[key].length,b[key].length); i++) {
+        if (JSON.stringify(a[key][i]) !== JSON.stringify(b[key][i])) {
+          console.error('GLOBAL_RESTORE_FIRST_DIFFERENCE=' + key + ':' + (a[key][i]?.name || a[key][i]?.tablename || i))
+          break
+        }
+      }
+    }
+  }
 }
-snapshot "$POSTGRES_CONTAINER" > "$work/source.snapshot" || hold 'SOURCE_SNAPSHOT_FAILED'
-snapshot "$target" > "$work/target.snapshot" || hold 'TARGET_SNAPSHOT_FAILED'
-[[ -s "$work/source.snapshot" && -s "$work/target.snapshot" ]] || hold 'SNAPSHOT_EMPTY'
-cmp -s "$work/source.snapshot" "$work/target.snapshot" || hold 'GLOBAL_OR_DATABASE_METADATA_MISMATCH'
+NODE
+  hold 'GLOBAL_OR_DATABASE_METADATA_MISMATCH'
+fi
 
 # Actual non-bypass role can still see exactly the single policy-permitted row.
 for container in "$POSTGRES_CONTAINER" "$target"; do
