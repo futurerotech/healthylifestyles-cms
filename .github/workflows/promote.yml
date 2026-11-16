@@ -70,6 +70,11 @@ jobs:
       - name: Unit and access-control regression tests
         run: npm test
 
+      - name: Restricted CMS role fixture guards (no database)
+        run: |
+          node --check scripts/ci/rehearse-restricted-cms-policy.mjs
+          node --test tests/ci-restricted-cms-policy.node-tests.mjs
+
       - name: Domain check
         run: npm run check:domain
 
@@ -94,6 +99,12 @@ jobs:
           DATABASE_URI: postgres://mock:mock@localhost:5432/mock
           PAYLOAD_SECRET: ci-mock-payload-secret-not-production
         run: npx payload migrate --force-accept-warning
+
+      - name: Rehearse restricted CMS role and RLS policies (mock DB only)
+        env:
+          RUN_DATABASE_TESTS: '1'
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+        run: node scripts/ci/rehearse-restricted-cms-policy.mjs
 
       - name: Verify auth and media query schema (disposable mock DB)
         env:
