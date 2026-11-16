@@ -95,7 +95,6 @@ WITH roles AS (
  WHERE rolname IN ('mock','hls_ci_restore_owner','hls_ci_restore_reader','hls_ci_global_group')
 ), memberships AS (
  SELECT member.rolname AS member_name, granted.rolname AS role_name,
-        pg_catalog.pg_get_userbyid(m.grantor) AS grantor_name,
         m.admin_option, m.inherit_option, m.set_option
  FROM pg_catalog.pg_auth_members m
  JOIN pg_catalog.pg_roles member ON member.oid=m.member
@@ -169,3 +168,4 @@ done
 
 echo 'GLOBAL_ROLES_FRESH_CLUSTER_RESTORE_PASS: pg_dumpall globals and database restored to network-disabled independent PostgreSQL cluster'
 echo 'GLOBAL_ROLES_RLS_ACL_RESTORE_PASS: role membership, ownership, grants, policies, and restricted-row visibility preserved'
+echo 'GLOBAL_ROLES_GRANTOR_PROVENANCE_NOT_ASSERTED: effective membership checked; historical membership grantor is not guaranteed across clusters'
