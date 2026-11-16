@@ -5,7 +5,9 @@ set -euo pipefail
 [[ "${DATABASE_URI:-}" == 'postgres://mock:mock@localhost:5432/mock' ]] || exit 1
 [[ "${POSTGRES_CONTAINER:-}" =~ ^[a-f0-9]{64}$ ]] || exit 1
 [[ -d "${RUNNER_TEMP:-}" ]] || exit 1
-[[ "$(docker exec "$POSTGRES_CONTAINER" psql -U mock -d mock -Atc "SELECT current_database() || '|' || current_user || '|' || (SELECT rolsuper FROM pg_catalog.pg_roles WHERE rolname=current_user)")" == 'mock|mock|t' ]] || exit 1
+IDENTITY_CHECK="$(docker exec "$POSTGRES_CONTAINER" psql -U mock -d mock -Atc "SELECT CASE WHEN current_database()='mock' AND current_user='mock' AND (SELECT rolsuper FROM pg_catalog.pg_roles WHERE rolname=current_user) THEN 'HLS_MOCK_SUPERUSER_PASS' ELSE 'HLS_MOCK_IDENTITY_FAIL' END")"
+[[ "$IDENTITY_CHECK" == 'HLS_MOCK_SUPERUSER_PASS' ]] || { echo OWNER_ACL_DB_IDENTITY_HOLD; exit 1; }
+echo OWNER_ACL_DB_IDENTITY_PASS
 
 # pg_dump does NOT carry global CREATE ROLE: fixture provisions roles first.
 docker exec -i "$POSTGRES_CONTAINER" psql -U mock -d mock -v ON_ERROR_STOP=1 <<'SQL'
