@@ -15,13 +15,14 @@ The saved Hostinger `DATABASE_URI` was verified to target Neon production using 
 
 ## Result interpretation
 
-- `NON_BYPASS`: the audited SELECT used a non-superuser, non-BYPASSRLS role whose active role, session login and database name matched the running process's configured URI. **This does not prove all table policies or other pooled sessions are protected.**
+- `RLS_ACTIVE_FOR_ROLE`: the audited SELECT used a matching non-superuser, non-BYPASSRLS role and PostgreSQL reported RLS active for that role on every ordinary/partitioned public table. **This does not prove policies allow only intended actions or that other pooled sessions use the same role.**
+- `RLS_NOT_ACTIVE_FOR_ROLE`: the role flags were non-bypass, but one or more public tables had no effective RLS for the actual role, or there were no public tables. Release HOLD; investigate ownership/FORCE RLS and table settings.
 - `RLS_BYPASS`: URI-matching active login has SUPERUSER or BYPASSRLS; RLS cannot be relied on to restrict that role. Security review required.
 - `IDENTITY_MISMATCH`: SQL session identity or database differs from URI authority/path. Release HOLD; do not copy identifying values into logs.
 - `CONFIG_INVALID`, `EVIDENCE_INVALID`, `QUERY_FAILED`: no positive attestation. Release HOLD; investigate with a private, authorized operator. Driver exceptions are deliberately not logged.
 - `DISABLED`: no query was attempted.
 
-**Limits:** Attests one SQL execution from the actual Payload adapter at start-up. It is not evidence of all pool connections, application ACLs, RLS policy semantics, backup restoration, effective external URL availability or a security sign-off. It does not cure the currently failing Vercel preview: the preview's `DATABASE_URI` is structurally invalid and Preview/Production secret scoping has not been independently isolated. Never reuse production Neon credentials for a preview.
+**Limits:** Attests one SQL execution from the actual Payload adapter at start-up. It is not evidence of all pool connections, application ACLs, correctness of RLS policy expressions, backup restoration, effective external URL availability or a security sign-off. It does not cure the currently failing Vercel preview: the preview's `DATABASE_URI` is structurally invalid and Preview/Production secret scoping has not been independently isolated. Never reuse production Neon credentials for a preview.
 
 ## Safety checklist
 
