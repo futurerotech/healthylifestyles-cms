@@ -5,6 +5,7 @@ const uri = 'postgresql://neondb_owner:TEST_SECRET_NEVER_LOG@localhost:5432/neon
 const role = {
   active_role: 'neondb_owner', login_role: 'neondb_owner', database_name: 'neondb',
   can_bypass_rls: true, is_superuser: false,
+  public_tables: 157, inactive_public_rls_tables: 157,
 };
 describe('optional runtime DB principal evidence', () => {
   it('does nothing at all unless explicitly enabled', async () => {
@@ -24,8 +25,15 @@ describe('optional runtime DB principal evidence', () => {
   it('classifies a matching non-bypass role without claiming policy validity', async () => {
     const log = vi.fn();
     expect(await auditCmsDbIdentity({ enabled: true, connectionString: uri,
-      query: async () => [{ ...role, can_bypass_rls: false }], log })).toBe('NON_BYPASS');
-    expect(log).toHaveBeenCalledWith('CMS_DB_IDENTITY_ATTESTATION=NON_BYPASS');
+      query: async () => [{ ...role, can_bypass_rls: false, inactive_public_rls_tables: 0 }], log })).toBe('RLS_ACTIVE_FOR_ROLE');
+    expect(log).toHaveBeenCalledWith('CMS_DB_IDENTITY_ATTESTATION=RLS_ACTIVE_FOR_ROLE');
+  });
+  it('never confuses a non-bypass role with effective RLS if some tables are inactive', async () => {
+    const log = vi.fn();
+    expect(await auditCmsDbIdentity({ enabled: true, connectionString: uri,
+      query: async () => ({ rows: [{ ...role, can_bypass_rls: false, inactive_public_rls_tables: 13 }] }),
+      log })).toBe('RLS_NOT_ACTIVE_FOR_ROLE');
+    expect(log).toHaveBeenCalledWith('CMS_DB_IDENTITY_ATTESTATION=RLS_NOT_ACTIVE_FOR_ROLE');
   });
   it('rejects role or database mismatch without leaking the names', async () => {
     for (const changed of [
