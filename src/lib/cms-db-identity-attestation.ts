@@ -8,14 +8,21 @@ export const CMS_DB_IDENTITY_SQL = [
   '       session_user::text AS login_role,',
   '       current_database()::text AS database_name,',
   '       r.rolbypassrls AS can_bypass_rls,',
-  '       r.rolsuper AS is_superuser',
+  '       r.rolsuper AS is_superuser,',
+  '       (SELECT count(*)::int FROM pg_catalog.pg_class AS c',
+  '         JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace',
+  "         WHERE n.nspname = 'public' AND c.relkind IN ('r','p')) AS public_tables,",
+  '       (SELECT count(*)::int FROM pg_catalog.pg_class AS c',
+  '         JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace',
+  "         WHERE n.nspname = 'public' AND c.relkind IN ('r','p')",
+  '           AND NOT pg_catalog.row_security_active(c.oid)) AS inactive_public_rls_tables',
   '  FROM pg_catalog.pg_roles AS r',
   ' WHERE r.rolname = current_user',
 ].join('\n');
 
 export type CmsDbIdentityStatus =
   | 'DISABLED' | 'CONFIG_INVALID' | 'QUERY_FAILED' | 'EVIDENCE_INVALID'
-  | 'IDENTITY_MISMATCH' | 'RLS_BYPASS' | 'NON_BYPASS';
+  | 'IDENTITY_MISMATCH' | 'RLS_BYPASS' | 'RLS_NOT_ACTIVE_FOR_ROLE' | 'RLS_ACTIVE_FOR_ROLE';
 
 interface Options {
   enabled: boolean;
@@ -29,6 +36,8 @@ interface IdentityRow {
   database_name: string;
   can_bypass_rls: boolean;
   is_superuser: boolean;
+  public_tables: number;
+  inactive_public_rls_tables: number;
 }
 
 function isIdentityRow(value: unknown): value is IdentityRow {
@@ -37,7 +46,10 @@ function isIdentityRow(value: unknown): value is IdentityRow {
   return typeof row.active_role === 'string' && row.active_role.length > 0 &&
     typeof row.login_role === 'string' && row.login_role.length > 0 &&
     typeof row.database_name === 'string' && row.database_name.length > 0 &&
-    typeof row.can_bypass_rls === 'boolean' && typeof row.is_superuser === 'boolean';
+    typeof row.can_bypass_rls === 'boolean' && typeof row.is_superuser === 'boolean' &&
+    Number.isInteger(row.public_tables) && Number(row.public_tables) >= 0 &&
+    Number.isInteger(row.inactive_public_rls_tables) && Number(row.inactive_public_rls_tables) >= 0 &&
+    Number(row.inactive_public_rls_tables) <= Number(row.public_tables);
 }
 function getRows(result: unknown): unknown[] | null {
   if (Array.isArray(result)) return result;
@@ -87,5 +99,6 @@ export async function auditCmsDbIdentity(options: Options): Promise<CmsDbIdentit
   if (row.active_role !== expectedRole || row.login_role !== expectedRole ||
       row.database_name !== expectedDatabase) return emit('IDENTITY_MISMATCH');
   if (row.can_bypass_rls || row.is_superuser) return emit('RLS_BYPASS');
-  return emit('NON_BYPASS');
+  if (row.public_tables === 0 || row.inactive_public_rls_tables !== 0) return emit('RLS_NOT_ACTIVE_FOR_ROLE');
+  return emit('RLS_ACTIVE_FOR_ROLE');
 }
