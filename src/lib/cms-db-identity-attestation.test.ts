@@ -15,7 +15,8 @@ describe('optional runtime DB principal evidence', () => {
   it('uses only one static SELECT through the Payload adapter', async () => {
     const query = vi.fn(async () => ({ rows: [role] })); const log = vi.fn();
     expect(await auditCmsDbIdentity({ enabled: true, connectionString: uri, query, log })).toBe('RLS_BYPASS');
-    expect(query).toHaveBeenCalledExactlyOnceWith(CMS_DB_IDENTITY_SQL);
+    expect(query).toHaveBeenCalledTimes(1);
+    expect(query).toHaveBeenCalledWith(CMS_DB_IDENTITY_SQL);
     expect(CMS_DB_IDENTITY_SQL.trim().startsWith('SELECT ')).toBe(true);
     expect(CMS_DB_IDENTITY_SQL).not.toMatch(/\b(INSERT|UPDATE|DELETE|ALTER|CREATE|DROP)\b/i);
     expect(log.mock.calls).toEqual([['CMS_DB_IDENTITY_ATTESTATION=RLS_BYPASS']]);
