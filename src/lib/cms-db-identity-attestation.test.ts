@@ -5,7 +5,7 @@ const uri = 'postgresql://neondb_owner:TEST_SECRET_NEVER_LOG@localhost:5432/neon
 const role = {
   active_role: 'neondb_owner', login_role: 'neondb_owner', database_name: 'neondb',
   can_bypass_rls: true, is_superuser: false,
-  public_tables: 157, inactive_public_rls_tables: 157,
+  public_tables: 157, inactive_public_rls_tables: 157, rls_tables_without_policies: 157,
 };
 describe('optional runtime DB principal evidence', () => {
   it('does nothing at all unless explicitly enabled', async () => {
@@ -25,7 +25,7 @@ describe('optional runtime DB principal evidence', () => {
   it('classifies a matching non-bypass role without claiming policy validity', async () => {
     const log = vi.fn();
     expect(await auditCmsDbIdentity({ enabled: true, connectionString: uri,
-      query: async () => [{ ...role, can_bypass_rls: false, inactive_public_rls_tables: 0 }], log })).toBe('RLS_ACTIVE_FOR_ROLE');
+      query: async () => [{ ...role, can_bypass_rls: false, inactive_public_rls_tables: 0, rls_tables_without_policies: 0 }], log })).toBe('RLS_ACTIVE_FOR_ROLE');
     expect(log).toHaveBeenCalledWith('CMS_DB_IDENTITY_ATTESTATION=RLS_ACTIVE_FOR_ROLE');
   });
   it('never confuses a non-bypass role with effective RLS if some tables are inactive', async () => {
@@ -34,6 +34,20 @@ describe('optional runtime DB principal evidence', () => {
       query: async () => ({ rows: [{ ...role, can_bypass_rls: false, inactive_public_rls_tables: 13 }] }),
       log })).toBe('RLS_NOT_ACTIVE_FOR_ROLE');
     expect(log).toHaveBeenCalledWith('CMS_DB_IDENTITY_ATTESTATION=RLS_NOT_ACTIVE_FOR_ROLE');
+  });
+  it('flags policy-free tables instead of claiming a restricted CMS role is ready', async () => {
+    const log = vi.fn();
+    expect(await auditCmsDbIdentity({ enabled: true, connectionString: uri,
+      query: async () => ({ rows: [{ ...role, can_bypass_rls: false, inactive_public_rls_tables: 0 }] }),
+      log })).toBe('RLS_POLICY_REVIEW_REQUIRED');
+    expect(log).toHaveBeenCalledWith('CMS_DB_IDENTITY_ATTESTATION=RLS_POLICY_REVIEW_REQUIRED');
+  });
+  it('rejects invalid policy counts', async () => {
+    for (const value of [-1, 158, '157']) {
+      expect(await auditCmsDbIdentity({ enabled: true, connectionString: uri,
+        query: async () => ({ rows: [{ ...role, rls_tables_without_policies: value }] }),
+        log: vi.fn() })).toBe('EVIDENCE_INVALID');
+    }
   });
   it('rejects role or database mismatch without leaking the names', async () => {
     for (const changed of [
