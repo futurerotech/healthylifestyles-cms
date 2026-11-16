@@ -101,7 +101,7 @@ describe('real CMS authenticated REST CRUD on disposable PostgreSQL', () => {
       body: { name: 'CI temporary tag', slug, description: 'created in mock DB' },
     });
     expect(created.status).toBe(201);
-    const tag = await created.json();
+    const { doc: tag } = await created.json();
     expect(tag.id).toBeDefined();
     createdTagIds.push(tag.id);
     expect(tag.slug).toBe(slug);
@@ -143,7 +143,7 @@ describe('real CMS authenticated REST CRUD on disposable PostgreSQL', () => {
       body: { name: 'CI admin only fixture', slug: adminTagSlug },
     });
     expect(created.status).toBe(201);
-    const tag = await created.json();
+    const { doc: tag } = await created.json();
     createdTagIds.push(tag.id);
     expect((await request(`tags/${tag.id}`, {
       method: 'PATCH', token: adminToken, body: { description: 'admin updated' },
