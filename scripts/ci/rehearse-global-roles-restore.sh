@@ -75,7 +75,11 @@ mock_admin="$(docker exec "$target" psql -XqAt -v ON_ERROR_STOP=1 -U hls_ci_boot
 # explicit grantor on a newly initialized cluster without ADMIN membership.
 # Reissue the sole checked grant AS the original restored mock superuser;
 # this preserves the effective grantor, verified from pg_auth_members below.
-grep -Eq ' GRANTED BY "?mock"?;
+grep -Eq 'GRANTED BY' "$work/global-memberships.sql" || hold 'EXPECTED_GRANTOR_MISSING'
+sed -E 's/ GRANTED BY "?mock"?;$/;/' "$work/global-memberships.sql" > "$work/global-memberships-replay.sql"
+if cmp -s "$work/global-memberships.sql" "$work/global-memberships-replay.sql"; then hold 'MEMBERSHIP_REWRITE_NOT_APPLIED'; fi
+if grep -q 'GRANTED BY' "$work/global-memberships-replay.sql"; then hold 'UNEXPECTED_REPLAY_GRANTOR'; fi
+docker exec -i "$target" psql -Xq -v ON_ERROR_STOP=1 -U mock -d postgres < "$work/global-memberships-replay.sql" >/dev/null || hold 'GLOBAL_ROLE_MEMBERSHIPS_RESTORE_FAILED'
 docker exec "$target" createdb -U hls_ci_bootstrap -O mock mock || hold 'NEW_DATABASE_FAILED'
 # Intentionally preserves owner and ACL (no --no-owner / --no-acl).
 docker exec -i "$target" pg_restore -U hls_ci_bootstrap -d mock --exit-on-error < "$work/database.dump" >/dev/null || hold 'DATABASE_RESTORE_FAILED'
