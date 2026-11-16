@@ -58,7 +58,20 @@ done
 preexisting="$(docker exec "$target" psql -XqAt -v ON_ERROR_STOP=1 -U hls_ci_bootstrap -d hls_ci_bootstrap -c "SELECT count(*) FROM pg_catalog.pg_roles WHERE rolname IN ('mock','hls_ci_restore_owner','hls_ci_restore_reader','hls_ci_global_group')")" || hold 'NEW_CLUSTER_IDENTITY_QUERY_FAILED'
 [[ "$preexisting" == 0 ]] || hold 'NEW_CLUSTER_NOT_ISOLATED'
 
-docker exec -i "$target" psql -Xq -v ON_ERROR_STOP=1 -U hls_ci_bootstrap -d hls_ci_bootstrap < "$work/globals.sql" >/dev/null || hold 'GLOBAL_ROLES_RESTORE_FAILED'
+# pg_dumpall emits role definitions plus membership GRANT ... GRANTED BY the
+# original mock superuser. The bootstrap superuser cannot always act as that
+# named grantor (PG16). Split only these exact *mock* role GRANT statements,
+# then apply those unmodified statements as the restored mock role.
+grants="$(grep -cE '^[[:space:]]*GRANT[[:space:]]' "$work/globals.sql" || true)"
+[[ "$grants" == 1 ]] || hold 'UNEXPECTED_GLOBAL_GRANT_SHAPE'
+grep -Eq '^GRANT .*hls_ci_global_group.* TO .*hls_ci_restore_reader' "$work/globals.sql" || hold 'EXPECTED_MOCK_MEMBERSHIP_MISSING'
+awk -v defs="$work/global-definitions.sql" -v members="$work/global-memberships.sql" \
+  '/^[[:space:]]*GRANT[[:space:]]/ {print >> members; next} {print >> defs}' "$work/globals.sql"
+[[ -s "$work/global-definitions.sql" && -s "$work/global-memberships.sql" ]] || hold 'SPLIT_GLOBALS_EMPTY'
+docker exec -i "$target" psql -Xq -v ON_ERROR_STOP=1 -U hls_ci_bootstrap -d hls_ci_bootstrap < "$work/global-definitions.sql" >/dev/null || hold 'GLOBAL_ROLE_DEFINITIONS_RESTORE_FAILED'
+mock_admin="$(docker exec "$target" psql -XqAt -v ON_ERROR_STOP=1 -U hls_ci_bootstrap -d hls_ci_bootstrap -c "SELECT CASE WHEN rolsuper AND rolcanlogin THEN 'MOCK_SUPERUSER_PASS' ELSE 'HOLD' END FROM pg_catalog.pg_roles WHERE rolname='mock'")" || hold 'RESTORED_MOCK_ROLE_QUERY_FAILED'
+[[ "$mock_admin" == 'MOCK_SUPERUSER_PASS' ]] || hold 'RESTORED_MOCK_ROLE_INVALID'
+docker exec -i "$target" psql -Xq -v ON_ERROR_STOP=1 -U mock -d postgres < "$work/global-memberships.sql" >/dev/null || hold 'GLOBAL_ROLE_MEMBERSHIPS_RESTORE_FAILED'
 docker exec "$target" createdb -U hls_ci_bootstrap -O mock mock || hold 'NEW_DATABASE_FAILED'
 # Intentionally preserves owner and ACL (no --no-owner / --no-acl).
 docker exec -i "$target" pg_restore -U hls_ci_bootstrap -d mock --exit-on-error < "$work/database.dump" >/dev/null || hold 'DATABASE_RESTORE_FAILED'
