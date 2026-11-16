@@ -15,14 +15,20 @@ export const CMS_DB_IDENTITY_SQL = [
   '       (SELECT count(*)::int FROM pg_catalog.pg_class AS c',
   '         JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace',
   "         WHERE n.nspname = 'public' AND c.relkind IN ('r','p')",
-  '           AND NOT pg_catalog.row_security_active(c.oid)) AS inactive_public_rls_tables',
+  '           AND NOT pg_catalog.row_security_active(c.oid)) AS inactive_public_rls_tables,',
+  '       (SELECT count(*)::int FROM pg_catalog.pg_class AS c',
+  '         JOIN pg_catalog.pg_namespace AS n ON n.oid = c.relnamespace',
+  "         WHERE n.nspname = 'public' AND c.relkind IN ('r','p') AND c.relrowsecurity",
+  '           AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policy AS p',
+  '                           WHERE p.polrelid = c.oid)) AS rls_tables_without_policies',
   '  FROM pg_catalog.pg_roles AS r',
   ' WHERE r.rolname = current_user',
 ].join('\n');
 
 export type CmsDbIdentityStatus =
   | 'DISABLED' | 'CONFIG_INVALID' | 'QUERY_FAILED' | 'EVIDENCE_INVALID'
-  | 'IDENTITY_MISMATCH' | 'RLS_BYPASS' | 'RLS_NOT_ACTIVE_FOR_ROLE' | 'RLS_ACTIVE_FOR_ROLE';
+  | 'IDENTITY_MISMATCH' | 'RLS_BYPASS' | 'RLS_NOT_ACTIVE_FOR_ROLE'
+  | 'RLS_POLICY_REVIEW_REQUIRED' | 'RLS_ACTIVE_FOR_ROLE';
 
 interface Options {
   enabled: boolean;
@@ -38,6 +44,7 @@ interface IdentityRow {
   is_superuser: boolean;
   public_tables: number;
   inactive_public_rls_tables: number;
+  rls_tables_without_policies: number;
 }
 
 function isIdentityRow(value: unknown): value is IdentityRow {
@@ -49,7 +56,9 @@ function isIdentityRow(value: unknown): value is IdentityRow {
     typeof row.can_bypass_rls === 'boolean' && typeof row.is_superuser === 'boolean' &&
     Number.isInteger(row.public_tables) && Number(row.public_tables) >= 0 &&
     Number.isInteger(row.inactive_public_rls_tables) && Number(row.inactive_public_rls_tables) >= 0 &&
-    Number(row.inactive_public_rls_tables) <= Number(row.public_tables);
+    Number(row.inactive_public_rls_tables) <= Number(row.public_tables) &&
+    Number.isInteger(row.rls_tables_without_policies) && Number(row.rls_tables_without_policies) >= 0 &&
+    Number(row.rls_tables_without_policies) <= Number(row.public_tables);
 }
 function getRows(result: unknown): unknown[] | null {
   if (Array.isArray(result)) return result;
@@ -100,5 +109,6 @@ export async function auditCmsDbIdentity(options: Options): Promise<CmsDbIdentit
       row.database_name !== expectedDatabase) return emit('IDENTITY_MISMATCH');
   if (row.can_bypass_rls || row.is_superuser) return emit('RLS_BYPASS');
   if (row.public_tables === 0 || row.inactive_public_rls_tables !== 0) return emit('RLS_NOT_ACTIVE_FOR_ROLE');
+  if (row.rls_tables_without_policies !== 0) return emit('RLS_POLICY_REVIEW_REQUIRED');
   return emit('RLS_ACTIVE_FOR_ROLE');
 }
