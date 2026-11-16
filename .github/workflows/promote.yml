@@ -100,6 +100,13 @@ jobs:
           DATABASE_URI: postgres://mock:mock@localhost:5432/mock
         run: node scripts/ci/check-auth-schema.mjs
 
+      - name: Verify public table RLS (disposable mock PostgreSQL only)
+        env:
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+        run: |
+          node --test tests/ci-public-rls.node-tests.mjs
+          node scripts/ci/check-public-rls.mjs
+
       - name: Configure isolated PostgreSQL TLS certificate fixture
         env:
           RUN_DATABASE_TESTS: '1'
