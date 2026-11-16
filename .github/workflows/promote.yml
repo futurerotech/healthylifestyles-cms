@@ -106,6 +106,8 @@ jobs:
         run: |
           node --test tests/ci-public-rls.node-tests.mjs
           node scripts/ci/check-public-rls.mjs
+          node --test tests/ci-public-rls-role.node-tests.mjs
+          node scripts/ci/check-public-rls-role.mjs
 
       - name: Configure isolated PostgreSQL TLS certificate fixture
         env:
