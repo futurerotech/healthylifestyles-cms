@@ -48,7 +48,7 @@ docker run --pull=never --rm -d --network none --name "$target" \
   -e POSTGRES_DB=hls_ci_bootstrap "$IMAGE" >/dev/null || hold 'NEW_CLUSTER_FAILED'
 ready=0
 for _ in $(seq 1 45); do
-  if docker exec "$target" pg_isready -U hls_ci_bootstrap -d hls_ci_bootstrap >/dev/null 2>&1; then
+  if [[ "$(docker exec "$target" psql -XqAt -v ON_ERROR_STOP=1 -U hls_ci_bootstrap -d hls_ci_bootstrap -c 'SELECT 1' 2>/dev/null || true)" == '1' ]]; then
     ready=1; break
   fi
   sleep 1
