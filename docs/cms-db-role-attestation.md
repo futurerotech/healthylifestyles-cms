@@ -15,8 +15,9 @@ The saved Hostinger `DATABASE_URI` was verified to target Neon production using 
 
 ## Result interpretation
 
-- `RLS_ACTIVE_FOR_ROLE`: the audited SELECT used a matching non-superuser, non-BYPASSRLS role and PostgreSQL reported RLS active for that role on every ordinary/partitioned public table. **This does not prove policies allow only intended actions or that other pooled sessions use the same role.**
+- `RLS_ACTIVE_FOR_ROLE`: the audited SELECT used a matching non-superuser, non-BYPASSRLS role, PostgreSQL reported RLS active for that role on all ordinary/partitioned public tables, and no RLS-enabled public table lacked a policy. **This is not evidence that any policies permit correct CMS CRUD actions, or that the policies enforce intended isolation.**
 - `RLS_NOT_ACTIVE_FOR_ROLE`: the role flags were non-bypass, but one or more public tables had no effective RLS for the actual role, or there were no public tables. Release HOLD; investigate ownership/FORCE RLS and table settings.
+- `RLS_POLICY_REVIEW_REQUIRED`: PostgreSQL reports RLS active for the examined role, but one or more RLS-enabled public tables have no explicit policy. Default-deny can block legitimate CMS reads and writes; verify intended deny-only tables and build narrowly scoped policies in disposable staging before switching any credentials. Never treat this as release-ready.
 - `RLS_BYPASS`: URI-matching active login has SUPERUSER or BYPASSRLS; RLS cannot be relied on to restrict that role. Security review required.
 - `IDENTITY_MISMATCH`: SQL session identity or database differs from URI authority/path. Release HOLD; do not copy identifying values into logs.
 - `CONFIG_INVALID`, `EVIDENCE_INVALID`, `QUERY_FAILED`: no positive attestation. Release HOLD; investigate with a private, authorized operator. Driver exceptions are deliberately not logged.
