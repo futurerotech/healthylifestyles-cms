@@ -25,10 +25,16 @@ MEDIA=20261008_225200_add_media_object_key
 # applied on the fresh mock and is not part of the October drift, so it must stay recorded
 # through the rehearsal and its rollback, and must never be re-run.
 CONSENT=20261115_120000_subscriber_consent_fields
+# The RLS parity migration is the 18th indexed entry, with the same treatment as CONSENT.
+RLS=20261115_170000_enable_rls_missing_public_tables
 # The Payload CLI scans migrationDir and also discovers seo-audit-fix.ts,
 # whose inert up/down exports make it a registered no-op on the empty mock DB.
-[[ "$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')" == 18 ]] ||
-  { echo 'NO-GO: expected 17 indexed migrations plus inert seo-audit-fix'; exit 1; }
+[[ "$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')" == 19 ]] ||
+  { echo 'NO-GO: expected 18 indexed migrations plus inert seo-audit-fix'; exit 1; }
+[[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name='$RLS'")" == 1 ]] ||
+  { echo 'NO-GO: RLS parity migration not recorded on fresh mock'; exit 1; }
+[[ "$(query "$DB" "SELECT COUNT(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND NOT c.relrowsecurity AND c.relname <> 'payload_migrations'")" == 0 ]] ||
+  { echo 'NO-GO: public tables without RLS after the parity migration'; exit 1; }
 [[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] ||
   { echo 'NO-GO: expected the inert manual script to be recorded on fresh mock'; exit 1; }
 [[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name='$CONSENT'")" == 1 ]] ||
@@ -46,7 +52,7 @@ WHERE name IN ('20261008_190423_add_reset_password_requested_at',
                '20261008_225200_add_media_object_key');
 COMMIT;
 SQL
-[[ "$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')" == 16 ]] || exit 1
+[[ "$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')" == 17 ]] || exit 1
 [[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] || exit 1
 BEFORE_PSEO="$(query "$DB" 'SELECT COUNT(*) FROM pseo_pages')"
 [[ "$BEFORE_PSEO" == 3 ]] || { echo 'NO-GO: expected synthetic pSEO data'; exit 1; }
@@ -139,8 +145,8 @@ PAYLOAD_SECRET=ci-mock-payload-secret-not-production \
 INDEXNOW_DISABLE=true NODE_ENV=production \
   npx payload migrate --force-accept-warning
 
-[[ "$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')" == 18 ]] ||
-  { echo 'NO-GO: migration ledger did not reach 18 entries'; exit 1; }
+[[ "$(query "$DB" 'SELECT COUNT(*) FROM payload_migrations')" == 19 ]] ||
+  { echo 'NO-GO: migration ledger did not reach 19 entries'; exit 1; }
 [[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name IN ('$AUTH','$MEDIA')")" == 2 ]] ||
   { echo 'NO-GO: October migrations were not recorded'; exit 1; }
 [[ "$(query "$DB" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] ||
@@ -158,7 +164,8 @@ AFTER_DATA="$(data_fingerprint "$DB")"
 docker exec "$POSTGRES_CONTAINER" createdb -U mock "$ROLLBACK"
 docker exec -i "$POSTGRES_CONTAINER" pg_restore -U mock -d "$ROLLBACK" \
   --exit-on-error --no-owner --no-acl < "$SNAPSHOT"
-[[ "$(query "$ROLLBACK" 'SELECT COUNT(*) FROM payload_migrations')" == 16 ]] || exit 1
+[[ "$(query "$ROLLBACK" 'SELECT COUNT(*) FROM payload_migrations')" == 17 ]] || exit 1
+[[ "$(query "$ROLLBACK" "SELECT COUNT(*) FROM payload_migrations WHERE name='$RLS'")" == 1 ]] || exit 1
 [[ "$(query "$ROLLBACK" "SELECT COUNT(*) FROM payload_migrations WHERE name='$CONSENT'")" == 1 ]] || exit 1
 [[ "$(query "$ROLLBACK" "SELECT COUNT(*) FROM payload_migrations WHERE name IN ('$AUTH','$MEDIA')")" == 0 ]] || exit 1
 [[ "$(query "$ROLLBACK" "SELECT COUNT(*) FROM payload_migrations WHERE name='seo-audit-fix'")" == 1 ]] || exit 1
