@@ -111,6 +111,17 @@ jobs:
           DATABASE_URI: postgres://mock:mock@localhost:5432/mock
         run: node scripts/ci/check-auth-schema.mjs
 
+      - name: Verify public table RLS (disposable mock PostgreSQL only)
+        env:
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+        run: |
+          node --test tests/ci-public-rls.node-tests.mjs
+          node scripts/ci/check-public-rls.mjs
+          node --test tests/ci-public-rls-role.node-tests.mjs
+          node scripts/ci/check-public-rls-role.mjs
+          node --test tests/ci-public-rls-rehearsal.node-tests.mjs
+          node scripts/ci/check-public-rls-rehearsal.mjs
+
       - name: Configure isolated PostgreSQL TLS certificate fixture
         env:
           RUN_DATABASE_TESTS: '1'
@@ -132,7 +143,26 @@ jobs:
           RUN_DATABASE_TESTS: '1'
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
           DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          RUN_DATABASE_RESTORE_PROFILE: full-integration
         run: bash scripts/ci/rehearse-backup.sh
+
+      - name: Backup/restore owner and ACL (disposable synthetic PostgreSQL)
+        env:
+          CI: 'true'
+          RUN_DATABASE_TESTS: '1'
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+        run: bash scripts/ci/rehearse-owner-acl-restore.sh
+
+      - name: Global roles/DB restore on isolated PostgreSQL 16 (mock only)
+        env:
+          CI: 'true'
+          RUN_DATABASE_TESTS: '1'
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+        run: |
+          bash -n scripts/ci/rehearse-global-roles-restore.sh
+          bash scripts/ci/rehearse-global-roles-restore.sh
 
       # D4: exercise the actual Hostinger build command against the mock DB.
       # Database migrations are a separate, explicit operation after a backup;
@@ -168,3 +198,69 @@ jobs:
             exit 1
           fi
           echo 'Build artifacts clean.'
+
+  # Separate isolated PostgreSQL 18 coverage. No secrets, real DBs or deploys.
+  rls-postgres18:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: mock
+          POSTGRES_PASSWORD: mock
+          POSTGRES_DB: mock
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mock -d mock"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: Full migration chain (disposable PostgreSQL 18 only)
+        env:
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          PAYLOAD_SECRET: ci-mock-payload-secret-not-production
+          INDEXNOW_DISABLE: 'true'
+        run: npx payload migrate --force-accept-warning
+      - name: Verify RLS, non-bypass role and exact-migration replay (PostgreSQL 18)
+        env:
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+        run: |
+          node --test tests/ci-public-rls-rehearsal.node-tests.mjs
+          node scripts/ci/check-public-rls.mjs
+          node scripts/ci/check-public-rls-role.mjs
+          node scripts/ci/check-public-rls-rehearsal.mjs
+
+      - name: Backup and restore RLS metadata (disposable PostgreSQL 18)
+        env:
+          CI: 'true'
+          RUN_DATABASE_TESTS: '1'
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+          RUN_DATABASE_RESTORE_PROFILE: rls-pg18
+        run: bash scripts/ci/rehearse-backup.sh
+
+      - name: Backup/restore owner and ACL (disposable synthetic PostgreSQL)
+        env:
+          CI: 'true'
+          RUN_DATABASE_TESTS: '1'
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+        run: bash scripts/ci/rehearse-owner-acl-restore.sh
+
+      - name: Global roles/DB restore on isolated PostgreSQL 18 (mock only)
+        env:
+          CI: 'true'
+          RUN_DATABASE_TESTS: '1'
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+          DATABASE_URI: postgres://mock:mock@localhost:5432/mock
+        run: |
+          bash -n scripts/ci/rehearse-global-roles-restore.sh
+          bash scripts/ci/rehearse-global-roles-restore.sh
