@@ -3,7 +3,8 @@ import { canSeedDevelopmentDefaults } from './src/lib/development-seeding';
 import { postgresPoolOptions } from './src/lib/postgres-connection';
 import { fileURLToPath } from 'url';
 import { buildConfig } from 'payload';
-import { postgresAdapter } from '@payloadcms/db-postgres';
+import { postgresAdapter, sql } from '@payloadcms/db-postgres';
+import { auditCmsDbIdentity } from './src/lib/cms-db-identity-attestation';
 import { lexicalEditor } from '@payloadcms/richtext-lexical';
 import { s3Storage } from '@payloadcms/storage-s3';
 import sharp from 'sharp';
@@ -214,6 +215,17 @@ export default buildConfig({
   // Seed the four default outreach templates once (idempotent: only when the
   // collection is empty). Runs at server boot, never during `payload migrate`.
   onInit: async (payload) => {
+    // Opt-in forensic check via this CMS instance's OWN adapter connection.
+    // No raw role, URL, hostname, DB name or driver errors appear in logs.
+    // Disabled unless the operator sets CMS_DB_IDENTITY_AUDIT=1.
+    if (process.env.CMS_DB_IDENTITY_AUDIT === '1') {
+      await auditCmsDbIdentity({
+        enabled: true,
+        connectionString: process.env.DATABASE_URI,
+        query: (statement) => payload.db.drizzle.execute(sql.raw(statement)),
+        log: (event) => payload.logger.warn(event),
+      });
+    }
     if (!canSeedDevelopmentDefaults()) return;
     try {
       const { totalDocs } = await payload.count({ collection: 'outreach-templates' as never });
