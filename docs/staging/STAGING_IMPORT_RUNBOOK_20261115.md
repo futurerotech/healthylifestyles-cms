@@ -1,4 +1,13 @@
-# Staging import and rehearsal runbook (prepared 2026-11-15, NOT executed)
+# Staging import and rehearsal runbook — drafted 2026-11-15; live checkpoint added 2026-11-17
+
+> **Verified current state — 2026-11-17, STAGING ONLY:** The table below documents the **historical empty baseline** before import; do not interpret it as today's state or re-run the greenfield import.
+> - A separate direct Neon SQL transaction (not PR #67's Payload importer) transferred **6,550 public-content rows across 27 nonempty tables**, including 60 published articles, 70 published/enabled tools, 19 categories, 2 authors, 28 tags and 63 media metadata records. Read-after-commit row counts and per-table checksums matched. Receipt: https://github.com/futurerotech/healthylifestyles-cms/issues/70#issuecomment-6959519550
+> - Staging-only guarded SQL subsequently enabled RLS on **157/157 public tables**. All 226 foreign keys are validated; no policy was added, no restricted LOGIN role created. The tracked Payload migration ledger remains at 17 because no Payload migration command was run. Receipt: https://github.com/futurerotech/healthylifestyles-cms/issues/70#issuecomment-6959816105
+> - Empty pre-import staging restore point: `br-lively-bird-bcnbifnj`, parent LSN `0/2B5EC78`. Restoring it would remove today's imported content **and** revert the manual staging RLS changes. Do not casually reset it. This is not a production DB backup.
+> - The public media URLs still reference production R2 public objects; the 63 image **binaries were not transferred** to the staging R2 bucket. No user/subscriber or other private data was copied.
+> - The latest runtime evidence script now requires this **exact public-content snapshot**, full RLS parity and validated FKs, in addition to its existing secret, TLS and outbound-suppression checks. Passing it still does NOT prove actual Hostinger identity, Cloudflare R2 IAM, image availability, authenticated CMS CRUD or a successful QA build.
+> - **Do not run --import again** merely to recreate this snapshot. The direct SQL import has **no signed PR #67 import journal ID**, so do NOT run --cleanup for it; rollback requires a separately approved restore of Staging.
+>
 
 This runbook is prepared, not executed. No step here has run against a real system.
 Every step that writes to a system needs the owner authorization quoted in §2.

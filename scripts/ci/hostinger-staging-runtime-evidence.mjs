@@ -156,6 +156,24 @@ export async function verifyHostingerStagingDatabaseReadOnly(env, makeClient) {
       "SELECT current_database() AS database_name, current_user AS role_name, " +
       "current_setting('server_version_num')::integer AS version_num, " +
       "current_setting('default_transaction_read_only') AS read_only, " +
+      // Exact post-import staging snapshot: safely read aggregate counts only.
+      "(SELECT count(*)::int FROM public.articles WHERE _status='published') AS published_articles, " +
+      "(SELECT count(*)::int FROM public.tools WHERE _status='published' AND enabled=true) AS published_enabled_tools, " +
+      "(SELECT count(*)::int FROM public.media) AS media_metadata_rows, " +
+      "(SELECT count(*)::int FROM public.media WHERE url LIKE 'https://%') AS media_https_rows, " +
+      "(SELECT count(*)::int FROM public.media WHERE coalesce(_objectkey,'') <> '') AS media_object_key_rows, " +
+      "(SELECT count(*)::int FROM public.articles a WHERE a.hero_image_id IS NOT NULL " +
+      "AND NOT EXISTS(SELECT 1 FROM public.media m WHERE m.id=a.hero_image_id)) AS broken_hero_refs, " +
+      "(SELECT count(*)::int FROM pg_catalog.pg_class c " +
+      "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace " +
+      "WHERE n.nspname='public' AND c.relkind IN ('r','p')) AS public_tables, " +
+      "(SELECT count(*)::int FROM pg_catalog.pg_class c " +
+      "JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace " +
+      "WHERE n.nspname='public' AND c.relkind IN ('r','p') AND NOT c.relrowsecurity) AS rls_missing, " +
+      "(SELECT count(*)::int FROM pg_catalog.pg_constraint c " +
+      "JOIN pg_catalog.pg_namespace n ON n.oid=c.connamespace " +
+      "WHERE n.nspname='public' AND c.contype='f' AND NOT c.convalidated) AS invalid_foreign_keys, " +
+      "(SELECT count(*)::int FROM public.users) AS imported_or_created_users, " +
       // Push and webhook settings live in database globals, not env: none may be configured.
       "(SELECT count(*)::int FROM audience WHERE coalesce(n8n_webhook_url,'') <> '' OR coalesce(n8n_api_key,'') <> '' OR coalesce(vapid_private_key,'') <> '') + " +
       "(SELECT count(*)::int FROM lead_gen WHERE coalesce(n8n_webhook_url,'') <> '' OR coalesce(n8n_api_key,'') <> '') AS outbound_settings, " +
@@ -169,11 +187,25 @@ export async function verifyHostingerStagingDatabaseReadOnly(env, makeClient) {
         !Number.isInteger(row?.version_num) ||
         row.version_num < 180000 || row.version_num >= 190000 ||
         row.read_only !== 'on' ||
-        row.outbound_settings !== 0 || row.private_rows !== 0) noGo();
+        row.outbound_settings !== 0 || row.private_rows !== 0 ||
+        row.published_articles !== 60 ||
+        row.published_enabled_tools !== 70 ||
+        row.media_metadata_rows !== 63 ||
+        row.media_https_rows !== 63 ||
+        row.media_object_key_rows !== 0 ||
+        row.broken_hero_refs !== 0 ||
+        row.public_tables !== 157 ||
+        row.rls_missing !== 0 ||
+        row.invalid_foreign_keys !== 0 ||
+        row.imported_or_created_users !== 0) noGo();
 
     return Object.freeze({
       ...config, postgresSessionVerified: true, postgresClientTlsVerified: true,
-      readOnlySessionVerified: true, databaseOutboundSettingsEmpty: true, databasePrivateAudienceEmpty: true, hostingerApplicationIdentityVerified: false,
+      readOnlySessionVerified: true, databaseOutboundSettingsEmpty: true, databasePrivateAudienceEmpty: true,
+      stagingPublicContentSnapshotVerified: true, stagingPublicRlsParityVerified: true,
+      stagingForeignKeyValidationVerified: true, stagingMediaReferencesVerified: true,
+      stagingMediaBinaryObjectsVerified: false, stagingAuthenticatedCmsCrudVerified: false,
+      hostingerApplicationIdentityVerified: false,
       r2BucketPermissionBoundaryVerified: false,
       productionReleaseAuthorized: false,
     });
