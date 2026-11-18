@@ -100,8 +100,8 @@ async function callNaraRouter(prompt: string, model: string): Promise<string> {
     });
 
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`NaraRouter error ${res.status}: ${body.slice(0, 200)}`);
+      // Third-party responses may echo sensitive recipe content.
+      throw new Error(`NaraRouter request failed with HTTP ${res.status}`);
     }
 
     const json: any = await res.json().catch(() => ({}));
@@ -129,22 +129,43 @@ function extractJsonArray(text: string): unknown {
   }
 }
 
-function validateIngredient(obj: any): obj is ParsedIngredient {
-  return (
-    obj &&
-    typeof obj.raw === 'string' &&
-    typeof obj.name === 'string' &&
-    typeof obj.quantity === 'number' &&
-    typeof obj.unit === 'string' &&
-    (typeof obj.originalQuantity === 'number' || typeof obj.originalQuantity === 'string') &&
-    typeof obj.originalUnit === 'string' &&
-    typeof obj.unitConverted === 'boolean'
-  );
+/** Reject malformed AI items atomically rather than dropping them silently. */
+function validateIngredient(obj: unknown): obj is ParsedIngredient {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return false;
+  const v = obj as Record<string, unknown>;
+  const amountOK = typeof v.quantity === 'number' && Number.isFinite(v.quantity) &&
+    ((v.unit === 'g' && v.quantity > 0) ||
+     (v.unit === 'unknown' && v.quantity === 0));
+  const originalOK = (typeof v.originalQuantity === 'number' &&
+    Number.isFinite(v.originalQuantity) && v.originalQuantity >= 0) ||
+    (typeof v.originalQuantity === 'string' && v.originalQuantity.length <= 60);
+  return typeof v.raw === 'string' && !!v.raw.trim() && v.raw.length <= 5000 &&
+    typeof v.name === 'string' && !!v.name.trim() && v.name.length <= 500 &&
+    amountOK && originalOK && typeof v.originalUnit === 'string' &&
+    v.originalUnit.length <= 60 && typeof v.unitConverted === 'boolean';
 }
 
+/** Explicit prep words in the user's input outrank an AI-supplied food name. */
+function preservePreparationState(item: ParsedIngredient): ParsedIngredient | null {
+  const words = (value: string) =>
+    value.toLowerCase().replace(/[^a-z]+/g, ' ').split(/\s+/);
+  const hasRaw = (value: string) =>
+    words(value).some(w => w === 'raw' || w === 'uncooked');
+  const hasCooked = (value: string) =>
+    words(value).some(w => ['cooked','boiled','roasted','grilled','steamed','baked','fried'].includes(w));
+  const userRaw = hasRaw(item.raw);
+  const userCooked = hasCooked(item.raw);
+  if ((userRaw && hasCooked(item.name)) || (userCooked && hasRaw(item.name))) return null;
+  const qualifier = userRaw && !hasRaw(item.name) ? ' raw' :
+    userCooked && !hasCooked(item.name) ? ' cooked' : '';
+  return { ...item, name: (item.name + qualifier).trim() };
+}
 function toIngredients(parsed: unknown): ParsedIngredient[] {
-  if (!Array.isArray(parsed)) return [];
-  return parsed.filter(validateIngredient);
+  if (!Array.isArray(parsed) || !parsed.length || !parsed.every(validateIngredient))
+    return [];
+  const prepared = parsed.map(preservePreparationState);
+  return prepared.every((item): item is ParsedIngredient => item !== null)
+    ? prepared : [];
 }
 
 /* ── Regex fallback parser ──────────────────────────────────────────── */
@@ -190,7 +211,7 @@ const COUNT_SEARCH_NAME: Record<string, string> = {
  * "chicken breast (boneless, skinless)" → "chicken breast boneless skinless"
  */
 function cleanName(raw: string): string {
-  return raw.replace(/\(|\)/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  return raw.replace(/[(),;]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
 const FAT_WORDS = ['oil', 'butter', 'margarine', 'mayo', 'lard', 'ghee'];
@@ -205,56 +226,88 @@ function classifyIngredient(name: string): 'fats' | 'liquids' | 'powders' | 'def
   return 'default';
 }
 
+/** Preserve descriptors such as "rice, raw" while splitting "rice, 2 eggs". */
+function splitIngredientLines(text: string): string[] {
+  return text.split(/[\r\n;]+/)
+    .flatMap(line => line.split(/,\s*(?=\d)/))
+    .map(line => line.trim()).filter(Boolean);
+}
+function parseAmount(raw: string): number {
+  if (/^\d+\s+\d+\/\d+$/.test(raw)) {
+    const [whole, fraction] = raw.split(/\s+/);
+    return Number(whole) + parseAmount(fraction);
+  }
+  if (/^\d+\/\d+$/.test(raw)) {
+    const [top, bottom] = raw.split('/').map(Number);
+    return bottom > 0 ? top / bottom : NaN;
+  }
+  return /^\d+(?:\.\d+)?$/.test(raw) ? Number(raw) : NaN;
+}
 function regexParse(text: string): ParsedIngredient[] {
-  const lines = text.split(/[\n,;]+/).map((l) => l.trim()).filter(Boolean);
   const results: ParsedIngredient[] = [];
-
-  for (const line of lines) {
-    // Pattern 1: "200g chicken breast" or "200 g chicken breast"
-    let m = line.match(/^(\d+(?:\.\d+)?)\s*(g|kg|mg)\s+(.+)$/i);
+  for (const line of splitIngredientLines(text)) {
+    const unknown = (): ParsedIngredient => ({
+      raw: line, name: cleanName(line), quantity: 0, unit: 'unknown',
+      originalQuantity: '', originalUnit: '', unitConverted: false,
+    });
+    let m = line.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)\s*(g|kg|mg)\s+(.+)$/i);
     if (m) {
-      const qty = parseFloat(m[1]);
+      const qty = parseAmount(m[1]);
       const unit = m[2].toLowerCase();
       const grams = unit === 'kg' ? qty * 1000 : unit === 'mg' ? qty / 1000 : qty;
-      results.push({ raw: line, name: cleanName(m[3]), quantity: grams, unit: 'g', originalQuantity: qty, originalUnit: unit, unitConverted: false });
+      results.push(Number.isFinite(grams) && grams > 0
+        ? { raw: line, name: cleanName(m[3]), quantity: grams, unit: 'g',
+            originalQuantity: m[1], originalUnit: unit, unitConverted: unit !== 'g' }
+        : unknown());
       continue;
     }
-
-    // Pattern 2: "1 cup white rice" or "2 tbsp olive oil"
-    m = line.match(/^(\d+(?:\.\d+)?)\s*(tsp|tbsp|tablespoon|cup|cups|ml|l)\s+(.+)$/i);
+    m = line.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:\.\d+)?)\s*(tsp|tbsp|tablespoon|cup|cups|ml|l)\s+(.+)$/i);
     if (m) {
-      const qty = parseFloat(m[1]);
+      const qty = parseAmount(m[1]);
       const unit = m[2].toLowerCase();
       const name = cleanName(m[3]);
-      const category = classifyIngredient(name);
-      const unitDef = VOLUME_GRAMS[unit];
-      if (unitDef) {
-        const gramsPer = unitDef[category] ?? unitDef.default;
-        const grams = qty * gramsPer;
-        results.push({ raw: line, name, quantity: grams, unit: 'g', originalQuantity: qty, originalUnit: unit, unitConverted: true });
-        continue;
+      const def = VOLUME_GRAMS[unit];
+      let gramsPer = def ? def[classifyIngredient(name)] ?? def.default : NaN;
+      if (unit === 'cup' || unit === 'cups') {
+        if (/\b(white\s+)?rice\b/.test(name) && /\braw\b/.test(name)) gramsPer = 185;
+        else if (/\brice\b/.test(name) && /\bcooked\b/.test(name)) gramsPer = 158;
+        else if (/\brolled oats\b/.test(name)) gramsPer = 90;
+        else if (/\bgreek yogurt\b/.test(name)) gramsPer = 245;
+        else if (/\bsugar\b/.test(name)) gramsPer = 200;
       }
+      const grams = qty * gramsPer;
+      results.push(Number.isFinite(grams) && grams > 0
+        ? { raw: line, name, quantity: grams, unit: 'g',
+            originalQuantity: m[1], originalUnit: unit, unitConverted: true }
+        : unknown());
+      continue;
     }
-
-    // Pattern 3: "2 large eggs" or "1 medium onion" (count + countable food)
     m = line.match(/^(\d+)\s+(?:large\s+|medium\s+|small\s+)?(.+)$/i);
     if (m) {
-      const qty = parseInt(m[1], 10);
+      const qty = Number(m[1]);
       const name = cleanName(m[2]);
-      const gramsPer = COUNT_GRAMS[name];
-      if (gramsPer) {
-        // Use a better search name for USDA (e.g. "eggs whole" not "eggs")
-        const searchName = COUNT_SEARCH_NAME[name] ?? name;
-        results.push({ raw: line, name: searchName, quantity: qty * gramsPer, unit: 'g', originalQuantity: qty, originalUnit: 'count', unitConverted: true });
+      const base = name.split(/\b(raw|cooked|chopped|diced)\b/)[0].trim();
+      const gramsPer = COUNT_GRAMS[base];
+      const grams = qty * (gramsPer ?? NaN);
+      if (Number.isFinite(grams) && grams > 0) {
+        const qualifier = /\bcooked\b/.test(name) ? ' cooked' :
+          /\braw\b/.test(name) ? ' raw' : '';
+        results.push({
+          raw: line, name: (COUNT_SEARCH_NAME[base] ?? base) + qualifier,
+          quantity: grams, unit: 'g', originalQuantity: qty,
+          originalUnit: 'count', unitConverted: true,
+        });
         continue;
       }
     }
-
-    // Could not parse — push as unknown
-    results.push({ raw: line, name: cleanName(line), quantity: 0, unit: 'unknown', originalQuantity: '', originalUnit: '', unitConverted: false });
+    results.push(unknown());
   }
-
   return results;
+}
+
+/** Public pure fallback to support deterministic, credential-free tests. */
+export function parseRecipeFallback(text: string): ParsedIngredient[] {
+  return regexParse(text);
 }
 
 /* ── Main entry: parseRecipe ────────────────────────────────────────── */
