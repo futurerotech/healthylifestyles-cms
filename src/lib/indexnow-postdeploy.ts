@@ -15,6 +15,7 @@ export interface ChangeRecord {
   changedAt?: string;
 }
 export interface CurrentRecord {
+  slug?: string;
   _status?: string;
   enabled?: boolean;
   updatedAt?: string;
@@ -53,6 +54,15 @@ export function selectPublishedProof(
   const slug = record.path?.startsWith(prefix) ? record.path.slice(prefix.length) : '';
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
     return { ok: false, reason: 'unsafe or absent canonical content path' };
+  }
+  // A manifest entry is tied to a document ID, but that ID can survive a
+  // public slug change. Never submit its old URL merely because both
+  // timestamps and the old page's self-canonical happen to match.
+  // Require independent agreement with the current published CMS slug.
+  if (typeof current.slug !== 'string' ||
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(current.slug) ||
+      slug !== current.slug) {
+    return { ok: false, reason: 'deployed path differs from current CMS slug' };
   }
   if (record.noIndex === true || current.seo?.noIndex === true) {
     return { ok: false, reason: 'content is marked noindex' };

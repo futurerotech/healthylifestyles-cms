@@ -94,6 +94,14 @@ jobs:
       - name: Native GraphQL scalar ESM and CJS compatibility
         run: node scripts/ci/graphql-scalars-compat.mjs
 
+      # This test calls the ACTUAL Next route using a mock admin/queue and
+      # a deny-by-default fetch stub. It never touches real staging or providers.
+      - name: IndexNow preview-only route isolation (synthetic, zero provider traffic)
+        env:
+          INDEXNOW_DISABLE: 'true'
+          INDEXNOW_LIVE_ENABLED: 'false'
+        run: npx vitest run --config vitest.integration.config.ts tests/integration/indexnow-preview-route.test.ts
+
       - name: Security release gate
         run: npm run security:check
 

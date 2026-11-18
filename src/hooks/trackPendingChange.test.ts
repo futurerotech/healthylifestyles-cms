@@ -7,9 +7,10 @@ vi.mock('../lib/indexnow-pending-queue', () => ({
 }));
 
 const doc = { id: 42, _status: 'published' };
-const args = (slug: string, status = 'published', draft?: boolean | string) => ({
+const args = (slug: string, status = 'published', draft?: boolean | string,
+  context: Record<string, unknown> = {}) => ({
   req: { payload: { db: {}, logger: { error: vi.fn() } }, transactionID: 123,
-    query: draft === undefined ? {} : { draft } },
+    context, query: draft === undefined ? {} : { draft } },
   doc: { ...doc, _status: status },
   collection: { slug },
 }) as unknown as Parameters<typeof trackPendingChange>[0];
@@ -26,6 +27,19 @@ describe('trackPendingChange fail-closed publishing', () => {
     const input = args('articles', 'published', draft);
     await expect(trackPendingChange(input)).resolves.toEqual(input.doc);
     expect(recordPublishedPendingChange).not.toHaveBeenCalled();
+  });
+  it('skips a published-version reseed without creating IndexNow pending work', async () => {
+    vi.mocked(recordPublishedPendingChange).mockReset();
+    const input = args('articles', 'published', undefined, { reseedVersions: true });
+    await expect(trackPendingChange(input)).resolves.toEqual(input.doc);
+    expect(recordPublishedPendingChange).not.toHaveBeenCalled();
+  });
+  it('continues to queue an intentional published edit when reseedVersions is false', async () => {
+    vi.mocked(recordPublishedPendingChange).mockReset();
+    vi.mocked(recordPublishedPendingChange).mockResolvedValueOnce('updated');
+    const input = args('articles', 'published', undefined, { reseedVersions: false });
+    await expect(trackPendingChange(input)).resolves.toEqual(input.doc);
+    expect(recordPublishedPendingChange).toHaveBeenCalledOnce();
   });
   it('propagates queue write failure instead of silently publishing', async () => {
     vi.mocked(recordPublishedPendingChange).mockRejectedValueOnce(new Error('mock queue unavailable'));
