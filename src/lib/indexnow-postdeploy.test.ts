@@ -137,14 +137,7 @@ describe('post-deploy IndexNow safety gates', () => {
     ok:false, reason:'deployed path differs from current CMS slug',
   });
   for (const slug of [undefined, '', 'old-slug', 'Example-Guide', 'example-guide/../other']) {
-   const changed = { ...current, slug };
-   const deployed = slug === 'old-slug'
-     ? records : records;
-   if (slug === 'old-slug') {
-    expect(selectPublishedProof(build, deployed, queue, changed).ok).toBe(false);
-   } else {
-    expect(selectPublishedProof(build, records, queue, changed).ok).toBe(false);
-   }
+   expect(selectPublishedProof(build, records, queue, { ...current, slug }).ok).toBe(false);
   }
   const renamed = { ...current, slug:'renamed-page' };
   expect(selectPublishedProof(build, records, queue, renamed).ok).toBe(false);

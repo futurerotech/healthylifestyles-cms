@@ -10,6 +10,10 @@ export const trackPendingChange: CollectionAfterChangeHook = async ({ req, doc, 
   // A Payload draft version of an already-published parent may still expose
   // parent _status='published'. Do not queue a future deployment for that save.
   const draft = (req?.query as { draft?: unknown } | undefined)?.draft
+  // Version reseeding rewrites historical Payload versions; it is not an
+  // intentional public content publication and must not create a new queue
+  // revision that can later be mistaken for a post-deployment change.
+  if ((req?.context as { reseedVersions?: boolean } | undefined)?.reseedVersions === true) return doc
   // Isolated staging may exercise publishing but must never queue production work.
   if (draft === true || draft === 'true' || process.env.HLS_ISOLATED_STAGING === 'true') return doc
   if ((doc as { _status?: string })?._status !== 'published') return doc
