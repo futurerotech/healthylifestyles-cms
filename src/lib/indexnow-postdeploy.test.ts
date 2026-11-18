@@ -5,7 +5,7 @@ import { selectPublishedProof, verifyDeployedHtml, matchesApprovedIndexNowPrevie
 const records = [{ collection:'articles', docId:'69', path:'/wellness-hub/example-guide',
  updatedAt:'2026-10-28T12:00:00Z', noIndex:false }];
 const queue = { collectionSlug:'articles', docId:'69', changedAt:'2026-10-28T11:00:00Z' };
-const current = { _status:'published', updatedAt:'2026-10-28T11:00:00Z', seo:{ noIndex:false } };
+const current = { slug:'example-guide', _status:'published', updatedAt:'2026-10-28T11:00:00Z', seo:{ noIndex:false } };
 const build = '2026-10-28T11:30:00Z';
 const expected='https://www.healthylifesstyles.com/wellness-hub/example-guide';
 
@@ -128,6 +128,37 @@ describe('post-deploy IndexNow safety gates', () => {
  it('accepts one published canonical record in a newer build', () => {
   expect(selectPublishedProof(build,records,queue,current).ok).toBe(true);
  });
+
+ it('rejects stale manifest URLs after CMS slug changes, despite valid IDs/timestamps', () => {
+  // The deployed old route may still return HTML with its own canonical;
+  // only the current published slug proves that route is still eligible.
+  const oldPath = records.map((r) => ({ ...r, path:'/wellness-hub/old-slug' }));
+  expect(selectPublishedProof(build, oldPath, queue, current)).toEqual({
+    ok:false, reason:'deployed path differs from current CMS slug',
+  });
+  for (const slug of [undefined, '', 'old-slug', 'Example-Guide', 'example-guide/../other']) {
+   const changed = { ...current, slug };
+   const deployed = slug === 'old-slug'
+     ? records : records;
+   if (slug === 'old-slug') {
+    expect(selectPublishedProof(build, deployed, queue, changed).ok).toBe(false);
+   } else {
+    expect(selectPublishedProof(build, records, queue, changed).ok).toBe(false);
+   }
+  }
+  const renamed = { ...current, slug:'renamed-page' };
+  expect(selectPublishedProof(build, records, queue, renamed).ok).toBe(false);
+  const matching = records.map((r) => ({ ...r, path:'/wellness-hub/renamed-page' }));
+  expect(selectPublishedProof(build, matching, queue, renamed).ok).toBe(true);
+ });
+ it('requires exact current tool slug as well as a published and enabled tool', () => {
+  const toolRecords = records.map((r) => ({ ...r, collection:'tools', path:'/tools/calculator-old' }));
+  const toolQueue = { ...queue, collectionSlug:'tools' };
+  const tool = { ...current, enabled:true, slug:'calculator-new' };
+  expect(selectPublishedProof(build, toolRecords, toolQueue, tool).ok).toBe(false);
+  expect(selectPublishedProof(build, toolRecords, toolQueue, {...tool,slug:'calculator-old'}).ok).toBe(true);
+ });
+
  it('requires explicit enabled true for tools, without imposing a tool field on articles', () => {
   const toolRecords = records.map(r => ({...r, collection:'tools', path:'/tools/example-guide'}));
   const toolQueue = {...queue, collectionSlug:'tools'};

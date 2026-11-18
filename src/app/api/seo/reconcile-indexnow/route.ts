@@ -95,7 +95,7 @@ export async function POST(req: Request): Promise<NextResponse> {
         return defer('duplicate pending document identity; manual queue review required');
       }
       const current = await payload.findByID({ collection, id: docId, depth: 0, draft: false }) as {
-        _status?: string; enabled?: boolean; seo?: { noIndex?: boolean }; updatedAt?: string;
+        slug?: string; _status?: string; enabled?: boolean; seo?: { noIndex?: boolean }; updatedAt?: string;
       };
       const proof = selectPublishedProof(manifest.buildStartedAt!, manifest.records!, record, current);
       if (!proof.ok) return defer(proof.reason);
