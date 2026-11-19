@@ -1,13 +1,12 @@
-/** Offline ACL regression: a drafts-enabled CMS Pages collection must not be publicRead. */
+/** Offline ACL regression: draft-enabled Pages must select the published-only access guard. */
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { Pages } from './Pages';
 import { publishedPublicRead } from '../access/roles';
 
 describe('Pages published-content access', () => {
-  it('wires Pages.read to the published-only public access control', () => {
-    const source = readFileSync(new URL('./Pages.ts', import.meta.url), 'utf8');
-    expect(source).toMatch(/access:\s*\{\s*read:\s*publishedPublicRead\b/);
-    expect(source).not.toMatch(/read:\s*publicRead\b/);
+  it('wires the actual Pages.read policy to the shared published-only guard', () => {
+    expect(Pages.access?.read).toBe(publishedPublicRead);
+    expect(Pages.versions).toMatchObject({ drafts: expect.any(Object) });
   });
 
   it('anonymous readers get only published documents; authenticated editors retain access', () => {
