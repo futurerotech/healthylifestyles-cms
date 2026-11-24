@@ -3,6 +3,7 @@ import { isAdminOrEditor, publishedPublicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { validateFormula } from '../lib/formula';
+import { enforceMedicalReview } from '../lib/medicalReviewGate';
 import { trackPendingChange } from '../hooks/trackPendingChange';
 /** Lucide icon names used by the public tiles — a select "picker" for editors. */
 const ICON_OPTIONS = [
@@ -42,7 +43,7 @@ export const Tools: CollectionConfig = {
   hooks: {
     afterChange: [trackPendingChange],
     beforeValidate: [
-      ({ data }) => {
+      ({ data, originalDoc, operation }) => {
         // Enforce safe, valid formulas at save time for formula tools.
         if (data?.toolType !== 'coded' && Array.isArray(data?.outputs)) {
           for (const o of data.outputs) {
@@ -52,22 +53,8 @@ export const Tools: CollectionConfig = {
           }
         }
 
-        // YMYL safety gate. High risk ALWAYS requires medical review, and a
-        // review-required tool cannot go live (enabled + published) until a
-        // human ticks "Medically reviewed". Save it as draft/disabled instead —
-        // the review flag is a human attestation, never set automatically.
-        if (data) {
-          if (data.riskLevel === 'high') data.medicalReviewRequired = true;
-          const goingLive = data.enabled === true && data._status !== 'draft';
-          if (data.medicalReviewRequired && !data.medicallyReviewed && goingLive) {
-            throw new Error(
-              'This tool requires medical review before it can be enabled and published. ' +
-                'Save it as a draft (or untick "Enabled") until a qualified reviewer has checked it, ' +
-                'then tick "Medically reviewed".',
-            );
-          }
-        }
-        return data;
+        // Check the effective record, not just the fields sent in this request.
+        return enforceMedicalReview({ data, originalDoc, operation });
       },
     ],
   },
@@ -356,7 +343,7 @@ export const Tools: CollectionConfig = {
       admin: {
         position: 'sidebar',
         condition: (data) => Boolean(data?.medicallyReviewed),
-        description: 'Reviewer name/credential (shown nowhere publicly yet; audit trail).',
+        description: 'Reviewer name/credential (required for reviewed, enabled + published tools that require medical review).',
       },
     },
   ],
