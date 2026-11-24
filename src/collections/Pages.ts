@@ -3,7 +3,6 @@ import { isAdmin, publishedPublicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
 import { pageBlocks } from '../blocks';
-import { afterChangeIndexingHook } from '../lib/indexing';
 import { trackPendingChange } from '../hooks/trackPendingChange';
 
 export const Pages: CollectionConfig = {
@@ -37,6 +36,6 @@ export const Pages: CollectionConfig = {
     { name: 'publishDate', type: 'date', admin: { description: 'Used for ordering and scheduling.' } },
   ],
   hooks: {
-    afterChange: [afterChangeIndexingHook, trackPendingChange],
+    afterChange: [trackPendingChange],
   },
 };
