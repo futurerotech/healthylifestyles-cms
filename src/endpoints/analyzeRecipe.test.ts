@@ -127,3 +127,16 @@ describe('Payload recipe analysis endpoint: isolated input and USDA fixtures', (
     expect(payload).toMatch(/temporarily unavailable/);
   });
 });
+describe('isolated staging', () => {
+  it('refuses before any paid AI parse or external USDA request', async () => {
+    vi.stubEnv('HLS_ISOLATED_STAGING', 'true');
+    try {
+      const res = await invoke({ text: '100 g white rice (raw)', servings: 1 });
+      expect(res.status).toBe(503);
+      expect(parseRecipe).not.toHaveBeenCalled();
+      expect(searchFood).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
