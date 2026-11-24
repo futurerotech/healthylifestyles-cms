@@ -2,7 +2,6 @@ import type { CollectionConfig } from 'payload';
 import { isAdminOrEditor, publicRead } from '../access/roles';
 import { slugField } from '../fields/slug';
 import { seoField } from '../fields/seo';
-import { afterChangeIndexingHook } from '../lib/indexing';
 import { trackPendingChange } from '../hooks/trackPendingChange';
 /**
  * Categories AND content sections. New entries flow into the nav, hub pages and
@@ -43,6 +42,6 @@ export const Categories: CollectionConfig = {
     seoField,
   ],
   hooks: {
-    afterChange: [afterChangeIndexingHook, trackPendingChange],
+    afterChange: [trackPendingChange],
   },
 };
