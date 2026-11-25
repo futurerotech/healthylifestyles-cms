@@ -1,0 +1,107 @@
+{
+  "perRecipe": {
+    "calories": 528.3,
+    "protein": 8.3,
+    "fat": 14.3,
+    "carbs": 90.2,
+    "fiber": 3.2,
+    "sugar": null,
+    "sodium": 9.7
+  },
+  "perServing": {
+    "calories": 264.2,
+    "protein": 4.2,
+    "fat": 7.2,
+    "carbs": 45.1,
+    "fiber": 1.6,
+    "sugar": null,
+    "sodium": 4.8
+  },
+  "ingredients": [
+    {
+      "raw": "100 g white rice (raw)",
+      "name": "white rice raw",
+      "quantity": 100,
+      "unit": "g",
+      "originalQuantity": 100,
+      "originalUnit": "g",
+      "unitConverted": false,
+      "usedFood": "Rice, white, long-grain, regular, raw, enriched",
+      "fdcId": 900001,
+      "dataType": "SR Legacy",
+      "matchConfidence": "exact",
+      "nutrients": {
+        "calories": 365,
+        "protein": 7.1,
+        "fat": 0.7,
+        "carbs": 80,
+        "fiber": 1.3,
+        "sugar": null,
+        "sodium": 5
+      }
+    },
+    {
+      "raw": "1 tbsp olive oil",
+      "name": "olive oil",
+      "quantity": 13.5,
+      "unit": "g",
+      "originalQuantity": 1,
+      "originalUnit": "tbsp",
+      "unitConverted": true,
+      "usedFood": "Oil, olive, salad or cooking",
+      "fdcId": 900002,
+      "dataType": "SR Legacy",
+      "matchConfidence": "exact",
+      "nutrients": {
+        "calories": 119.3,
+        "protein": 0,
+        "fat": 13.5,
+        "carbs": 0,
+        "fiber": 0,
+        "sugar": 0,
+        "sodium": 0.3
+      }
+    },
+    {
+      "raw": "1 medium onion",
+      "name": "onion",
+      "quantity": 110,
+      "unit": "g",
+      "originalQuantity": 1,
+      "originalUnit": "medium",
+      "unitConverted": true,
+      "usedFood": "Onions, raw",
+      "fdcId": 900003,
+      "dataType": "Foundation",
+      "matchConfidence": "approx",
+      "nutrients": {
+        "calories": 44,
+        "protein": 1.2,
+        "fat": 0.1,
+        "carbs": 10.2,
+        "fiber": 1.9,
+        "sugar": 4.6,
+        "sodium": 4.4
+      }
+    }
+  ],
+  "unmatched": [
+    {
+      "raw": "a pinch of saffron",
+      "name": "saffron",
+      "quantity": 0,
+      "unit": "pinch",
+      "originalQuantity": "a pinch",
+      "originalUnit": "pinch",
+      "unitConverted": false
+    }
+  ],
+  "servings": 2,
+  "notes": [
+    "\"1 tbsp olive oil\" was converted from tbsp to approximate grams.",
+    "\"1 medium onion\" was matched approximately to \"Onions, raw\". Verify the food and preparation state.",
+    "\"1 medium onion\" was converted from medium to approximate grams.",
+    "At least one matched ingredient has no usable sugar value; the full sugar total is unavailable, not zero.",
+    "1 ingredient(s) could not be analyzed and are excluded. Any reported values are matched-food contributions, not a complete recipe total."
+  ]
+}

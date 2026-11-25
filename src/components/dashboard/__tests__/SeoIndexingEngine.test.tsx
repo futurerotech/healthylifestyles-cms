@@ -102,7 +102,7 @@ describe('SeoIndexingEngine', () => {
     expect(screen.getAllByText(/· checked /).length).toBe(2);
   });
 
-  it('disables Submit buttons when quota is 0', async () => {
+  it('keeps Google inspection read-only with no ineligible submit controls even when quota is zero', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes('/api/seo/content-urls')) {
@@ -123,9 +123,10 @@ describe('SeoIndexingEngine', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Scan All/i }));
 
-    await waitFor(() => {
-      const submit = screen.getByRole('button', { name: /^Submit$/i });
-      expect(submit).toBeDisabled();
-    });
+    await waitFor(() => expect(screen.getByText('Not Indexed')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /^Submit$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Submit All Not-Indexed/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Scan All/i })).toBeEnabled();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/api/seo/submit-indexing'))).toBe(false);
   });
 });

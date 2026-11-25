@@ -1,0 +1,43 @@
+# Supplementary test evidence while the mandatory security gate investigates
+# upstream advisories. This workflow DOES NOT replace or relax promote.yml.
+name: IndexNow isolated diagnostics (not release approval)
+
+on:
+  push:
+    branches:
+      - fix/unified-indexnow-postdeploy-20261028
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install exact locked dependencies (including test devDependencies)
+        env:
+          NODE_ENV: development
+        run: npm ci --include=dev
+      - name: Native GraphQL scalar ESM and CJS compatibility
+        run: node scripts/ci/graphql-scalars-compat.mjs
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Migration safety lint
+        run: node scripts/ci/migration-safety-lint.ts
+      - name: Offline network-isolation static contract
+        run: node --test scripts/ci/test-offline-ci-contract.mjs
+      - name: Apply migrations and run IndexNow PostgreSQL diagnostics offline
+        run: bash scripts/ci/run-offline-postgres.sh diagnostic
+      - name: Explicitly block release claims
+        if: always()
+        run: |
+          echo "DIAGNOSTIC ONLY. Mandatory promote.yml security gate remains required."
+          echo "No production deployment, IndexNow submission or environment changes occurred."

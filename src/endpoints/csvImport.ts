@@ -1,9 +1,12 @@
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
 
 export const csvImport: Endpoint = {
   path: '/audience/csv-import',
   method: 'post',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     if (!req.user) {
       return Response.json({ ok: false, message: 'Not authenticated.' }, { status: 401 });
     }

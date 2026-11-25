@@ -1,3 +1,4 @@
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
 import Anthropic from '@anthropic-ai/sdk';
 
@@ -119,6 +120,8 @@ export const aiAssist: Endpoint = {
   path: '/ai-assist',
   method: 'post',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     // 1. Auth — staff only (any logged-in Users-collection member).
     if (!req.user) {
       return Response.json({ error: 'Not authenticated.' }, { status: 401 });

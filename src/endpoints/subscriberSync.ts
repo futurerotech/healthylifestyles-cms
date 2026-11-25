@@ -1,4 +1,6 @@
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
+import { isEligibleForMarketing } from '../lib/newsletter-suppression';
 
 /**
  * Strict CORS allow-list. Echoing `origin || '*'` is the classic
@@ -63,6 +65,8 @@ export const subscriberSync: Endpoint = {
   path: '/subscribers/sync',
   method: 'post',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     const origin = req.headers.get('origin') || '';
     if (req.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
@@ -127,11 +131,13 @@ export const subscriberSync: Endpoint = {
         };
 
         try {
-          await p.create({ collection: 'subscribers', data });
+          const created = await p.create({ collection: 'subscribers', data });
           imported++;
 
-          // Forward to n8n on each new subscriber
-          if (n8nUrl && audience?.forwardOnCreate) {
+          // Forward to n8n only records that are eligible for marketing email: not suppressed AND
+          // with recorded consent. Sync imports never carry consent, so they are never forwarded.
+          // This is deliberately fail-closed until the owner sets an import consent policy.
+          if (n8nUrl && audience?.forwardOnCreate && isEligibleForMarketing(created)) {
             const n8nHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
             if (n8nKey) n8nHeaders['Authorization'] = `Bearer ${n8nKey}`;
 
@@ -177,3 +183,9 @@ export const subscriberSync: Endpoint = {
     }
   },
 };
+
+
+// Collection /api/subscribers/:id can shadow /api/subscribers/sync.
+// Register a collision-free equivalent without removing the legacy path.
+// Update external automation to /api/subscriber-sync only after release approval.
+export const subscriberSyncDirect: Endpoint = { ...subscriberSync, path: '/subscriber-sync' };

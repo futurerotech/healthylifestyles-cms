@@ -1,3 +1,4 @@
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import type { Endpoint, PayloadRequest } from 'payload';
 
 /* ---------------------------------------------------------------------------
@@ -171,6 +172,8 @@ export const aiSeo: Endpoint = {
   path: '/ai-seo',
   method: 'post',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     if (!req.user) {
       return Response.json({ error: 'Not authenticated.' }, { status: 401 });
     }

@@ -6,14 +6,13 @@ import React from 'react';
  *
  * Self-contained: on mount it loads the content-URL catalogue; "Scan All" then
  * batches indexing-status checks (groups of 10, 300ms apart) against the GSC
- * URL Inspection API; rows can be submitted to the Indexing API individually or
- * in bulk (with a confirm dialog). A live quota bar reflects the daily publish
- * quota returned by the API. Drives a small state machine via useReducer.
+ * URL Inspection API. Health content cannot be submitted to the Google Indexing
+ * API. The inspection usage bar reflects only the local inspection counter.
  */
 
 const BATCH_SIZE = 10;
 const BATCH_DELAY_MS = 300;
-const QUOTA_LIMIT = 200; // daily Indexing API publish quota (free tier)
+const QUOTA_LIMIT = 2000; // local daily GSC URL Inspection allowance estimate
 
 type Status = 'idle' | 'loading' | 'scanning' | 'scan_complete' | 'submitting' | 'done' | 'scan_error';
 type ContentType = 'article' | 'page' | 'tool';
@@ -198,7 +197,7 @@ export const SeoIndexingEngine: React.FC = () => {
   }, []);
 
   const applyQuotaHeader = React.useCallback((res: Response) => {
-    const remaining = res.headers.get('X-GSC-Quota-Remaining');
+    const remaining = res.headers.get('X-GSC-Inspect-Remaining');
     if (remaining != null && remaining !== '') {
       dispatch({ type: 'QUOTA', quota: { remaining: Number(remaining), limit: QUOTA_LIMIT } });
     }
@@ -316,18 +315,16 @@ export const SeoIndexingEngine: React.FC = () => {
           <button type="button" className="seo-btn seo-btn--primary" onClick={() => startTransition(() => { void scanAll(); })} disabled={scanning || loading || state.rows.length === 0}>
             {scanning ? 'Scanning…' : 'Scan All ▶'}
           </button>
-          <button type="button" className="seo-btn seo-btn--primary" onClick={() => void submitAllNotIndexed()} disabled={submitting || quotaEmpty || notIndexedCount === 0}>
-            Scan &amp; Submit All Not-Indexed
-          </button>
+          <span className="seo-indexing-note">Google inspection is read-only. Submit eligible indexing requests manually in Search Console.</span>
         </div>
       </header>
 
       {/* Quota bar */}
-      <div className="seo-quota" aria-label="Daily indexing quota">
+      <div className="seo-quota" aria-label="Local inspection usage estimate">
         <div className="seo-quota__track">
           <div className={`seo-quota__fill seo-quota__fill--${quotaTone}`} style={{ width: `${quotaPct}%` }} />
         </div>
-        <span className="seo-quota__label">Quota: {state.quota.used} / {state.quota.limit} used today</span>
+        <span className="seo-quota__label">Local inspections: {state.quota.used} / {state.quota.limit} estimated today</span>
       </div>
 
       {/* Filters */}
@@ -377,14 +374,7 @@ export const SeoIndexingEngine: React.FC = () => {
                         {row.title}
                       </a>
                       <span className={`seo-badge seo-badge--${row.state}`}>{STATE_LABEL[row.state]}</span>
-                      <button
-                        type="button"
-                        className="seo-btn seo-btn--sm seo-btn--primary"
-                        onClick={() => void submitOne(row.url)}
-                        disabled={row.submitting || submitting || quotaEmpty}
-                      >
-                        {row.submitting ? 'Submitting…' : 'Submit'}
-                      </button>
+
                     </div>
                     <div className="seo-row__meta">
                       <span>Last crawled: {fmtDate(row.lastCrawled)}</span>

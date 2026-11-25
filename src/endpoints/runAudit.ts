@@ -1,4 +1,5 @@
 import type { Endpoint, PayloadRequest } from 'payload';
+import { denyIsolatedStagingOutbound } from '../lib/isolated-staging-outbound';
 import { runSiteAudit } from '../lib/siteAudit';
 
 /**
@@ -16,6 +17,8 @@ export const runAudit: Endpoint = {
   path: '/audit/run',
   method: 'post',
   handler: async (req: PayloadRequest): Promise<Response> => {
+    const stagingDenied = denyIsolatedStagingOutbound();
+    if (stagingDenied) return stagingDenied;
     const key = req.searchParams?.get('key') || req.headers.get('x-api-key') || '';
     const keyOk = !!process.env.INTERNAL_API_KEY && key === process.env.INTERNAL_API_KEY;
     if (!req.user && !keyOk) return Response.json({ error: 'Unauthorized' }, { status: 401 });

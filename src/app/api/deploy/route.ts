@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import config from '@payload-config';
-import { isAllowedOrigin } from '@/lib/allowedOrigins';
+import type { PostgresAdapter } from '@payloadcms/db-postgres';
+import { reserveManualDeployAttempt } from '@/lib/manual-deploy-reservation';
+import { isAllowedAdminMutationOrigin } from '@/lib/allowedOrigins';
+import { isValidVercelDeployHookUrl } from '@/lib/deploy-readiness';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,7 +16,7 @@ export const dynamic = 'force-dynamic';
  * - Admin-only (Payload session cookie auth).
  * - Debounced: refuses if a deploy was triggered < 5 minutes ago.
  * - Calls VERCEL_DEPLOY_HOOK_URL (server-side only, never exposed to client).
- * - Logs every trigger to deploy-log and clears the pending-deploys queue.
+ * - Logs every trigger; pending content is preserved until production is verified and IndexNow accepts it.
  */
 export async function POST(req: Request): Promise<NextResponse> {
   // CSRF guard — this endpoint triggers production deploys, so the browser's
@@ -21,7 +24,7 @@ export async function POST(req: Request): Promise<NextResponse> {
   // A MISSING Origin is rejected too: same-origin POSTs always send it, and
   // curl/server-to-server is not a supported path here. payload.auth below
   // stays the primary gate.
-  if (!isAllowedOrigin(req.headers.get('origin'))) {
+  if (!isAllowedAdminMutationOrigin(req.headers.get('origin'))) {
     return NextResponse.json({ error: 'Forbidden: Invalid Origin' }, { status: 403 });
   }
 
@@ -44,44 +47,28 @@ export async function POST(req: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Forbidden — admin only.' }, { status: 403 });
   }
 
-  // Debounce: check if a deploy was triggered < 5 minutes ago
-  const fiveMinAgo = new Date(Date.now() - 5 * 60_000).toISOString();
-  try {
-    const recent = await payload.find({
-      collection: 'deploy-log',
-      where: { createdAt: { greater_than: fiveMinAgo } },
-      limit: 1,
-    });
-    if (recent.totalDocs > 0) {
-      return NextResponse.json(
-        { error: 'A deploy was triggered in the last 5 minutes. Please wait before trying again.' },
-        { status: 429 },
-      );
-    }
-  } catch {
-    // deploy-log table might not exist yet — continue
+  // A missing hook must not create a reservation.
+  const hookUrl = process.env.VERCEL_DEPLOY_HOOK_URL;
+  if (!isValidVercelDeployHookUrl(hookUrl)) {
+    return NextResponse.json({ error: 'Vercel deploy hook is missing or invalid.' }, { status: 503 });
   }
 
-  // Count pending changes before clearing
-  let pendingCount = 0;
+  let pendingCount: number;
   try {
-    const pending = await payload.find({ collection: 'pending-deploys', limit: 0 });
-    pendingCount = pending.totalDocs;
+    const reservation = await reserveManualDeployAttempt(
+      payload.db as unknown as PostgresAdapter, user.email || null,
+    );
+    if (reservation.status === 'cooldown') {
+      return NextResponse.json({ error: 'A deploy was attempted in the last 5 minutes.' }, { status: 429 });
+    }
+    pendingCount = reservation.pendingCount;
   } catch {
-    // pending-deploys table might not exist yet
+    return NextResponse.json({ error: 'Cannot reserve deploy attempt; no Vercel request sent.' }, { status: 503 });
   }
 
   // Call the Vercel deploy hook
-  const hookUrl = process.env.VERCEL_DEPLOY_HOOK_URL;
-  if (!hookUrl) {
-    return NextResponse.json(
-      { error: 'VERCEL_DEPLOY_HOOK_URL is not configured. Set it in the server environment.' },
-      { status: 503 },
-    );
-  }
-
   try {
-    const res = await fetch(hookUrl, { method: 'POST' });
+    const res = await fetch(hookUrl, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(15000) });
     if (!res.ok) {
       return NextResponse.json(
         { error: `Vercel hook failed (${res.status} ${res.statusText}).` },
@@ -90,34 +77,14 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
   } catch (err) {
     return NextResponse.json(
-      { error: `Failed to reach Vercel: ${(err as Error).message}` },
+      { error: 'Vercel deploy hook unavailable or timed out; attempt reserved for review.' },
       { status: 502 },
     );
   }
 
-  // Log the deploy
-  try {
-    await payload.create({
-      collection: 'deploy-log',
-      data: {
-        triggeredBy: user.email || 'unknown',
-        pendingCount,
-      },
-    });
-  } catch {
-    // non-fatal if deploy-log table is missing
-  }
+  // Do NOT clear pending-deploys here: Vercel accepted a build request, not a successful deployment.
+  // An authenticated post-deployment reconciliation explicitly confirms the content manifest
+  // and public URLs before submitting any IndexNow notification.
 
-  // Clear the pending-deploys queue in one bulk delete (no 500-row cap, so a
-  // large backlog fully drains). Non-fatal: the deploy already fired, and a
-  // leftover queue entry only means the next deploy shows a stale count.
-  if (pendingCount > 0) {
-    try {
-      await payload.delete({ collection: 'pending-deploys', where: { id: { exists: true } } });
-    } catch {
-      // non-fatal
-    }
-  }
-
-  return NextResponse.json({ ok: true, pendingCount });
+  return NextResponse.json({ ok: true, pendingCount, message: 'Vercel build request accepted; production readiness not yet verified.' });
 }
