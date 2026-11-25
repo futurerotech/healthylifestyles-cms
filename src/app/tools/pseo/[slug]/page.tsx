@@ -44,9 +44,10 @@ export default async function PseoPage({ params }: Props) {
   const page = await getPage(slug);
   if (!page) notFound();
 
-  // E-E-A-T for programmatic pages (the riskiest under Google's scaled-content
-  // and YMYL policies): declare a reviewed MedicalWebPage with a publisher +
-  // logo + medical reviewer, plus a breadcrumb. Pairs with the visible
+  // Programmatic pages are the riskiest under Google's scaled-content and YMYL
+  // policies: describe a MedicalWebPage with publisher + logo and a breadcrumb.
+  // Never claim a medical review here: no reviewer is assigned to pSEO pages,
+  // and an update date is not a review date. Pairs with the visible
   // not-medical-advice disclaimer below.
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -59,8 +60,6 @@ export default async function PseoPage({ params }: Props) {
         description: page.seo?.metaDescription || undefined,
         inLanguage: 'en-US',
         isPartOf: { '@id': `${SITE_URL}/#website` },
-        lastReviewed: page.updatedAt ? new Date(page.updatedAt).toISOString() : undefined,
-        reviewedBy: { '@type': 'Organization', name: 'HealthyLifeStyles Medical Review Team' },
         publisher: {
           '@type': 'Organization',
           name: 'HealthyLifeStyles',
